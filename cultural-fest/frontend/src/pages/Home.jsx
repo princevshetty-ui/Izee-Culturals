@@ -8,7 +8,7 @@ import { EVENTS } from '../data/events.js'
 // - Crimson border: rgba(178,34,52,0.2)
 // - Crimson glow: rgba(178,34,52,0.06)
 
-const heroWords = ['Where', 'Talent', 'Meets']
+const heroWords = ['Where', 'Talent', 'Meets', 'Legacy']
 
 function QrGlyph() {
   return (
@@ -194,7 +194,7 @@ export default function Home() {
               }}
             />
             <span className="font-display text-[20px] font-semibold uppercase tracking-[0.12em] text-[#C9A84C]">
-               CULTURALS
+              CULTURALS
             </span>
           </div>
 
@@ -219,32 +219,22 @@ export default function Home() {
         >
           <div className="grid w-full items-center gap-10 lg:grid-cols-[1.5fr_1fr]">
             <div>
-              <p className="mb-6 text-[11px] uppercase tracking-[0.25em] text-[#C9A84C]">
+              <p className="mb-6 text-[14px] uppercase tracking-[0.22em] text-[#C9A84C] font-display">
                 ANNUAL COLLEGE CULTURAL FEST 2026
               </p>
 
-              <h1 className="font-display font-bold leading-[1.05] text-[#F5F0E8] text-[clamp(48px,6vw,80px)]">
-                <span className="block">
-                  {heroWords.map((word, index) => (
-                    <motion.span
-                      key={word}
-                      initial={{ y: 40, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ duration: 0.7, delay: index * 0.12, ease: 'easeOut' }}
-                      className="mr-[0.2em] inline-block"
-                    >
-                      {word}
-                    </motion.span>
-                  ))}
-                </span>
-                <motion.span
-                  initial={{ y: 40, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.7, delay: heroWords.length * 0.12, ease: 'easeOut' }}
-                  className="block italic text-[#C9A84C]"
-                >
-                  Legacy
-                </motion.span>
+              <h1 className="font-display font-bold leading-[1.05] text-[#F5F0E8] text-[clamp(26px,4vw,56px)] whitespace-nowrap">
+                {heroWords.map((word, index) => (
+                  <motion.span
+                    key={word}
+                    initial={{ y: 40, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.7, delay: index * 0.12, ease: 'easeOut' }}
+                    className={`mr-[0.2em] inline-block ${word === 'Legacy' ? 'italic text-[#C9A84C]' : ''}`}
+                  >
+                    {word}
+                  </motion.span>
+                ))}
               </h1>
 
               <motion.p
@@ -277,7 +267,7 @@ export default function Home() {
                     key={item}
                     variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                     transition={{ duration: 0.45, ease: 'easeOut' }}
-                    className="rounded-full border px-4 py-2 text-[12px] text-[rgba(245,240,232,0.6)]"
+                    className="rounded-full border px-4 py-2 text-[12px] text-[rgba(245,240,232,0.6)] font-display"
                     style={{ borderColor: 'rgba(245,240,232,0.15)', borderWidth: '0.5px' }}
                   >
                     {item}
@@ -396,7 +386,7 @@ export default function Home() {
                       key={event.id}
                       variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}
                       transition={{ duration: 0.4, ease: 'easeOut' }}
-                      className="rounded-full border bg-transparent px-3.5 py-1 text-[11px] text-[rgba(245,240,232,0.4)]"
+                      className="rounded-full border bg-transparent px-3.5 py-1 text-[11px] text-[rgba(245,240,232,0.4)] font-display"
                       style={{ borderColor: 'rgba(245,240,232,0.12)', borderWidth: '0.5px' }}
                     >
                       {event.name}
@@ -495,7 +485,6 @@ export default function Home() {
         style={{ borderTopColor: 'rgba(245,240,232,0.06)', borderTopWidth: '0.5px' }}
       >
         <span className="text-[rgba(245,240,232,0.2)]">© 2026 Izee College · Cultural Committee</span>
-        <span className="text-[rgba(201,168,76,0.3)]">culturals.izeecollege.edu</span>
       </footer>
 
       <style>{`

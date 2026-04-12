@@ -1,27 +1,26 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { EVENTS } from '../data/events.js'
 
-const DISPLAY_FONT = { fontFamily: 'Cormorant Garamond, serif' }
+const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 
 export default function Confirmation() {
   const { type, id } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
 
-  const qrCode = location.state?.qr_code
-  const userName = location.state?.name
-  const selectedEventIds = location.state?.selectedEventIds || []
+  const [qrCode, setQrCode] = useState(location.state?.qr_code || null)
+  const [userName, setUserName] = useState(location.state?.name || '')
+  const [selectedEventIds, setSelectedEventIds] = useState(location.state?.selectedEventIds || [])
+  const [isLoadingStatus, setIsLoadingStatus] = useState(!location.state?.qr_code)
+  const [statusError, setStatusError] = useState('')
+  const [isPending, setIsPending] = useState(Boolean(location.state?.pending || !location.state?.qr_code))
 
-  useEffect(() => {
-    if (!qrCode) {
-      // Redirect if no QR code in state
-      setTimeout(() => {
-        navigate('/')
-      }, 3000)
-    }
-  }, [qrCode, navigate])
+  const statusEndpoint = useMemo(() => {
+    if (type === 'participant') return `/api/register/participant/${id}/status`
+    return `/api/register/student/${id}/status`
+  }, [type, id])
 
   const selectedEvents = selectedEventIds
     .map((eventId) => EVENTS.find((event) => event.id === eventId))
@@ -29,21 +28,83 @@ export default function Confirmation() {
 
   const isParticipant = type === 'participant'
 
-  if (!qrCode) {
+  const checkStatus = async () => {
+    setIsLoadingStatus(true)
+    setStatusError('')
+
+    try {
+      const response = await fetch(statusEndpoint)
+      const payload = await response.json()
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload?.message || 'Unable to fetch approval status')
+      }
+
+      const data = payload.data || {}
+      if (data.name) setUserName(data.name)
+      if (Array.isArray(data.events)) setSelectedEventIds(data.events)
+
+      if (data.qr_code) {
+        setQrCode(data.qr_code)
+        setIsPending(false)
+      } else {
+        setIsPending(true)
+      }
+    } catch (error) {
+      setStatusError(error.message || 'Unable to fetch approval status')
+    } finally {
+      setIsLoadingStatus(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!qrCode || isPending) {
+      checkStatus()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, type])
+
+  if (isPending && !qrCode) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0A0A0A] px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-md text-center"
-        >
-          <h1 className="text-2xl text-[#F5F0E8]" style={DISPLAY_FONT}>
-            Registration Data Not Found
-          </h1>
-          <p className="mt-3 text-sm text-[#F5F0E8]/70">
-            Redirecting to home page...
-          </p>
-        </motion.div>
+      <div className="min-h-screen bg-[#0A0A0A] px-4 text-[#F5F0E8]">
+        <div className="mx-auto flex min-h-screen max-w-2xl items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full rounded-2xl border border-[#C9A84C]/30 bg-[#111111] p-8 text-center"
+          >
+            <h1 className="text-3xl text-[#F5F0E8]" style={DISPLAY_FONT}>
+              Registration Submitted
+            </h1>
+            <p className="mt-3 text-sm text-[#F5F0E8]/72">
+              Your registration is pending faculty approval. Your QR code will appear here once approved.
+            </p>
+            <p className="mt-2 text-xs text-[#C9A84C]">Registration ID: {id}</p>
+
+            {statusError && (
+              <div className="mt-4 rounded-lg border border-red-500/35 bg-red-500/10 p-3 text-sm text-red-400">
+                {statusError}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={checkStatus}
+              disabled={isLoadingStatus}
+              className="mt-6 rounded-lg bg-[#C9A84C] px-5 py-2.5 text-sm font-semibold text-[#0A0A0A] transition hover:brightness-105 disabled:opacity-70"
+            >
+              {isLoadingStatus ? 'Checking Status...' : 'Check Approval Status'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="ml-3 mt-6 rounded-lg border border-[#F5F0E8]/20 px-5 py-2.5 text-sm text-[#F5F0E8]/80 transition hover:border-[#C9A84C]/45 hover:text-[#F5F0E8]"
+            >
+              Back to Home
+            </button>
+          </motion.div>
+        </div>
       </div>
     )
   }

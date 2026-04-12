@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion, useInView } from 'framer-motion'
 import { EVENTS } from '../data/events.js'
 
-const DISPLAY_FONT = { fontFamily: 'Cormorant Garamond, serif' }
+const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },

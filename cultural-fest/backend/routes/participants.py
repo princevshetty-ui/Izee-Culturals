@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
 from db import supabase
-from qr_utils import generate_qr
 import uuid
 
 router = APIRouter()
@@ -20,7 +19,7 @@ class ParticipantRegisterRequest(BaseModel):
 
 @router.post("/register/participant")
 async def register_participant(req: ParticipantRegisterRequest):
-    """Register a participant for competition."""
+    """Register a participant and mark as pending until faculty approval."""
     try:
         # Validate events length
         if len(req.events) > 2:
@@ -47,7 +46,8 @@ async def register_participant(req: ParticipantRegisterRequest):
             "year": req.year,
             "email": req.email,
             "phone": req.phone,
-            "registered_at": registered_at
+            "registered_at": registered_at,
+            "qr_code": None,
         }).execute()
         
         # Insert each event into participant_events table
@@ -57,34 +57,49 @@ async def register_participant(req: ParticipantRegisterRequest):
                 "event_id": event_id
             }).execute()
         
-        # Generate QR code with full participant details
-        qr_data = {
-            "id": participant_id,
-            "type": "participant",
-            "name": req.name,
-            "roll_no": req.roll_no,
-            "course": req.course,
-            "year": req.year,
-            "phone": req.phone,
-            "events": req.events,
-            "registered_at": registered_at
-        }
-        qr_code = generate_qr(qr_data)
-        
-        # Update participant record with QR code
-        supabase.table("participants").update({
-            "qr_code": qr_code
-        }).eq("id", participant_id).execute()
-        
         return {
             "success": True,
             "data": {
                 "id": participant_id,
-                "qr_code": qr_code
+                "approved": False,
+                "qr_code": None,
             },
-            "message": "Registered successfully"
+            "message": "Registration submitted for faculty approval"
         }
     
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/register/participant/{participant_id}/status")
+async def get_participant_status(participant_id: str):
+    """Public endpoint to check participant approval and QR status."""
+    try:
+        participant_response = supabase.table("participants").select(
+            "id, name, roll_no, course, year, email, phone, registered_at, qr_code"
+        ).eq("id", participant_id).limit(1).execute()
+
+        if not participant_response.data:
+            raise HTTPException(status_code=404, detail="Participant registration not found")
+
+        participant = participant_response.data[0]
+        events_response = supabase.table("participant_events").select("event_id").eq(
+            "participant_id", participant_id
+        ).execute()
+        events = [event["event_id"] for event in events_response.data]
+        approved = bool(participant.get("qr_code"))
+
+        return {
+            "success": True,
+            "data": {
+                **participant,
+                "events": events,
+                "approved": approved,
+            },
+            "message": "Participant registration status retrieved successfully",
+        }
     except HTTPException:
         raise
     except Exception as e:

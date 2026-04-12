@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { EVENTS } from '../data/events.js'
 
-const DISPLAY_FONT = { fontFamily: 'Cormorant Garamond, serif' }
+const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 
 const STUDENT_COLUMNS = [
   'id',
@@ -62,6 +62,7 @@ export default function FacultyDashboard() {
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [isExporting, setIsExporting] = useState(false)
+  const [approvingId, setApprovingId] = useState('')
 
   const [selectedCourse, setSelectedCourse] = useState('all')
   const [selectedYear, setSelectedYear] = useState('all')
@@ -210,6 +211,51 @@ export default function FacultyDashboard() {
     navigate('/faculty/login', { replace: true })
   }
 
+  const handleApprove = async (recordId) => {
+    setApprovingId(recordId)
+    setErrorMessage('')
+
+    try {
+      const endpoint =
+        activeTab === 'students'
+          ? `/api/faculty/approve/student/${recordId}`
+          : `/api/faculty/approve/participant/${recordId}`
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${facultyPassword}`
+        }
+      })
+
+      if (response.status === 401) {
+        sessionStorage.removeItem('authenticated')
+        sessionStorage.removeItem('facultyPassword')
+        navigate('/faculty/login', { replace: true })
+        return
+      }
+
+      const payload = await response.json()
+      if (!response.ok || !payload.success) {
+        throw new Error(payload?.message || 'Approval failed')
+      }
+
+      const approvedQr = payload.data?.qr_code || null
+
+      setRecords((prev) =>
+        prev.map((record) =>
+          record.id === recordId
+            ? { ...record, qr_code: approvedQr, approved: true }
+            : record
+        )
+      )
+    } catch (error) {
+      setErrorMessage(error.message || 'Approval failed')
+    } finally {
+      setApprovingId('')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-[#F5F0E8]">
       <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -329,12 +375,13 @@ export default function FacultyDashboard() {
                       {titleCaseFromSnakeCase(column)}
                     </th>
                   ))}
+                  <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-[#C9A84C]">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={columns.length} className="px-4 py-10 text-center text-[#F5F0E8]/66">
+                    <td colSpan={columns.length + 1} className="px-4 py-10 text-center text-[#F5F0E8]/66">
                       Loading records...
                     </td>
                   </tr>
@@ -342,7 +389,7 @@ export default function FacultyDashboard() {
 
                 {!isLoading && filteredRecords.length === 0 && (
                   <tr>
-                    <td colSpan={columns.length} className="px-4 py-10 text-center text-[#F5F0E8]/66">
+                    <td colSpan={columns.length + 1} className="px-4 py-10 text-center text-[#F5F0E8]/66">
                       No records found for selected filters.
                     </td>
                   </tr>
@@ -373,6 +420,22 @@ export default function FacultyDashboard() {
                           </td>
                         )
                       })}
+                      <td className="whitespace-nowrap px-4 py-3 text-[#F5F0E8]/85">
+                        {record.qr_code ? (
+                          <span className="rounded-full border border-emerald-400/35 bg-emerald-500/12 px-3 py-1 text-xs text-emerald-300">
+                            Approved
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(record.id)}
+                            disabled={approvingId === record.id}
+                            className="rounded-md border border-[#C9A84C]/45 px-3 py-1.5 text-xs text-[#C9A84C] transition hover:bg-[#C9A84C]/10 disabled:opacity-60"
+                          >
+                            {approvingId === record.id ? 'Approving...' : 'Approve'}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
               </tbody>

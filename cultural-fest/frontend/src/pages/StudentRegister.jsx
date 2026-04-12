@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 
-const DISPLAY_FONT = { fontFamily: 'Cormorant Garamond, serif' }
+const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 
-const COURSES = ['BCA', 'BBA', 'B.Com', 'MBA']
+const COURSES = ['BCA', 'BBA', 'B.Com']
 const YEARS = ['1st', '2nd', '3rd']
 
 export default function StudentRegister() {
@@ -85,8 +85,9 @@ export default function StudentRegister() {
         const registrationId = data.data?.id
         navigate(`/confirmation/student/${registrationId}`, {
           state: {
-            qr_code: data.data?.qr_code,
-            name: formData.name
+            qr_code: data.data?.qr_code || null,
+            name: formData.name,
+            pending: !data.data?.qr_code,
           }
         })
       } else {
@@ -145,7 +146,7 @@ export default function StudentRegister() {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                placeholder="Your full name"
+                placeholder="V S"
                 className={`mt-2 w-full rounded-lg border bg-[#111111] px-4 py-3 text-[#F5F0E8] transition focus:outline-none ${
                   errors.name
                     ? 'border-red-500/60 focus:border-red-500'
@@ -165,7 +166,7 @@ export default function StudentRegister() {
                 name="roll_no"
                 value={formData.roll_no}
                 onChange={handleInputChange}
-                placeholder="e.g., BCA2401"
+                placeholder="e.g., U03EX24S0091"
                 className={`mt-2 w-full rounded-lg border bg-[#111111] px-4 py-3 text-[#F5F0E8] transition focus:outline-none ${
                   errors.roll_no
                     ? 'border-red-500/60 focus:border-red-500'

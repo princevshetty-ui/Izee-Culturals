@@ -2,7 +2,7 @@ export const EVENTS = [
   {
     id: "dance",
     name: "Dance",
-    icon: "🎭",
+    icon: "💃",
     category: "Solo & Group",
     rules: [
       "Minimum 2 minutes, maximum 5 minutes performance duration",
@@ -16,7 +16,7 @@ export const EVENTS = [
   {
     id: "standup-comedy",
     name: "Standup Comedy",
-    icon: "🎤",
+    icon: "🎙️",
     category: "Solo",
     rules: [
       "Performances limited to 5 minutes maximum",
@@ -30,7 +30,7 @@ export const EVENTS = [
   {
     id: "singing",
     name: "Singing",
-    icon: "🎤",
+    icon: "🎵",
     category: "Solo & Duet",
     rules: [
       "Solo or duet performances (max 2 singers per group)",
@@ -44,7 +44,7 @@ export const EVENTS = [
   {
     id: "skit",
     name: "Skit",
-    icon: "🎪",
+    icon: "🎭",
     category: "Group",
     rules: [
       "Team size: minimum 4, maximum 10 members",

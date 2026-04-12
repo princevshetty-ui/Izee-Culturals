@@ -3,9 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { EVENTS } from '../data/events.js'
 
-const DISPLAY_FONT = { fontFamily: 'Cormorant Garamond, serif' }
+const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 
-const COURSES = ['BCA', 'BBA', 'B.Com', 'MBA']
+const COURSES = ['BCA', 'BBA', 'B.Com']
 const YEARS = ['1st', '2nd', '3rd']
 
 export default function ParticipantRegister() {
@@ -103,9 +103,10 @@ export default function ParticipantRegister() {
         const registrationId = data.data?.id
         navigate(`/confirmation/participant/${registrationId}`, {
           state: {
-            qr_code: data.data?.qr_code,
+            qr_code: data.data?.qr_code || null,
             name: formData.name,
-            selectedEventIds
+            selectedEventIds,
+            pending: !data.data?.qr_code,
           }
         })
       } else {
@@ -177,7 +178,7 @@ export default function ParticipantRegister() {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                placeholder="Your full name"
+                placeholder="V S"
                 className={`mt-2 w-full rounded-lg border bg-[#111111] px-4 py-3 text-[#F5F0E8] transition focus:outline-none ${
                   errors.name
                     ? 'border-red-500/60 focus:border-red-500'
@@ -197,7 +198,7 @@ export default function ParticipantRegister() {
                 name="roll_no"
                 value={formData.roll_no}
                 onChange={handleInputChange}
-                placeholder="e.g., BCA2401"
+                placeholder="e.g., U03EX24S0091"
                 className={`mt-2 w-full rounded-lg border bg-[#111111] px-4 py-3 text-[#F5F0E8] transition focus:outline-none ${
                   errors.roll_no
                     ? 'border-red-500/60 focus:border-red-500'
