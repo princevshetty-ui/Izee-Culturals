@@ -1,120 +1,130 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { Suspense, lazy } from 'react'
+import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 
-function App() {
-  const [count, setCount] = useState(0)
+const Home = lazy(() => import('./pages/Home'))
+const ParticipantEvents = lazy(() => import('./pages/ParticipantEvents'))
+const ParticipantRegister = lazy(() => import('./pages/ParticipantRegister'))
+const StudentRegister = lazy(() => import('./pages/StudentRegister'))
+const Confirmation = lazy(() => import('./pages/Confirmation'))
+const FacultyLogin = lazy(() => import('./pages/FacultyLogin'))
+const FacultyDashboard = lazy(() => import('./pages/FacultyDashboard'))
+
+function PageLoader() {
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#0A0A0A'
+      }}
+    >
+      <motion.div
+        aria-label="Loading"
+        role="status"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 0.8, ease: 'linear', repeat: Infinity }}
+        style={{
+          width: '44px',
+          height: '44px',
+          border: '3px solid rgba(201, 168, 76, 0.25)',
+          borderTop: '3px solid #C9A84C',
+          borderRadius: '9999px'
+        }}
+      />
+    </div>
+  )
+}
+
+function PageTransition({ children }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.4 }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+function AppRoutes() {
+  const location = useLocation()
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <AnimatePresence mode="wait">
+      <Suspense fallback={<PageLoader />}>
+        <Routes location={location} key={location.pathname}>
+          <Route
+            path="/"
+            element={
+              <PageTransition>
+                <Home />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/participant/events"
+            element={
+              <PageTransition>
+                <ParticipantEvents />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/participant/register"
+            element={
+              <PageTransition>
+                <ParticipantRegister />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/student/register"
+            element={
+              <PageTransition>
+                <StudentRegister />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/confirmation/:type/:id"
+            element={
+              <PageTransition>
+                <Confirmation />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/faculty/login"
+            element={
+              <PageTransition>
+                <FacultyLogin />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/faculty/dashboard"
+            element={
+              <PageTransition>
+                <FacultyDashboard />
+              </PageTransition>
+            }
+          />
+        </Routes>
+      </Suspense>
+    </AnimatePresence>
+  )
+}
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   )
 }
 

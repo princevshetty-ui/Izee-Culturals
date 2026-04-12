@@ -5,6 +5,8 @@ import os
 
 load_dotenv()
 
+from routes import students, participants, faculty
+
 app = FastAPI(title="Cultural Fest API")
 
 app.add_middleware(
@@ -14,6 +16,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include route routers
+app.include_router(students.router, prefix="/api")
+app.include_router(participants.router, prefix="/api")
+app.include_router(faculty.router, prefix="/api")
 
 @app.get("/health")
 def health():

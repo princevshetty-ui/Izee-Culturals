@@ -4,11 +4,13 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        display: ["'Cormorant Garamond'", "serif"],
-        body: ["'DM Sans'", "sans-serif"],
+        display: ["'Playfair Display'", "serif"],
+        body: ["'Outfit'", "sans-serif"],
       },
       colors: {
         gold: "#C9A84C",
+        crimson: "#B22234",
+        "crimson-dim": "rgba(178,34,52,0.2)",
         surface: "#111111",
         base: "#0A0A0A",
       },

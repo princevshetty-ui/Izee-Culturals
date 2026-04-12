@@ -41,7 +41,7 @@ No admin role. No JWT or auth library needed.
 ## Event Data
 Stored in frontend/src/data/events.js as a static array.
 Each event has: id, name, icon, category, rules (string array).
-Events: Dance, Standup Comedy, Singing, Skit, Fashion Show, Rangoli, Face Painting.
+Events: Dance, Standup Comedy, Singing, Skit, Fashion Show, Rampwalk.
 Rules are hardcoded — no DB call needed for rules.
 
 ## Rules Modal Behavior
@@ -54,7 +54,7 @@ Rules are hardcoded — no DB call needed for rules.
 
 ## Supabase Tables
 students: id (uuid), name, roll_no, course, year, email, registered_at, qr_code (text, base64)
-participants: id (uuid), name, roll_no, course, year, email, registered_at, qr_code (text, base64)
+participants: id (uuid), name, roll_no, course, year, email, phone text not null, registered_at, qr_code (text, base64)
 participant_events: id, participant_id (FK → participants.id), event_id (text)
 
 ## API Endpoints (FastAPI)
