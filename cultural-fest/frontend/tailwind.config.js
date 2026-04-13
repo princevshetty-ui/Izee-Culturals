@@ -4,8 +4,8 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        display: ["'Nevarademo'", "serif"],
-        body: ["'Nevarademo'", "serif"],
+        display: ["'Montage'", "'Nevarademo'", "serif"],
+        body: ["'Montage'", "'Nevarademo'", "serif"],
       },
       colors: {
         gold: "#C9A84C",

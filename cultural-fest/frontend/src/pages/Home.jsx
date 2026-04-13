@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { motion, useInView } from 'framer-motion'
+import { useEffect, useRef } from 'react'
+import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { EVENTS } from '../data/events.js'
 
@@ -30,12 +30,8 @@ function QrGlyph() {
 export default function Home() {
   const navigate = useNavigate()
   const canvasRef = useRef(null)
-  const heroRef = useRef(null)
-  const eventsRef = useRef(null)
   const mouseRef = useRef({ x: 0, y: 0 })
   const rafRef = useRef(0)
-  const [showScrollIndicator, setShowScrollIndicator] = useState(true)
-  const eventsInView = useInView(eventsRef, { once: true, amount: 0.18 })
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -137,18 +133,6 @@ export default function Home() {
     }
   }, [])
 
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!heroRef.current) return
-      const heroBottom = heroRef.current.offsetTop + heroRef.current.offsetHeight
-      setShowScrollIndicator(window.scrollY < heroBottom - 120)
-    }
-
-    handleScroll()
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#0A0A0A] text-[#F5F0E8] font-body">
       <canvas
@@ -213,10 +197,7 @@ export default function Home() {
       </header>
 
       <main className="relative z-[2]">
-        <section
-          ref={heroRef}
-          className="mx-auto flex min-h-screen w-full max-w-[1440px] items-center px-4 pb-16 pt-10 sm:px-8 lg:px-[60px]"
-        >
+        <section className="mx-auto flex min-h-screen w-full max-w-[1440px] items-center px-4 pb-16 pt-10 sm:px-8 lg:px-[60px]">
           <div className="grid w-full items-center gap-10 lg:grid-cols-[1.5fr_1fr]">
             <div>
               <p className="mb-6 text-[14px] uppercase tracking-[0.22em] text-[#C9A84C] font-display">
@@ -311,7 +292,7 @@ export default function Home() {
                 </div>
 
                 <p className="text-[13px] leading-[1.6] text-[rgba(245,240,232,0.45)]">
-                  Pick your stage, lock up to two events, and receive your competition entry QR instantly.
+                  Pick your stage, lock up to two events, and receive your competition entry QR after faculty approval.
                 </p>
 
                 <button
@@ -396,78 +377,6 @@ export default function Home() {
               </motion.div>
             </div>
           </div>
-
-          {showScrollIndicator && (
-            <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-                style={{ animation: 'heroScrollBounce 1.8s ease-in-out infinite alternate' }}
-              >
-                <path
-                  d="M6 9l6 6 6-6"
-                  stroke="#C9A84C"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-          )}
-        </section>
-
-        <section ref={eventsRef} className="relative z-[2] px-4 py-20 sm:px-8 lg:px-[60px]">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-[#C9A84C]">COMPETE</p>
-          <h2 className="mt-2 font-display text-[40px] font-semibold text-[#F5F0E8]">Choose Your Stage</h2>
-          <p className="mt-2 text-[14px] text-[rgba(245,240,232,0.35)]">
-            Select up to 2 events · Rules shown before selection
-          </p>
-          <div
-            className="my-7 w-full"
-            style={{
-              height: '0.5px',
-              opacity: 0.25,
-              background: 'linear-gradient(to right, #B22234, #C9A84C, #1A2B5F)',
-            }}
-          />
-
-          <motion.div
-            initial="hidden"
-            animate={eventsInView ? 'show' : 'hidden'}
-            variants={{
-              hidden: {},
-              show: { transition: { staggerChildren: 0.08 } },
-            }}
-            className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4"
-          >
-            {EVENTS.map((event) => (
-              <motion.button
-                key={event.id}
-                type="button"
-                onClick={() => navigate('/participant/events')}
-                variants={{ hidden: { y: 30, opacity: 0 }, show: { y: 0, opacity: 1 } }}
-                transition={{ duration: 0.45, ease: 'easeOut' }}
-                className="rounded-xl px-5 py-6 text-left transition duration-200 hover:-translate-y-[3px] hover:bg-[rgba(201,168,76,0.05)]"
-                style={{
-                  background: 'rgba(255,255,255,0.025)',
-                  border: '0.5px solid rgba(245,240,232,0.08)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(201,168,76,0.35)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(245,240,232,0.08)'
-                }}
-              >
-                <div className="mb-3.5 text-[28px]">{event.icon}</div>
-                <h3 className="font-display text-[18px] text-[#F5F0E8]">{event.name}</h3>
-                <p className="mt-1 text-[12px] text-[rgba(201,168,76,0.5)]">{event.category}</p>
-              </motion.button>
-            ))}
-          </motion.div>
         </section>
       </main>
 
@@ -487,16 +396,6 @@ export default function Home() {
         <span className="text-[rgba(245,240,232,0.2)]">© 2026 Izee College · Cultural Committee</span>
       </footer>
 
-      <style>{`
-        @keyframes heroScrollBounce {
-          0% {
-            transform: translateY(0px);
-          }
-          100% {
-            transform: translateY(10px);
-          }
-        }
-      `}</style>
     </div>
   )
 }

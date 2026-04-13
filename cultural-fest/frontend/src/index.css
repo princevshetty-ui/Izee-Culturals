@@ -1,4 +1,13 @@
 @font-face {
+  font-family: 'Montage';
+  src: url('/fonts/Montage.woff2') format('woff2'),
+       url('/fonts/Montage.woff') format('woff'),
+       url('/fonts/Montage.ttf') format('truetype'),
+       url('/fonts/Montage.otf') format('opentype');
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Nevarademo';
   src: url('/fonts/Nevarademo-6YXEY.otf') format('opentype');
   font-display: swap;
@@ -13,6 +22,38 @@ html { scroll-behavior: smooth; }
 body {
   background: #0A0A0A;
   color: #F5F0E8;
-  font-family: 'Nevarademo', serif;
+  font-family: 'Montage', 'Nevarademo', serif;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+::selection {
+  background: rgba(201, 168, 76, 0.28);
+  color: #F5F0E8;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0D0D0D;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(201, 168, 76, 0.34);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 168, 76, 0.48);
 }
