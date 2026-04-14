@@ -2,10 +2,14 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 
-const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
+const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
 const COURSES = ['BCA', 'BBA', 'B.Com']
 const YEARS = ['1st', '2nd', '3rd']
+
+const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#C9A84C]'
+const inputBase =
+  'mt-2 w-full rounded-lg border px-4 py-3 text-[#EEE6D8] placeholder:text-[rgba(238,230,216,0.3)] transition focus:outline-none'
 
 export default function StudentRegister() {
   const navigate = useNavigate()
@@ -16,7 +20,7 @@ export default function StudentRegister() {
     course: '',
     year: '',
     email: '',
-    phone: ''
+    phone: '',
   })
 
   const [errors, setErrors] = useState({})
@@ -58,7 +62,6 @@ export default function StudentRegister() {
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
-    // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }))
     }
@@ -76,7 +79,7 @@ export default function StudentRegister() {
       const response = await fetch('/api/register/student', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       })
 
       const data = await response.json()
@@ -88,7 +91,7 @@ export default function StudentRegister() {
             qr_code: data.data?.qr_code || null,
             name: formData.name,
             pending: !data.data?.qr_code,
-          }
+          },
         })
       } else {
         setApiError(data.message || 'Registration failed. Please try again.')
@@ -101,194 +104,230 @@ export default function StudentRegister() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-[#F5F0E8]">
-      <header className="border-b border-[#F5F0E8]/10 bg-[#0A0A0A]">
-        <div className="mx-auto flex h-20 w-full max-w-2xl items-center px-4 sm:px-6 lg:px-8">
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="text-sm text-[#F5F0E8]/78 transition hover:text-[#F5F0E8]"
-          >
-            ← Back
-          </button>
+    <div
+      className="min-h-screen text-[#EEE6D8]"
+      style={{
+        background:
+          'radial-gradient(900px circle at 16% 88%, rgba(178,34,52,0.14), transparent 60%), radial-gradient(700px circle at 82% 12%, rgba(201,168,76,0.07), transparent 62%), radial-gradient(1400px at 50% 50%, rgba(20,28,60,0.3), transparent 70%), #080910',
+      }}
+    >
+      <header className="border-b border-[#EEE6D8]/10 bg-[#080910]/88 backdrop-blur-md">
+        <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[#EEE6D8]/38">
+            Home → Audience Registration → Student Form
+          </p>
+          <div className="mt-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="text-sm text-[#EEE6D8]/78 transition hover:text-[#EEE6D8]"
+            >
+              ← Back
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <h1 className="text-3xl sm:text-4xl" style={DISPLAY_FONT}>
-            Audience Registration
-          </h1>
-          <p className="mt-2 text-[#C9A84C]">Get your entry pass to the fest</p>
+      <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr]">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+            className="card-glass rounded-2xl border border-[#EEE6D8]/12 p-6 sm:p-8"
+          >
+            <h1 className="text-3xl sm:text-4xl" style={DISPLAY_FONT}>
+              Audience Registration
+            </h1>
+            <p className="mt-2 text-[#C9A84C]">Get your entry pass to the fest</p>
 
-          {apiError && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-6 rounded-xl border border-red-500/35 bg-red-500/12 p-4 text-sm text-red-400"
-            >
-              {apiError}
-            </motion.div>
-          )}
+            {apiError && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6 rounded-xl border border-red-500/35 bg-red-500/12 p-4 text-sm text-red-400"
+              >
+                {apiError}
+              </motion.div>
+            )}
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-[#F5F0E8]/85">
-                Full Name
-              </label>
-              <input
-                id="name"
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="V S"
-                className={`mt-2 w-full rounded-lg border bg-[#111111] px-4 py-3 text-[#F5F0E8] transition focus:outline-none ${
-                  errors.name
-                    ? 'border-red-500/60 focus:border-red-500'
-                    : 'border-[#F5F0E8]/15 focus:border-[#C9A84C]/70'
-                }`}
-              />
-              {errors.name && <p className="mt-1.5 text-xs text-red-400">{errors.name}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="roll_no" className="block text-sm font-medium text-[#F5F0E8]/85">
-                Roll No
-              </label>
-              <input
-                id="roll_no"
-                type="text"
-                name="roll_no"
-                value={formData.roll_no}
-                onChange={handleInputChange}
-                placeholder="e.g., U03EX24S0091"
-                className={`mt-2 w-full rounded-lg border bg-[#111111] px-4 py-3 text-[#F5F0E8] transition focus:outline-none ${
-                  errors.roll_no
-                    ? 'border-red-500/60 focus:border-red-500'
-                    : 'border-[#F5F0E8]/15 focus:border-[#C9A84C]/70'
-                }`}
-              />
-              {errors.roll_no && <p className="mt-1.5 text-xs text-red-400">{errors.roll_no}</p>}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <div>
-                <label htmlFor="course" className="block text-sm font-medium text-[#F5F0E8]/85">
-                  Course
+                <label htmlFor="name" className={labelClass}>
+                  Full Name
                 </label>
-                <select
-                  id="course"
-                  name="course"
-                  value={formData.course}
+                <input
+                  id="name"
+                  type="text"
+                  name="name"
+                  value={formData.name}
                   onChange={handleInputChange}
-                  className={`mt-2 w-full rounded-lg border bg-[#111111] px-4 py-3 text-[#F5F0E8] transition focus:outline-none ${
-                    errors.course
+                  placeholder="V S"
+                  className={`${inputBase} ${
+                    errors.name
                       ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[#F5F0E8]/15 focus:border-[#C9A84C]/70'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
                   }`}
-                >
-                  <option value="">Select Course</option>
-                  {COURSES.map((course) => (
-                    <option key={course} value={course} className="bg-[#111111] text-[#F5F0E8]">
-                      {course}
-                    </option>
-                  ))}
-                </select>
-                {errors.course && <p className="mt-1.5 text-xs text-red-400">{errors.course}</p>}
+                />
+                {errors.name && <p className="mt-1.5 text-xs text-red-400">{errors.name}</p>}
               </div>
 
               <div>
-                <label htmlFor="year" className="block text-sm font-medium text-[#F5F0E8]/85">
-                  Year
+                <label htmlFor="roll_no" className={labelClass}>
+                  Roll No
                 </label>
-                <select
-                  id="year"
-                  name="year"
-                  value={formData.year}
+                <input
+                  id="roll_no"
+                  type="text"
+                  name="roll_no"
+                  value={formData.roll_no}
                   onChange={handleInputChange}
-                  className={`mt-2 w-full rounded-lg border bg-[#111111] px-4 py-3 text-[#F5F0E8] transition focus:outline-none ${
-                    errors.year
+                  placeholder="e.g., U03EX24S0091"
+                  className={`${inputBase} ${
+                    errors.roll_no
                       ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[#F5F0E8]/15 focus:border-[#C9A84C]/70'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
                   }`}
-                >
-                  <option value="">Select Year</option>
-                  {YEARS.map((year) => (
-                    <option key={year} value={year} className="bg-[#111111] text-[#F5F0E8]">
-                      {year} Year
-                    </option>
-                  ))}
-                </select>
-                {errors.year && <p className="mt-1.5 text-xs text-red-400">{errors.year}</p>}
+                />
+                {errors.roll_no && <p className="mt-1.5 text-xs text-red-400">{errors.roll_no}</p>}
               </div>
-            </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="course" className={labelClass}>
+                    Course
+                  </label>
+                  <select
+                    id="course"
+                    name="course"
+                    value={formData.course}
+                    onChange={handleInputChange}
+                    className={`${inputBase} ${
+                      errors.course
+                        ? 'border-red-500/60 focus:border-red-500'
+                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                    }`}
+                  >
+                    <option value="">Select Course</option>
+                    {COURSES.map((course) => (
+                      <option key={course} value={course} className="bg-[#111111] text-[#EEE6D8]">
+                        {course}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.course && <p className="mt-1.5 text-xs text-red-400">{errors.course}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="year" className={labelClass}>
+                    Year
+                  </label>
+                  <select
+                    id="year"
+                    name="year"
+                    value={formData.year}
+                    onChange={handleInputChange}
+                    className={`${inputBase} ${
+                      errors.year
+                        ? 'border-red-500/60 focus:border-red-500'
+                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                    }`}
+                  >
+                    <option value="">Select Year</option>
+                    {YEARS.map((year) => (
+                      <option key={year} value={year} className="bg-[#111111] text-[#EEE6D8]">
+                        {year} Year
+                      </option>
+                    ))}
+                  </select>
+                  {errors.year && <p className="mt-1.5 text-xs text-red-400">{errors.year}</p>}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="email" className={labelClass}>
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="your@email.com"
+                  className={`${inputBase} ${
+                    errors.email
+                      ? 'border-red-500/60 focus:border-red-500'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                  }`}
+                />
+                {errors.email && <p className="mt-1.5 text-xs text-red-400">{errors.email}</p>}
+              </div>
+
+              <div>
+                <label htmlFor="phone" className={labelClass}>
+                  Phone Number
+                </label>
+                <input
+                  id="phone"
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  placeholder="10-digit phone number"
+                  maxLength="10"
+                  className={`${inputBase} ${
+                    errors.phone
+                      ? 'border-red-500/60 focus:border-red-500'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                  }`}
+                />
+                {errors.phone && <p className="mt-1.5 text-xs text-red-400">{errors.phone}</p>}
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="mt-8 w-full rounded-lg px-4 py-3 font-semibold text-[#0C0D10] transition hover:brightness-105 disabled:opacity-70"
+                style={{
+                  background: 'linear-gradient(135deg, #C9A84C, #A8893C)',
+                  boxShadow: '0 4px 24px rgba(201,168,76,0.25)',
+                }}
+              >
+                {isLoading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <motion.span
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                      className="inline-block h-4 w-4 rounded-full border-2 border-[#0C0D10]/40 border-t-[#0C0D10]"
+                    />
+                    Registering...
+                  </span>
+                ) : (
+                  'Get Entry Pass'
+                )}
+              </button>
+            </form>
+          </motion.div>
+
+          <motion.aside
+            initial={{ opacity: 0, x: 28 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.08, ease: 'easeOut' }}
+            className="card-glass hidden rounded-2xl border border-[#EEE6D8]/12 p-6 lg:flex lg:flex-col lg:justify-between"
+          >
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-[#F5F0E8]/85">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder="your@email.com"
-                className={`mt-2 w-full rounded-lg border bg-[#111111] px-4 py-3 text-[#F5F0E8] transition focus:outline-none ${
-                  errors.email
-                    ? 'border-red-500/60 focus:border-red-500'
-                    : 'border-[#F5F0E8]/15 focus:border-[#C9A84C]/70'
-                }`}
-              />
-              {errors.email && <p className="mt-1.5 text-xs text-red-400">{errors.email}</p>}
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A84C]">Festival Note</p>
+              <h2 className="mt-3 text-2xl" style={DISPLAY_FONT}>
+                "A pass is not entry alone,
+                it is your seat in the story."
+              </h2>
             </div>
-
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-[#F5F0E8]/85">
-                Phone Number
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
-                placeholder="10-digit phone number"
-                maxLength="10"
-                className={`mt-2 w-full rounded-lg border bg-[#111111] px-4 py-3 text-[#F5F0E8] transition focus:outline-none ${
-                  errors.phone
-                    ? 'border-red-500/60 focus:border-red-500'
-                    : 'border-[#F5F0E8]/15 focus:border-[#C9A84C]/70'
-                }`}
-              />
-              {errors.phone && <p className="mt-1.5 text-xs text-red-400">{errors.phone}</p>}
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="mt-8 w-full rounded-lg bg-[#C9A84C] px-4 py-3 font-semibold text-[#0A0A0A] transition disabled:opacity-70 hover:brightness-105"
-            >
-              {isLoading ? (
-                <span className="inline-flex items-center gap-2">
-                  <motion.span
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-                    className="inline-block h-4 w-4 rounded-full border-2 border-[#0A0A0A]/40 border-t-[#0A0A0A]"
-                  />
-                  Registering...
-                </span>
-              ) : (
-                'Get Entry Pass'
-              )}
-            </button>
-          </form>
-        </motion.div>
+            <p className="mt-6 text-sm leading-relaxed text-[#EEE6D8]/62">
+              Complete your registration carefully. Your QR confirmation will be your identity at the fest gate.
+            </p>
+          </motion.aside>
+        </div>
       </main>
     </div>
   )

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from db import supabase
@@ -8,12 +8,23 @@ import base64
 import smtplib
 import time
 import csv
+from datetime import datetime, timezone
 from io import StringIO
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 
 router = APIRouter()
+
+
+EVENT_LABELS = {
+    "dance": "Dance",
+    "standup_comedy": "Standup Comedy",
+    "singing": "Singing",
+    "skit": "Skit",
+    "fashion_show": "Fashion Show",
+    "rampwalk": "Rampwalk",
+}
 
 
 class FacultyLoginRequest(BaseModel):
@@ -50,6 +61,110 @@ def fetch_with_retry(fetch_fn, attempts: int = 2, delay_seconds: float = 0.25):
             if attempt < attempts - 1:
                 time.sleep(delay_seconds)
     raise last_error
+
+
+def format_datetime_for_export(value: str | None) -> str:
+    """Normalize datetime values for Excel-friendly CSV output."""
+    if not value:
+        return ""
+
+    try:
+        normalized = value.replace("Z", "+00:00")
+        parsed = datetime.fromisoformat(normalized)
+        return parsed.strftime("%d %b %Y, %I:%M %p")
+    except Exception:
+        return str(value)
+
+
+def event_id_to_label(event_id: str) -> str:
+    if not event_id:
+        return ""
+    return EVENT_LABELS.get(event_id, event_id.replace("_", " ").strip().title())
+
+
+def build_csv_content(headers: list[str], rows: list[list[str]]) -> str:
+    """Return UTF-8 BOM prefixed CSV text so Excel reads encoding correctly."""
+    output = StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return "\ufeff" + output.getvalue()
+
+
+def parse_datetime(value):
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        return value
+
+    normalized = str(value).replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized)
+    except Exception:
+        return None
+
+
+def is_approved_today(record: dict, today_date) -> bool:
+    if not record.get("qr_code"):
+        return False
+
+    approved_at = parse_datetime(record.get("approved_at"))
+    fallback_dt = parse_datetime(record.get("registered_at"))
+    check_dt = approved_at or fallback_dt
+    if check_dt is None:
+        return False
+
+    return check_dt.date() == today_date
+
+
+def compute_summary(records: list[dict]) -> dict:
+    today_date = datetime.now(timezone.utc).date()
+    pending = 0
+    approved_today = 0
+
+    for record in records:
+        if record.get("qr_code"):
+            if is_approved_today(record, today_date):
+                approved_today += 1
+        else:
+            pending += 1
+
+    return {
+        "total": len(records),
+        "pending": pending,
+        "approved_today": approved_today,
+    }
+
+
+def fetch_summary_records(table_name: str) -> list[dict]:
+    try:
+        response = fetch_with_retry(
+            lambda: supabase.table(table_name)
+            .select("id, qr_code, registered_at, approved_at")
+            .order("registered_at", desc=True)
+            .execute(),
+            attempts=3,
+        )
+        return response.data or []
+    except Exception:
+        # Backward compatibility for databases that do not have approved_at yet.
+        response = fetch_with_retry(
+            lambda: supabase.table(table_name)
+            .select("id, qr_code, registered_at")
+            .order("registered_at", desc=True)
+            .execute(),
+            attempts=3,
+        )
+        return response.data or []
+
+
+def get_pagination_bounds(total: int, page: int, page_size: int):
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    current_page = min(max(page, 1), total_pages)
+    start = (current_page - 1) * page_size
+    end = start + page_size - 1
+    return current_page, total_pages, start, end
 
 
 def send_approval_email(
@@ -166,22 +281,40 @@ async def faculty_login(req: FacultyLoginRequest):
 
 
 @router.get("/faculty/students")
-async def get_all_students(authorization: str = Header(None)):
+async def get_all_students(
+    authorization: str = Header(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=5, le=100),
+):
     """Get all student registrations."""
     verify_faculty_token(authorization)
     
     try:
-        response = fetch_with_retry(
-            lambda: supabase.table("students").select("*").order("registered_at", desc=True).execute(),
-            attempts=3,
-        )
-        
-        for student in response.data or []:
+        summary_records = fetch_summary_records("students")
+        summary = compute_summary(summary_records)
+        current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
+
+        students = []
+        if summary["total"] > 0:
+            response = fetch_with_retry(
+                lambda: supabase.table("students").select("*").order("registered_at", desc=True).range(start, end).execute(),
+                attempts=3,
+            )
+            students = response.data or []
+
+        for student in students:
             student["approved"] = bool(student.get("qr_code"))
 
         return {
             "success": True,
-            "data": response.data,
+            "data": students,
+            "pagination": {
+                "page": current_page,
+                "page_size": page_size,
+                "total": summary["total"],
+                "total_pages": total_pages,
+            },
+            "summary": summary,
             "message": "Students retrieved successfully"
         }
     except Exception as e:
@@ -189,18 +322,26 @@ async def get_all_students(authorization: str = Header(None)):
 
 
 @router.get("/faculty/participants")
-async def get_all_participants(authorization: str = Header(None)):
+async def get_all_participants(
+    authorization: str = Header(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=5, le=100),
+):
     """Get all participant registrations with their events."""
     verify_faculty_token(authorization)
     
     try:
-        # Get all participants
-        participants_response = fetch_with_retry(
-            lambda: supabase.table("participants").select("*").order("registered_at", desc=True).execute(),
-            attempts=3,
-        )
-        
-        participants = participants_response.data or []
+        summary_records = fetch_summary_records("participants")
+        summary = compute_summary(summary_records)
+        current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
+
+        participants = []
+        if summary["total"] > 0:
+            participants_response = fetch_with_retry(
+                lambda: supabase.table("participants").select("*").order("registered_at", desc=True).range(start, end).execute(),
+                attempts=3,
+            )
+            participants = participants_response.data or []
         
         # For each participant, fetch their events
         for participant in participants:
@@ -214,6 +355,13 @@ async def get_all_participants(authorization: str = Header(None)):
         return {
             "success": True,
             "data": participants,
+            "pagination": {
+                "page": current_page,
+                "page_size": page_size,
+                "total": summary["total"],
+                "total_pages": total_pages,
+            },
+            "summary": summary,
             "message": "Participants retrieved successfully"
         }
     except Exception as e:
@@ -260,7 +408,12 @@ async def approve_student(student_id: str, authorization: str = Header(None)):
         }
 
         qr_code = generate_qr(qr_payload)
-        supabase.table("students").update({"qr_code": qr_code}).eq("id", student_id).execute()
+        approval_timestamp = datetime.now(timezone.utc).isoformat()
+        try:
+            supabase.table("students").update({"qr_code": qr_code, "approved_at": approval_timestamp}).eq("id", student_id).execute()
+        except Exception:
+            # Backward compatibility for databases where approved_at is not added yet.
+            supabase.table("students").update({"qr_code": qr_code}).eq("id", student_id).execute()
 
         email_sent, email_error = send_approval_email(
             to_email=student.get("email"),
@@ -379,7 +532,12 @@ async def approve_participant(participant_id: str, authorization: str = Header(N
         }
 
         qr_code = generate_qr(qr_payload)
-        supabase.table("participants").update({"qr_code": qr_code}).eq("id", participant_id).execute()
+        approval_timestamp = datetime.now(timezone.utc).isoformat()
+        try:
+            supabase.table("participants").update({"qr_code": qr_code, "approved_at": approval_timestamp}).eq("id", participant_id).execute()
+        except Exception:
+            # Backward compatibility for databases where approved_at is not added yet.
+            supabase.table("participants").update({"qr_code": qr_code}).eq("id", participant_id).execute()
 
         return {
             "success": True,
@@ -389,6 +547,60 @@ async def approve_participant(participant_id: str, authorization: str = Header(N
                 "qr_code": qr_code,
             },
             "message": "Participant approved successfully",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/faculty/resend/participant/{participant_id}")
+async def resend_participant_approval_email(participant_id: str, authorization: str = Header(None)):
+    """Resend approval email with QR to an already approved participant."""
+    verify_faculty_token(authorization)
+
+    try:
+        participant_response = supabase.table("participants").select(
+            "id, name, email, qr_code"
+        ).eq("id", participant_id).limit(1).execute()
+
+        if not participant_response.data:
+            raise HTTPException(status_code=404, detail="Participant registration not found")
+
+        participant = participant_response.data[0]
+        qr_code = participant.get("qr_code")
+
+        if not qr_code:
+            raise HTTPException(
+                status_code=400,
+                detail="Participant is not approved yet. QR code not available.",
+            )
+
+        events_response = supabase.table("participant_events").select("event_id").eq(
+            "participant_id", participant_id
+        ).execute()
+        event_ids = [item.get("event_id") for item in (events_response.data or [])]
+        event_labels = [event_id_to_label(event_id) for event_id in event_ids if event_id]
+
+        email_sent, email_error = send_approval_email(
+            to_email=participant.get("email"),
+            name=participant.get("name", "Participant"),
+            qr_code_base64=qr_code,
+            registration_id=participant_id,
+            user_type="participant",
+            events=event_labels,
+        )
+
+        if not email_sent:
+            raise HTTPException(status_code=500, detail=f"Unable to send email: {email_error}")
+
+        return {
+            "success": True,
+            "data": {
+                "id": participant_id,
+                "email_sent": True,
+            },
+            "message": "Approval email sent successfully",
         }
     except HTTPException:
         raise
@@ -453,21 +665,40 @@ async def export_students_csv(authorization: str = Header(None)):
             "registered_at", desc=True
         ).execute()
         
-        students = response.data
-        
-        # Create CSV in memory
-        output = StringIO()
-        if students:
-            writer = csv.DictWriter(output, fieldnames=students[0].keys())
-            writer.writeheader()
-            writer.writerows(students)
-        
-        csv_content = output.getvalue()
+        students = response.data or []
+
+        headers = [
+            "Registration ID",
+            "Name",
+            "Roll Number",
+            "Course",
+            "Year",
+            "Email",
+            "Phone",
+            "Status",
+            "Registered At",
+        ]
+
+        rows = []
+        for student in students:
+            rows.append([
+                str(student.get("id") or ""),
+                str(student.get("name") or ""),
+                str(student.get("roll_no") or ""),
+                str(student.get("course") or ""),
+                str(student.get("year") or ""),
+                str(student.get("email") or ""),
+                str(student.get("phone") or ""),
+                "Approved" if student.get("qr_code") else "Pending",
+                format_datetime_for_export(student.get("registered_at")),
+            ])
+
+        csv_content = build_csv_content(headers, rows)
         
         return StreamingResponse(
             iter([csv_content]),
-            media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=students.csv"}
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": "attachment; filename=students-report.csv"}
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -484,7 +715,7 @@ async def export_participants_csv(authorization: str = Header(None)):
             "registered_at", desc=True
         ).execute()
         
-        participants = participants_response.data
+        participants = participants_response.data or []
         
         # For each participant, fetch their events
         for participant in participants:
@@ -492,22 +723,45 @@ async def export_participants_csv(authorization: str = Header(None)):
                 "event_id"
             ).eq("participant_id", participant["id"]).execute()
             
-            event_ids = [e["event_id"] for e in events_response.data]
-            participant["events"] = ", ".join(event_ids)
-        
-        # Create CSV in memory
-        output = StringIO()
-        if participants:
-            writer = csv.DictWriter(output, fieldnames=participants[0].keys())
-            writer.writeheader()
-            writer.writerows(participants)
-        
-        csv_content = output.getvalue()
+            event_ids = [e.get("event_id") for e in (events_response.data or [])]
+            participant["events"] = ", ".join(
+                [event_id_to_label(event_id) for event_id in event_ids if event_id]
+            )
+
+        headers = [
+            "Registration ID",
+            "Name",
+            "Roll Number",
+            "Course",
+            "Year",
+            "Email",
+            "Phone",
+            "Events",
+            "Status",
+            "Registered At",
+        ]
+
+        rows = []
+        for participant in participants:
+            rows.append([
+                str(participant.get("id") or ""),
+                str(participant.get("name") or ""),
+                str(participant.get("roll_no") or ""),
+                str(participant.get("course") or ""),
+                str(participant.get("year") or ""),
+                str(participant.get("email") or ""),
+                str(participant.get("phone") or ""),
+                str(participant.get("events") or ""),
+                "Approved" if participant.get("qr_code") else "Pending",
+                format_datetime_for_export(participant.get("registered_at")),
+            ])
+
+        csv_content = build_csv_content(headers, rows)
         
         return StreamingResponse(
             iter([csv_content]),
-            media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=participants.csv"}
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": "attachment; filename=participants-report.csv"}
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
