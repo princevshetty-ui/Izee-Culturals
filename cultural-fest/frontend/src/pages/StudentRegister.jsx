@@ -20,7 +20,6 @@ export default function StudentRegister() {
     course: '',
     year: '',
     email: '',
-    phone: '',
   })
 
   const [errors, setErrors] = useState({})
@@ -30,11 +29,6 @@ export default function StudentRegister() {
   const validateEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     return re.test(email)
-  }
-
-  const validatePhone = (phone) => {
-    const re = /^[0-9]{10}$/
-    return re.test(phone)
   }
 
   const validateForm = () => {
@@ -48,11 +42,6 @@ export default function StudentRegister() {
       newErrors.email = 'Email is required'
     } else if (!validateEmail(formData.email)) {
       newErrors.email = 'Invalid email format'
-    }
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required'
-    } else if (!validatePhone(formData.phone)) {
-      newErrors.phone = 'Phone must be 10 digits'
     }
 
     setErrors(newErrors)
@@ -264,27 +253,6 @@ export default function StudentRegister() {
                 {errors.email && <p className="mt-1.5 text-xs text-red-400">{errors.email}</p>}
               </div>
 
-              <div>
-                <label htmlFor="phone" className={labelClass}>
-                  Phone Number
-                </label>
-                <input
-                  id="phone"
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  placeholder="10-digit phone number"
-                  maxLength="10"
-                  className={`${inputBase} ${
-                    errors.phone
-                      ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
-                  }`}
-                />
-                {errors.phone && <p className="mt-1.5 text-xs text-red-400">{errors.phone}</p>}
-              </div>
-
               <button
                 type="submit"
                 disabled={isLoading}
@@ -319,12 +287,12 @@ export default function StudentRegister() {
             <div>
               <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A84C]">Festival Note</p>
               <h2 className="mt-3 text-2xl" style={DISPLAY_FONT}>
-                "A pass is not entry alone,
-                it is your seat in the story."
+                "Your pass.
+                Your moment."
               </h2>
             </div>
             <p className="mt-6 text-sm leading-relaxed text-[#EEE6D8]/62">
-              Complete your registration carefully. Your QR confirmation will be your identity at the fest gate.
+              Submit accurate details. QR appears after faculty approval.
             </p>
           </motion.aside>
         </div>

@@ -13,7 +13,7 @@ class StudentRegisterRequest(BaseModel):
     course: str
     year: str
     email: str
-    phone: str
+    phone: str | None = None
 
 
 @router.post("/register/student")
@@ -31,7 +31,7 @@ async def register_student(req: StudentRegisterRequest):
             "course": req.course,
             "year": req.year,
             "email": req.email,
-            "phone": req.phone,
+            "phone": (req.phone or "").strip(),
             "registered_at": registered_at,
             "qr_code": None,
         }).execute()

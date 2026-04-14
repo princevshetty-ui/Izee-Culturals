@@ -5,11 +5,13 @@ import { EVENTS } from '../data/events.js'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 
-const STUDENT_COLUMNS = ['name', 'roll_no', 'course', 'year', 'email', 'phone', 'qr_code', 'registered_at']
-const PARTICIPANT_COLUMNS = ['name', 'roll_no', 'course', 'year', 'email', 'phone', 'events', 'qr_code', 'registered_at']
+const STUDENT_COLUMNS = ['name', 'roll_no', 'course', 'year', 'email', 'qr_code', 'registered_at']
+const PARTICIPANT_COLUMNS = ['name', 'roll_no', 'course', 'year', 'email', 'event_1', 'event_2', 'qr_code', 'registered_at']
 
 const COLUMN_LABELS = {
   roll_no: 'Roll No',
+  event_1: 'Event1',
+  event_2: 'Event2',
   qr_code: 'Status',
   registered_at: 'Registered At',
 }
@@ -771,10 +773,10 @@ export default function FacultyDashboard() {
     if (column === 'course') return 80
     if (column === 'year') return 70
     if (column === 'email') return 200
-    if (column === 'phone') return 130
+    if (column === 'event_1') return 130
+    if (column === 'event_2') return 130
     if (column === 'qr_code') return 100
     if (column === 'registered_at') return 160
-    if (column === 'events') return 160
     return 110
   }
 
@@ -848,7 +850,7 @@ export default function FacultyDashboard() {
         >
           <div className="px-5 pt-6">
             <div className="flex items-center">
-              <span className="text-[13px] tracking-[0.16em] text-[#2347B0]" style={{ fontFamily: 'Montage, serif' }}>
+              <span className="text-[13px] tracking-[0.16em] text-[#C9A84C]" style={{ fontFamily: 'Montage, serif' }}>
                 IZEE
               </span>
               <span className="mx-2 h-4 w-px bg-[rgba(238,230,216,0.35)]" />
@@ -1336,14 +1338,15 @@ export default function FacultyDashboard() {
                                 )
                               }
 
-                              if (column === 'events') {
-                                const eventsLabel = normalizeEvents(record[column])
+                              if (column === 'event_1' || column === 'event_2') {
+                                const eventIndex = column === 'event_1' ? 0 : 1
+                                const events = normalizeEvents(record.events)
                                   .map((eventId) => EVENT_NAME_BY_ID[eventId] || eventId)
-                                  .join(', ')
+                                const eventLabel = events[eventIndex] || '-'
 
                                 return (
                                   <td key={column} className="overflow-hidden px-[14px] align-middle text-[13px] text-[#EEE6D8]" style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                                    {eventsLabel || '-'}
+                                    {eventLabel}
                                   </td>
                                 )
                               }
@@ -1367,14 +1370,6 @@ export default function FacultyDashboard() {
                               if (column === 'email') {
                                 return (
                                   <td key={column} className="overflow-hidden px-[14px] align-middle text-[12px] text-[rgba(238,230,216,0.65)]" style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                                    {record[column] || '-'}
-                                  </td>
-                                )
-                              }
-
-                              if (column === 'phone') {
-                                return (
-                                  <td key={column} className="overflow-hidden px-[14px] align-middle font-mono text-[12px] text-[rgba(238,230,216,0.6)]" style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                                     {record[column] || '-'}
                                   </td>
                                 )

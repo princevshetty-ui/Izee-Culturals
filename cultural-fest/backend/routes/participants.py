@@ -13,7 +13,7 @@ class ParticipantRegisterRequest(BaseModel):
     course: str
     year: str
     email: str
-    phone: str
+    phone: str | None = None
     events: list[str]
 
 
@@ -45,7 +45,7 @@ async def register_participant(req: ParticipantRegisterRequest):
             "course": req.course,
             "year": req.year,
             "email": req.email,
-            "phone": req.phone,
+            "phone": (req.phone or "").strip(),
             "registered_at": registered_at,
             "qr_code": None,
         }).execute()
