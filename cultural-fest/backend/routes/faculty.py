@@ -674,7 +674,6 @@ async def export_students_csv(authorization: str = Header(None)):
             "Course",
             "Year",
             "Email",
-            "Phone",
             "Status",
             "Registered At",
         ]
@@ -688,7 +687,6 @@ async def export_students_csv(authorization: str = Header(None)):
                 str(student.get("course") or ""),
                 str(student.get("year") or ""),
                 str(student.get("email") or ""),
-                str(student.get("phone") or ""),
                 "Approved" if student.get("qr_code") else "Pending",
                 format_datetime_for_export(student.get("registered_at")),
             ])
@@ -724,9 +722,9 @@ async def export_participants_csv(authorization: str = Header(None)):
             ).eq("participant_id", participant["id"]).execute()
             
             event_ids = [e.get("event_id") for e in (events_response.data or [])]
-            participant["events"] = ", ".join(
-                [event_id_to_label(event_id) for event_id in event_ids if event_id]
-            )
+            event_labels = [event_id_to_label(event_id) for event_id in event_ids if event_id]
+            participant["event_1"] = event_labels[0] if len(event_labels) > 0 else ""
+            participant["event_2"] = event_labels[1] if len(event_labels) > 1 else ""
 
         headers = [
             "Registration ID",
@@ -735,8 +733,8 @@ async def export_participants_csv(authorization: str = Header(None)):
             "Course",
             "Year",
             "Email",
-            "Phone",
-            "Events",
+            "Event1",
+            "Event2",
             "Status",
             "Registered At",
         ]
@@ -750,8 +748,8 @@ async def export_participants_csv(authorization: str = Header(None)):
                 str(participant.get("course") or ""),
                 str(participant.get("year") or ""),
                 str(participant.get("email") or ""),
-                str(participant.get("phone") or ""),
-                str(participant.get("events") or ""),
+                str(participant.get("event_1") or ""),
+                str(participant.get("event_2") or ""),
                 "Approved" if participant.get("qr_code") else "Pending",
                 format_datetime_for_export(participant.get("registered_at")),
             ])

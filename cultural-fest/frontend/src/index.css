@@ -18,6 +18,11 @@
 @tailwind utilities;
 
 :root {
+  /* Typography */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  --font-display: 'Montage', 'Nevarademo', serif;
+  
+  /* Colors */
   --gold: #C9A84C;
   --gold-dim: rgba(201, 168, 76, 0.12);
   --gold-border: rgba(201, 168, 76, 0.22);
@@ -30,6 +35,7 @@
   --surface-2: rgba(255, 255, 255, 0.048);
   --text-primary: #EEE6D8;
   --text-muted: rgba(238, 230, 216, 0.52);
+  /* WCAG: minimum muted text opacity on #080910 background should be 0.45 not 0.28 */
   --text-dim: rgba(238, 230, 216, 0.28);
   --radius-card: 16px;
   --radius-pill: 999px;
@@ -79,10 +85,12 @@ body {
     radial-gradient(circle 1400px at 50% 50%, rgba(20, 28, 60, 0.3) 0%, transparent 72%),
     #080910;
   color: var(--text-primary);
-  font-family: 'Montage', 'Nevarademo', serif;
+  font-family: var(--font-display);
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  font-feature-settings: "kern" 1, "liga" 1;
 }
 
 button,
@@ -95,6 +103,51 @@ textarea {
 ::selection {
   background: rgba(201, 168, 76, 0.24);
   color: var(--text-primary);
+}
+
+/* Use system UI font for small text elements for crisp rendering */
+p,
+span,
+label,
+input,
+select,
+textarea,
+button,
+td,
+th,
+li {
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.01em;
+}
+
+/* Restore Montage display font for headings and display elements */
+h1,
+h2,
+h3,
+h4,
+.font-display,
+[class*="font-display"] {
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Boost opacity and tracking for small text sizes */
+.text-xs,
+[style*="font-size: 11px"],
+[style*="font-size: 10px"] {
+  opacity: 1 !important;
+  letter-spacing: 0.04em;
+}
+
+/* Utility class for uppercase labels and badges */
+.label-ui {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  -webkit-font-smoothing: antialiased;
 }
 
 ::-webkit-scrollbar {

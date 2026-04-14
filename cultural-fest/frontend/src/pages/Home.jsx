@@ -271,7 +271,10 @@ export default function Home() {
       >
         <nav className="mx-auto flex h-[72px] w-full max-w-[1440px] items-center justify-between px-4 sm:px-8 lg:px-[60px]">
           <div className="flex items-center">
-            <span className="font-display text-[20px] font-semibold uppercase tracking-[0.12em] text-[#2347B0]">
+            <span
+              className="bg-clip-text font-display text-[20px] font-semibold uppercase tracking-[0.12em] text-transparent"
+              style={{ backgroundImage: 'linear-gradient(120deg, #D6BF81 0%, #C9A84C 52%, #A9832D 100%)' }}
+            >
               IZEE
             </span>
             <span
@@ -315,20 +318,22 @@ export default function Home() {
         <section className="mx-auto flex min-h-screen w-full max-w-[1440px] items-center px-4 pb-16 pt-10 sm:px-8 lg:px-[60px]">
           <div className="grid w-full items-center gap-10 lg:grid-cols-[1.5fr_1fr]">
             <div className="relative">
-              <span
-                className="pointer-events-none absolute -left-2 top-[-24px] select-none font-display text-[clamp(100px,18vw,220px)] font-semibold text-[#C9A84C]"
-                style={{ opacity: 0.025, transform: 'rotate(-4deg)' }}
-                aria-hidden="true"
-              >
-                2026
-              </span>
-
               <div className="mb-5 flex justify-start">
                 <FestEmblem />
               </div>
 
               <div className="relative z-[1] inline-block">
-                <p className="mb-1 text-[14px] uppercase tracking-[0.22em] text-[#BEA35D] font-display">
+                <p
+                  className="mb-1 font-display uppercase text-[#BEA35D]"
+                  style={{
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    letterSpacing: '0.20em',
+                    color: 'rgba(201,168,76,0.85)',
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                  }}
+                >
                   ANNUAL COLLEGE CULTURAL FEST 2026
                 </p>
                 <motion.span
@@ -345,7 +350,7 @@ export default function Home() {
                   initial={{ y: 32, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ duration: 0.58, delay: 0.05, ease: 'easeOut' }}
-                  className="mr-[0.2em] inline-block"
+                  className="mr-[0.2em] inline-block font-display"
                 >
                   {heroWords[0]}
                 </motion.span>
@@ -353,16 +358,16 @@ export default function Home() {
                   initial={{ y: 32, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ duration: 0.58, delay: 0.14, ease: 'easeOut' }}
-                  className="mr-[0.2em] inline-block"
+                  className="mr-[0.2em] inline-block font-display"
                 >
                   {heroWords[1]}
                 </motion.span>
-                <span className="inline-block whitespace-nowrap">
+                <span className="inline-block whitespace-nowrap font-display">
                   <motion.span
                     initial={{ y: 32, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ duration: 0.58, delay: 0.24, ease: 'easeOut' }}
-                    className="mr-[0.2em] inline-block"
+                    className="mr-[0.2em] inline-block font-display"
                   >
                     {heroWords[2]}
                   </motion.span>
@@ -370,7 +375,7 @@ export default function Home() {
                     initial={{ y: 32, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ duration: 0.58, delay: 0.34, ease: 'easeOut' }}
-                    className="inline-block italic text-[#BEA35D]"
+                    className="inline-block font-display italic text-[#BEA35D]"
                   >
                     {heroWords[3]}
                   </motion.span>
@@ -408,9 +413,15 @@ export default function Home() {
                     key={item.label}
                     variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                     transition={{ duration: 0.5, ease: 'easeOut' }}
-                    className="group rounded-full border px-5 py-2.5 text-[12px] text-[rgba(238,230,216,0.72)] font-display transition duration-200 ease-out hover:text-[rgba(238,230,216,0.88)] hover:[box-shadow:inset_0_0_20px_rgba(201,168,76,0.08)] hover:animate-[shimmer_1.8s_linear_infinite]"
+                    className="group rounded-full border px-5 py-2.5 text-[rgba(238,230,216,0.72)] transition duration-200 ease-out animate-[shimmer_4.2s_linear_infinite] hover:text-[rgba(238,230,216,0.88)] hover:[box-shadow:inset_0_0_20px_rgba(201,168,76,0.08)]"
                     style={{
-                      borderColor: 'rgba(238,230,216,0.2)',
+                      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      letterSpacing: '0.04em',
+                      WebkitFontSmoothing: 'antialiased',
+                      MozOsxFontSmoothing: 'grayscale',
+                      borderColor: 'rgba(238,230,216,0.28)',
                       borderWidth: '0.5px',
                       backgroundImage: 'linear-gradient(120deg, transparent 35%, rgba(201,168,76,0.2) 50%, transparent 65%)',
                       backgroundSize: '220% 100%',
@@ -426,12 +437,32 @@ export default function Home() {
             <div className="space-y-4">
               <motion.div
                 initial={{ x: 60, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ duration: 0.55, ease: 'easeOut', delay: 0.22 }}
+                animate={{
+                  x: 0,
+                  opacity: 1,
+                  borderColor: [
+                    'rgba(201,168,76,0.22)',
+                    'rgba(201,168,76,0.34)',
+                    'rgba(201,168,76,0.22)',
+                  ],
+                  boxShadow: [
+                    '0 0 0 rgba(201,168,76,0)',
+                    '0 0 20px rgba(201,168,76,0.096)',
+                    '0 0 0 rgba(201,168,76,0)',
+                  ],
+                }}
+                transition={{
+                  x: { duration: 0.55, ease: 'easeOut', delay: 0.22 },
+                  opacity: { duration: 0.55, ease: 'easeOut', delay: 0.22 },
+                  borderColor: { duration: 10, ease: 'easeInOut', repeat: Infinity },
+                  boxShadow: { duration: 10, ease: 'easeInOut', repeat: Infinity },
+                }}
                 className="relative overflow-hidden rounded-xl p-8 transition duration-300 ease-out backdrop-blur-[2px] hover:bg-[rgba(201,168,76,0.07)]"
                 style={{
                   background: 'rgba(201,168,76,0.045)',
-                  border: `0.5px solid ${ui.goldBorder}`,
+                  borderStyle: 'solid',
+                  borderWidth: '0.5px',
+                  borderColor: ui.goldBorder,
                 }}
                 whileHover={{
                   y: -2,
@@ -456,8 +487,14 @@ export default function Home() {
                     <QrGlyph />
                   </div>
                   <span
-                    className="absolute right-0 top-0 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.12em] text-[#BEA35D]"
+                    className="absolute right-0 top-0 rounded-full px-3 py-1 uppercase text-[#BEA35D]"
                     style={{
+                      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      letterSpacing: '0.14em',
+                      WebkitFontSmoothing: 'antialiased',
+                      MozOsxFontSmoothing: 'grayscale',
                       background: 'linear-gradient(135deg, rgba(201,168,76,0.22), rgba(201,168,76,0.06))',
                       border: `0.5px solid ${ui.goldBorderMid}`,
                     }}
@@ -475,15 +512,30 @@ export default function Home() {
                   <h3 className="font-display text-[22px] tracking-[0.015em] text-[#EEE6D8]">Participants Registration</h3>
                 </div>
 
-                <p className="text-[13px] leading-[1.72] text-[rgba(238,230,216,0.65)]">
-                  Pick your stage, lock up to two events, and receive your competition entry QR after faculty approval.
+                <p
+                  className="text-[rgba(238,230,216,0.68)]"
+                  style={{
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    fontSize: '14px',
+                    lineHeight: 1.65,
+                    fontWeight: 400,
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                  }}
+                >
+                  Pick your stage, lock up to two events, and receive your competition entry QR.
                 </p>
 
                 <button
                   type="button"
                   onClick={() => navigate('/participant/events')}
-                  className="group mt-5 inline-flex items-center rounded-full border px-4 py-2 text-[12px] text-[#BEA35D] transition duration-300 ease-out hover:bg-[rgba(201,168,76,0.18)] hover:text-[#EBD08F]"
+                  className="group mt-5 inline-flex items-center rounded-full border px-4 py-2 text-[#BEA35D] transition duration-300 ease-out hover:bg-[rgba(201,168,76,0.18)] hover:text-[#EBD08F]"
                   style={{
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
                     background: ui.goldSoftStrong,
                     borderColor: ui.goldBorder,
                     borderWidth: '0.5px',
@@ -501,12 +553,32 @@ export default function Home() {
 
               <motion.div
                 initial={{ x: 60, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ duration: 0.55, ease: 'easeOut', delay: 0.34 }}
+                animate={{
+                  x: 0,
+                  opacity: 1,
+                  borderColor: [
+                    'rgba(178,34,52,0.2)',
+                    'rgba(178,34,52,0.29)',
+                    'rgba(178,34,52,0.2)',
+                  ],
+                  boxShadow: [
+                    '0 0 0 rgba(178,34,52,0)',
+                    '0 0 20px rgba(178,34,52,0.096)',
+                    '0 0 0 rgba(178,34,52,0)',
+                  ],
+                }}
+                transition={{
+                  x: { duration: 0.55, ease: 'easeOut', delay: 0.34 },
+                  opacity: { duration: 0.55, ease: 'easeOut', delay: 0.34 },
+                  borderColor: { duration: 10, ease: 'easeInOut', repeat: Infinity },
+                  boxShadow: { duration: 10, ease: 'easeInOut', repeat: Infinity },
+                }}
                 className="relative overflow-hidden rounded-xl p-8 transition duration-300 ease-out backdrop-blur-[2px]"
                 style={{
                   background: 'rgba(178,34,52,0.045)',
-                  border: `0.5px solid ${ui.crimsonBorder}`,
+                  borderStyle: 'solid',
+                  borderWidth: '0.5px',
+                  borderColor: ui.crimsonBorder,
                 }}
                 whileHover={{
                   y: -2,
@@ -517,7 +589,7 @@ export default function Home() {
               >
                 <div
                   className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
-                  style={{ background: 'linear-gradient(to right, transparent, rgba(178,34,52,0.8), transparent)' }}
+                  style={{ background: 'linear-gradient(to right, transparent, #D44455, transparent)' }}
                 />
 
                 <div className="relative mb-5 flex items-start">
@@ -532,8 +604,14 @@ export default function Home() {
                     <QrGlyph />
                   </div>
                   <span
-                    className="absolute right-0 top-0 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.12em] text-[#B22234]"
+                    className="absolute right-0 top-0 rounded-full px-3 py-1 uppercase text-[#B22234]"
                     style={{
+                      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      letterSpacing: '0.14em',
+                      WebkitFontSmoothing: 'antialiased',
+                      MozOsxFontSmoothing: 'grayscale',
                       background: 'linear-gradient(135deg, rgba(178,34,52,0.2), rgba(178,34,52,0.06))',
                       border: `0.5px solid ${ui.crimsonBorder}`,
                     }}
@@ -551,15 +629,30 @@ export default function Home() {
                   <h3 className="font-display text-[22px] tracking-[0.015em] text-[#EEE6D8]">Students Registration</h3>
                 </div>
 
-                <p className="text-[13px] leading-[1.72] text-[rgba(238,230,216,0.65)]">
+                <p
+                  className="text-[rgba(238,230,216,0.68)]"
+                  style={{
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    fontSize: '14px',
+                    lineHeight: 1.65,
+                    fontWeight: 400,
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                  }}
+                >
                   Grab your audience pass QR to enter the fest venue and cheer for your classmates live.
                 </p>
 
                 <button
                   type="button"
                   onClick={() => navigate('/student/register')}
-                  className="group mt-5 inline-flex items-center rounded-full border px-4 py-2 text-[12px] text-[rgba(178,34,52,0.88)] transition duration-300 ease-out hover:bg-[rgba(178,34,52,0.18)] hover:text-[#E45B6C]"
+                  className="group mt-5 inline-flex items-center rounded-full border px-4 py-2 text-[#D44455] transition duration-300 ease-out hover:bg-[rgba(178,34,52,0.18)] hover:text-[#E45B6C]"
                   style={{
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
                     background: ui.crimsonSoft,
                     borderColor: ui.crimsonBorder,
                     borderWidth: '0.5px',
@@ -578,9 +671,21 @@ export default function Home() {
                   show: { transition: { staggerChildren: 0.06, delayChildren: 0.44 } },
                 }}
               >
-                <div className="mb-3 flex items-center gap-3 text-[9px] uppercase tracking-[0.2em] text-[rgba(238,230,216,0.34)]">
+                <div className="mb-3 flex items-center gap-3 text-[9px] uppercase text-[rgba(238,230,216,0.52)]">
                   <span className="h-px flex-1" style={{ background: 'rgba(238,230,216,0.16)' }} />
-                  <p className="font-display">EVENTS THIS YEAR</p>
+                  <p
+                    style={{
+                      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                      fontWeight: 700,
+                      fontSize: '10px',
+                      letterSpacing: '0.18em',
+                      color: 'rgba(238,230,216,0.45)',
+                      WebkitFontSmoothing: 'antialiased',
+                      MozOsxFontSmoothing: 'grayscale',
+                    }}
+                  >
+                    EVENTS THIS YEAR
+                  </p>
                   <span className="h-px flex-1" style={{ background: 'rgba(238,230,216,0.16)' }} />
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -589,8 +694,16 @@ export default function Home() {
                       key={event.id}
                       variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}
                       transition={{ duration: 0.5, ease: 'easeOut' }}
-                      className="cursor-default rounded-full border bg-transparent px-3.5 py-1 text-[12px] text-[rgba(238,230,216,0.5)] font-display transition duration-200 ease-out hover:bg-[rgba(201,168,76,0.08)] hover:text-[rgba(238,230,216,0.8)]"
-                      style={{ borderColor: 'rgba(238,230,216,0.18)', borderWidth: '0.5px' }}
+                      className="cursor-default rounded-full border bg-transparent px-3.5 py-1 text-[rgba(238,230,216,0.5)] transition duration-200 ease-out hover:bg-[rgba(201,168,76,0.08)] hover:text-[rgba(238,230,216,0.8)]"
+                      style={{
+                        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                        fontSize: '12px',
+                        letterSpacing: '0.05em',
+                        WebkitFontSmoothing: 'antialiased',
+                        MozOsxFontSmoothing: 'grayscale',
+                        borderColor: 'rgba(238,230,216,0.18)',
+                        borderWidth: '0.5px',
+                      }}
                       whileHover={{ borderColor: 'rgba(201,168,76,0.3)' }}
                     >
                       {event.name}
@@ -617,7 +730,17 @@ export default function Home() {
         className="relative z-[2] flex flex-col gap-2 border-t px-4 py-5 text-[11px] sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-[60px]"
         style={{ borderTopColor: 'rgba(238,230,216,0.08)', borderTopWidth: '0.5px' }}
       >
-        <span className="text-[rgba(238,230,216,0.3)]">© 2026 Izee College · Cultural Committee</span>
+        <span
+          className="text-[rgba(238,230,216,0.3)]"
+          style={{
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            letterSpacing: '0.03em',
+            WebkitFontSmoothing: 'antialiased',
+            MozOsxFontSmoothing: 'grayscale',
+          }}
+        >
+          © 2026 Izee College · Cultural Committee
+        </span>
       </footer>
 
     </div>
