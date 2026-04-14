@@ -54,6 +54,7 @@ Main folder: `cultural-fest`
 4. `backend/routes/students.py`: student registration + status check.
 5. `backend/routes/participants.py`: participant registration + status check.
 6. `backend/routes/faculty.py`: faculty login, list views, approval actions, CSV export.
+7. `backend/sql/add_approved_at_columns.sql`: optional SQL for adding approval timestamp columns.
 
 ### Frontend files
 
@@ -116,6 +117,9 @@ Main folder: `cultural-fest`
 	- view students
 	- view participants (with event list)
 	- filter by course/year/event
+	- search by name, roll number, or email
+	- sort by newest/oldest, name, or course
+	- navigate paginated records for large datasets
 	- approve pending records
 	- export CSV
 6. Approval endpoint generates and stores QR in DB.
@@ -137,6 +141,7 @@ Columns used:
 7. `phone`
 8. `registered_at`
 9. `qr_code` (nullable text)
+10. `approved_at` (nullable timestamp, recommended for accurate approval metrics)
 
 ### 2. participants
 
@@ -151,6 +156,7 @@ Columns used:
 7. `phone`
 8. `registered_at`
 9. `qr_code` (nullable text)
+10. `approved_at` (nullable timestamp, recommended for accurate approval metrics)
 
 ### 3. participant_events
 
@@ -167,6 +173,10 @@ Approval is derived in code as:
 1. `approved = bool(qr_code)`
 
 If `qr_code` exists, record is treated as approved.
+
+For accurate "Approved Today" analytics, add `approved_at` to both `students` and `participants` tables via Supabase dashboard (nullable `timestamptz`).
+The backend is backward compatible and will fall back to `registered_at` when `approved_at` is unavailable.
+Use `backend/sql/add_approved_at_columns.sql` in Supabase SQL editor for quick setup.
 
 ## 6) Backend API Details
 
@@ -187,10 +197,16 @@ Base prefix: `/api`
 4. `POST /api/faculty/approve/student/{student_id}`
 5. `POST /api/faculty/approve/participant/{participant_id}`
 6. `POST /api/faculty/resend/student/{student_id}`
-7. `DELETE /api/faculty/student/{student_id}`
-8. `DELETE /api/faculty/participant/{participant_id}`
-9. `GET /api/faculty/export/students`
-10. `GET /api/faculty/export/participants`
+7. `POST /api/faculty/resend/participant/{participant_id}`
+8. `DELETE /api/faculty/student/{student_id}`
+9. `DELETE /api/faculty/participant/{participant_id}`
+10. `GET /api/faculty/export/students`
+11. `GET /api/faculty/export/participants`
+
+Pagination query params for list endpoints:
+
+1. `page` (default: `1`)
+2. `page_size` (default: `25`, min: `5`, max: `100`)
 
 ### Health endpoint
 
@@ -237,6 +253,8 @@ Notable UI logic:
 1. Event selection is enforced at max 2 in UI and backend.
 2. Confirmation page re-checks backend status when QR is missing.
 3. Faculty dashboard truncates QR text in table but stores full value in DB.
+4. Faculty dashboard supports search by name, roll number, and email, plus quick sorting.
+5. Faculty dashboard uses backend pagination for student and participant lists.
 
 ## 9) Environment Variables
 
@@ -286,6 +304,20 @@ npm run dev
 Frontend starts on: `http://localhost:5173`
 
 Vite proxy forwards `/api/*` to backend at `127.0.0.1:8000` (see `frontend/vite.config.js`).
+
+## Automated Checks
+
+From project root, run:
+
+```bash
+npm run checks
+```
+
+This runs:
+
+1. Frontend production build check
+2. Backend Python syntax compile check
+3. Optional `/health` smoke check (if backend is running)
 
 ## 11) Event Brief for Teacher and Organizing Team
 
@@ -351,10 +383,3 @@ If faculty API returns Unauthorized:
 2. Log out and login again on faculty page.
 3. Verify Authorization header format is exactly `Bearer <password>`.
 
----
-
-If you want, I can also generate:
-
-1. A one-page simplified README version for non-technical teachers.
-2. A database SQL schema snippet for Supabase table creation.
-3. A sequence diagram (student, participant, faculty approval) for presentation slides.
