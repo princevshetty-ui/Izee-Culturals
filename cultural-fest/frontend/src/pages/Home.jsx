@@ -40,7 +40,7 @@ export default function Home() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return undefined
 
-    const particleCount = 80
+    const particleCount = 66
     let width = 0
     let height = 0
     let dpr = Math.max(window.devicePixelRatio || 1, 1)
@@ -54,7 +54,7 @@ export default function Home() {
           vx: -0.2 + Math.random() * 0.4,
           vy: -(0.4 + Math.random() * 0.3),
           radius: 1 + Math.random(),
-          alpha: 0.06 + Math.random() * 0.12,
+          alpha: 0.035 + Math.random() * 0.08,
           color: '178,34,52',
         }
       }
@@ -65,8 +65,8 @@ export default function Home() {
         y: resetToBottom ? height + Math.random() * 40 : Math.random() * height,
         vx: -0.3 + Math.random() * 0.6,
         vy: -(0.4 + Math.random() * 0.4),
-        radius: 1 + Math.random() * 1.5,
-        alpha: 0.15 + Math.random() * 0.35,
+        radius: 0.8 + Math.random() * 1.2,
+        alpha: 0.08 + Math.random() * 0.22,
         color: '201,168,76',
       }
     }
@@ -134,7 +134,7 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#0A0A0A] text-[#F5F0E8] font-body">
+    <div className="relative min-h-screen overflow-x-hidden bg-[#0C0D10] text-[#EEE6D8] font-body">
       <canvas
         ref={canvasRef}
         className="pointer-events-none fixed inset-0 z-0"
@@ -145,7 +145,7 @@ export default function Home() {
         className="pointer-events-none fixed inset-0 z-[1]"
         style={{
           background:
-            'radial-gradient(ellipse at 50% 30%, rgba(201,168,76,0.07) 0%, transparent 65%)',
+            'radial-gradient(ellipse at 50% 30%, rgba(190,163,93,0.05) 0%, transparent 72%)',
         }}
       />
 
@@ -153,15 +153,15 @@ export default function Home() {
         className="pointer-events-none fixed inset-0 z-[1]"
         style={{
           background:
-            'radial-gradient(ellipse at 15% 80%, rgba(178,34,52,0.06) 0%, transparent 45%)',
+            'radial-gradient(ellipse at 15% 80%, rgba(158,38,54,0.045) 0%, transparent 52%)',
         }}
       />
 
       <header
-        className="sticky top-0 z-50 border-b backdrop-blur-sm"
+        className="sticky top-0 z-50 border-b backdrop-blur-md"
         style={{
-          background: 'rgba(10,10,10,0.85)',
-          borderBottomColor: 'rgba(201,168,76,0.12)',
+          background: 'rgba(12,13,16,0.78)',
+          borderBottomColor: 'rgba(190,163,93,0.1)',
           borderBottomWidth: '0.5px',
         }}
       >
@@ -177,7 +177,7 @@ export default function Home() {
                 background: 'linear-gradient(to bottom, #B22234, #C9A84C)',
               }}
             />
-            <span className="font-display text-[20px] font-semibold uppercase tracking-[0.12em] text-[#C9A84C]">
+            <span className="font-display text-[20px] font-semibold uppercase tracking-[0.12em] text-[#BEA35D]">
               CULTURALS
             </span>
           </div>
@@ -185,9 +185,9 @@ export default function Home() {
           <button
             type="button"
             onClick={() => navigate('/faculty/login')}
-            className="rounded-full border px-5 py-2 text-[12px] font-medium uppercase tracking-[0.1em] text-[#C9A84C] transition hover:bg-[rgba(201,168,76,0.1)]"
+            className="rounded-full border px-5 py-2 text-[12px] font-medium uppercase tracking-[0.1em] text-[#BEA35D] transition hover:bg-[rgba(190,163,93,0.08)]"
             style={{
-              borderColor: 'rgba(201,168,76,0.5)',
+              borderColor: 'rgba(190,163,93,0.36)',
               borderWidth: '0.5px',
             }}
           >
@@ -200,18 +200,18 @@ export default function Home() {
         <section className="mx-auto flex min-h-screen w-full max-w-[1440px] items-center px-4 pb-16 pt-10 sm:px-8 lg:px-[60px]">
           <div className="grid w-full items-center gap-10 lg:grid-cols-[1.5fr_1fr]">
             <div>
-              <p className="mb-6 text-[14px] uppercase tracking-[0.22em] text-[#C9A84C] font-display">
+              <p className="mb-6 text-[14px] uppercase tracking-[0.22em] text-[#BEA35D] font-display">
                 ANNUAL COLLEGE CULTURAL FEST 2026
               </p>
 
-              <h1 className="font-display font-bold leading-[1.05] text-[#F5F0E8] text-[clamp(26px,4vw,56px)] whitespace-nowrap">
+              <h1 className="font-display font-bold leading-[1.05] text-[#EEE6D8] text-[clamp(26px,4vw,56px)] whitespace-nowrap">
                 {heroWords.map((word, index) => (
                   <motion.span
                     key={word}
                     initial={{ y: 40, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ duration: 0.7, delay: index * 0.12, ease: 'easeOut' }}
-                    className={`mr-[0.2em] inline-block ${word === 'Legacy' ? 'italic text-[#C9A84C]' : ''}`}
+                    className={`mr-[0.2em] inline-block ${word === 'Legacy' ? 'italic text-[#BEA35D]' : ''}`}
                   >
                     {word}
                   </motion.span>
@@ -222,7 +222,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.6, ease: 'easeOut' }}
-                className="mt-5 max-w-[560px] font-display text-[18px] italic text-[rgba(245,240,232,0.5)]"
+                className="mt-5 max-w-[560px] font-display text-[18px] italic text-[rgba(238,230,216,0.62)]"
               >
                 Step into a night of rhythm, theatre, style, and unforgettable campus energy.
               </motion.p>
@@ -231,7 +231,7 @@ export default function Home() {
                 initial={{ opacity: 0, width: 0 }}
                 animate={{ opacity: 0.6, width: 48 }}
                 transition={{ duration: 0.5, delay: 0.72, ease: 'easeOut' }}
-                className="my-7 h-px bg-[#C9A84C]"
+                className="my-7 h-px bg-[#BEA35D]"
               />
 
               <motion.div
@@ -248,8 +248,8 @@ export default function Home() {
                     key={item}
                     variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                     transition={{ duration: 0.45, ease: 'easeOut' }}
-                    className="rounded-full border px-4 py-2 text-[12px] text-[rgba(245,240,232,0.6)] font-display"
-                    style={{ borderColor: 'rgba(245,240,232,0.15)', borderWidth: '0.5px' }}
+                    className="rounded-full border px-4 py-2 text-[12px] text-[rgba(238,230,216,0.72)] font-display"
+                    style={{ borderColor: 'rgba(238,230,216,0.2)', borderWidth: '0.5px' }}
                   >
                     {item}
                   </motion.span>
@@ -262,20 +262,20 @@ export default function Home() {
                 initial={{ x: 60, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ duration: 0.55, ease: 'easeOut', delay: 0.22 }}
-                className="rounded-xl p-7 transition duration-200 hover:bg-[rgba(201,168,76,0.1)]"
+                className="rounded-xl p-7 transition duration-200 backdrop-blur-[2px] hover:bg-[rgba(190,163,93,0.07)]"
                 style={{
-                  background: 'rgba(201,168,76,0.06)',
-                  border: '0.5px solid rgba(201,168,76,0.3)',
+                  background: 'rgba(190,163,93,0.045)',
+                  border: '0.5px solid rgba(190,163,93,0.24)',
                 }}
-                whileHover={{ y: -2, borderColor: 'rgba(201,168,76,0.55)' }}
+                whileHover={{ y: -2, borderColor: 'rgba(190,163,93,0.42)' }}
               >
                 <div className="mb-5 flex items-start justify-between">
                   <QrGlyph />
                   <span
-                    className="rounded px-2.5 py-[3px] text-[9px] uppercase tracking-[0.12em] text-[#C9A84C]"
+                    className="rounded px-2.5 py-[3px] text-[9px] uppercase tracking-[0.12em] text-[#BEA35D]"
                     style={{
-                      background: 'rgba(201,168,76,0.12)',
-                      border: '0.5px solid rgba(201,168,76,0.45)',
+                      background: 'rgba(190,163,93,0.1)',
+                      border: '0.5px solid rgba(190,163,93,0.34)',
                     }}
                   >
                     COMPETE
@@ -284,21 +284,21 @@ export default function Home() {
 
                 <div className="mb-2 flex items-center gap-2">
                   <motion.span
-                    className="h-1.5 w-1.5 rounded-full bg-[#C9A84C]"
+                    className="h-1.5 w-1.5 rounded-full bg-[#BEA35D]"
                     animate={{ opacity: [0.35, 1, 0.35] }}
                     transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
                   />
-                  <h3 className="font-display text-[20px] text-[#F5F0E8]">Participants Registration</h3>
+                  <h3 className="font-display text-[20px] text-[#EEE6D8]">Participants Registration</h3>
                 </div>
 
-                <p className="text-[13px] leading-[1.6] text-[rgba(245,240,232,0.45)]">
+                <p className="text-[13px] leading-[1.6] text-[rgba(238,230,216,0.58)]">
                   Pick your stage, lock up to two events, and receive your competition entry QR after faculty approval.
                 </p>
 
                 <button
                   type="button"
                   onClick={() => navigate('/participant/events')}
-                  className="mt-4 text-[13px] text-[#C9A84C] transition hover:underline"
+                  className="mt-4 text-[13px] text-[#BEA35D] transition hover:underline"
                 >
                   Register to Compete →
                 </button>
@@ -308,20 +308,20 @@ export default function Home() {
                 initial={{ x: 60, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ duration: 0.55, ease: 'easeOut', delay: 0.34 }}
-                className="rounded-xl p-7 transition duration-200"
+                className="rounded-xl p-7 transition duration-200 backdrop-blur-[2px]"
                 style={{
-                  background: 'rgba(178,34,52,0.06)',
-                  border: '0.5px solid rgba(178,34,52,0.2)',
+                  background: 'rgba(158,38,54,0.045)',
+                  border: '0.5px solid rgba(158,38,54,0.18)',
                 }}
-                whileHover={{ y: -2, borderColor: 'rgba(178,34,52,0.4)', backgroundColor: 'rgba(178,34,52,0.1)' }}
+                whileHover={{ y: -2, borderColor: 'rgba(158,38,54,0.32)', backgroundColor: 'rgba(158,38,54,0.08)' }}
               >
                 <div className="mb-5 flex items-start justify-between">
                   <QrGlyph />
                   <span
                     className="rounded px-2.5 py-[3px] text-[9px] uppercase tracking-[0.12em] text-[#B22234]"
                     style={{
-                      background: 'rgba(178,34,52,0.08)',
-                      border: '0.5px solid rgba(178,34,52,0.2)',
+                      background: 'rgba(158,38,54,0.08)',
+                      border: '0.5px solid rgba(158,38,54,0.18)',
                     }}
                   >
                     AUDIENCE
@@ -334,10 +334,10 @@ export default function Home() {
                     animate={{ opacity: [0.2, 0.9, 0.2] }}
                     transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut', delay: 0.5 }}
                   />
-                  <h3 className="font-display text-[20px] text-[#F5F0E8]">Students Registration</h3>
+                  <h3 className="font-display text-[20px] text-[#EEE6D8]">Students Registration</h3>
                 </div>
 
-                <p className="text-[13px] leading-[1.6] text-[rgba(245,240,232,0.45)]">
+                <p className="text-[13px] leading-[1.6] text-[rgba(238,230,216,0.58)]">
                   Grab your audience pass QR to enter the fest venue and cheer for your classmates live.
                 </p>
 
@@ -358,7 +358,7 @@ export default function Home() {
                   show: { transition: { staggerChildren: 0.06, delayChildren: 0.48 } },
                 }}
               >
-                <p className="mb-3 text-[9px] uppercase tracking-[0.2em] text-[rgba(245,240,232,0.25)]">
+                <p className="mb-3 text-[9px] uppercase tracking-[0.2em] text-[rgba(238,230,216,0.34)]">
                   EVENTS THIS YEAR
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -367,8 +367,8 @@ export default function Home() {
                       key={event.id}
                       variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}
                       transition={{ duration: 0.4, ease: 'easeOut' }}
-                      className="rounded-full border bg-transparent px-3.5 py-1 text-[11px] text-[rgba(245,240,232,0.4)] font-display"
-                      style={{ borderColor: 'rgba(245,240,232,0.12)', borderWidth: '0.5px' }}
+                      className="rounded-full border bg-transparent px-3.5 py-1 text-[11px] text-[rgba(238,230,216,0.5)] font-display"
+                      style={{ borderColor: 'rgba(238,230,216,0.18)', borderWidth: '0.5px' }}
                     >
                       {event.name}
                     </motion.span>
@@ -383,17 +383,17 @@ export default function Home() {
       <div
         className="relative z-[2] h-[3px] w-full"
         style={{
-          opacity: 0.4,
+          opacity: 0.3,
           background:
-            'linear-gradient(to right, transparent, #B22234 20%, #C9A84C 50%, #1A2B5F 80%, transparent)',
+            'linear-gradient(to right, transparent, #7C1F2B 20%, #BEA35D 50%, #1A2B5F 80%, transparent)',
         }}
       />
 
       <footer
         className="relative z-[2] flex flex-col gap-2 border-t px-4 py-5 text-[11px] sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-[60px]"
-        style={{ borderTopColor: 'rgba(245,240,232,0.06)', borderTopWidth: '0.5px' }}
+        style={{ borderTopColor: 'rgba(238,230,216,0.08)', borderTopWidth: '0.5px' }}
       >
-        <span className="text-[rgba(245,240,232,0.2)]">© 2026 Izee College · Cultural Committee</span>
+        <span className="text-[rgba(238,230,216,0.3)]">© 2026 Izee College · Cultural Committee</span>
       </footer>
 
     </div>

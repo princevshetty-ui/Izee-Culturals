@@ -351,10 +351,3 @@ If faculty API returns Unauthorized:
 2. Log out and login again on faculty page.
 3. Verify Authorization header format is exactly `Bearer <password>`.
 
----
-
-If you want, I can also generate:
-
-1. A one-page simplified README version for non-technical teachers.
-2. A database SQL schema snippet for Supabase table creation.
-3. A sequence diagram (student, participant, faculty approval) for presentation slides.
