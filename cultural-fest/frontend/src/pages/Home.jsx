@@ -739,7 +739,7 @@ export default function Home() {
             MozOsxFontSmoothing: 'grayscale',
           }}
         >
-          © 2026 Izee College · Cultural Committee
+          © 2026 IZee · Cultural Committee
         </span>
       </footer>
 

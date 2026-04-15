@@ -16,17 +16,28 @@ export default function Confirmation() {
   const [isLoadingStatus, setIsLoadingStatus] = useState(!location.state?.qr_code)
   const [statusError, setStatusError] = useState('')
   const [isPending, setIsPending] = useState(Boolean(location.state?.pending || !location.state?.qr_code))
+  const [teamName, setTeamName] = useState(location.state?.teamName || '')
+  const [teamMembers, setTeamMembers] = useState(location.state?.members || [])
+  const [eventName, setEventName] = useState(location.state?.eventName || '')
+  const [teamAssigned, setTeamAssigned] = useState(location.state?.teamAssigned || null)
 
   const statusEndpoint = useMemo(() => {
-    if (type === 'participant') return `/api/register/participant/${id}/status`
-    return `/api/register/student/${id}/status`
+    switch (type) {
+      case 'participant':
+        return `/api/register/participant/${id}/status`
+      case 'volunteer':
+        return `/api/register/volunteer/${id}/status`
+      case 'group':
+        return `/api/register/group/${id}/status`
+      default:
+        return `/api/register/student/${id}/status`
+    }
   }, [type, id])
 
-  const selectedEvents = selectedEventIds
-    .map((eventId) => EVENTS.find((event) => event.id === eventId))
-    .filter(Boolean)
-
   const isParticipant = type === 'participant'
+  const isVolunteer = type === 'volunteer'
+  const isGroup = type === 'group'
+  const isStudent = type === 'student'
 
   const checkStatus = async () => {
     setIsLoadingStatus(true)
@@ -42,6 +53,15 @@ export default function Confirmation() {
 
       const data = payload.data || {}
       if (data.name) setUserName(data.name)
+
+      // Group specific
+      if (data.team_name) setTeamName(data.team_name)
+      if (data.members) setTeamMembers(data.members)
+      if (data.event_name) setEventName(data.event_name)
+
+      // Volunteer specific
+      if (data.team_label) setTeamAssigned(data.team_label)
+
       if (Array.isArray(data.events)) setSelectedEventIds(data.events)
 
       if (data.qr_code) {
@@ -64,59 +84,322 @@ export default function Confirmation() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, type])
 
+  const roleConfig = {
+    student: {
+      accentColor: '#B22234',
+      accentBorder: 'rgba(178,34,52,0.3)',
+      accentBg: 'rgba(178,34,52,0.06)',
+      pendingTitle: 'Registration Submitted',
+      pendingSubtext: 'Your audience pass is pending faculty approval. Your digital pass will appear here once approved.',
+      approvedTitle: "You're In!",
+      approvedSubtext: 'Your audience entry pass is ready.',
+      badge: 'AUDIENCE PASS',
+      badgeColor: '#B22234',
+    },
+    participant: {
+      accentColor: '#C9A84C',
+      accentBorder: 'rgba(201,168,76,0.3)',
+      accentBg: 'rgba(201,168,76,0.06)',
+      pendingTitle: 'Registration Submitted',
+      pendingSubtext: 'Your participant registration is pending faculty approval. Your digital pass will appear here once approved.',
+      approvedTitle: "You're Ready to Compete!",
+      approvedSubtext: 'Your competition entry pass is ready.',
+      badge: 'PARTICIPANT',
+      badgeColor: '#C9A84C',
+    },
+    volunteer: {
+      accentColor: '#14B8A6',
+      accentBorder: 'rgba(20,184,166,0.3)',
+      accentBg: 'rgba(20,184,166,0.06)',
+      pendingTitle: 'Application Submitted',
+      pendingSubtext: 'Your volunteer application is under review. Faculty will assign you to a team and approve your pass.',
+      approvedTitle: 'Welcome to the Team!',
+      approvedSubtext: 'Your volunteer pass is ready.',
+      badge: 'VOLUNTEER',
+      badgeColor: '#14B8A6',
+    },
+    group: {
+      accentColor: '#C9A84C',
+      accentBorder: 'rgba(201,168,76,0.3)',
+      accentBg: 'rgba(201,168,76,0.06)',
+      pendingTitle: 'Group Registration Submitted',
+      pendingSubtext: 'Your group registration is pending faculty approval. The team leader will receive the group pass once approved.',
+      approvedTitle: 'Group is Ready!',
+      approvedSubtext: 'Your group competition pass is ready.',
+      badge: 'GROUP EVENT',
+      badgeColor: '#C9A84C',
+    },
+  }
+
+  const config = roleConfig[type] || roleConfig.student
+
   if (isPending && !qrCode) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] px-4 text-[#F5F0E8]">
-        <div className="mx-auto flex min-h-screen max-w-2xl items-center justify-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full rounded-2xl border border-[#C9A84C]/30 bg-[#111111] p-8 text-center"
-          >
-            <h1 className="text-3xl text-[#F5F0E8]" style={DISPLAY_FONT}>
-              Registration Submitted
-            </h1>
-            <p className="mt-3 text-sm text-[#F5F0E8]/72">
-              Your registration is pending faculty approval. Your QR code will appear here once approved.
-            </p>
-            <p className="mt-2 text-xs text-[#C9A84C]">Registration ID: {id}</p>
+      <div style={{
+        minHeight: '100vh',
+        background: `
+          radial-gradient(900px 600px at 15% 85%,
+            rgba(158,38,54,0.10) 0%, transparent 60%),
+          radial-gradient(700px 500px at 80% 15%,
+            rgba(190,163,93,0.07) 0%, transparent 60%),
+          #080910
+        `,
+        color: '#EEE6D8',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px'
+      }}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            width: '100%',
+            maxWidth: '520px',
+            background: '#0D0E12',
+            border: `0.5px solid ${config.accentBorder}`,
+            borderRadius: '20px',
+            overflow: 'hidden'
+          }}
+        >
+          <div style={{
+            height: '3px',
+            background: `linear-gradient(to right,
+              transparent, ${config.accentColor}, transparent)`
+          }} />
 
-            {statusError && (
-              <div className="mt-4 rounded-lg border border-red-500/35 bg-red-500/10 p-3 text-sm text-red-400">
-                {statusError}
+          <div style={{ padding: '36px 32px 32px' }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '3px 12px',
+              borderRadius: '999px',
+              background: config.accentBg,
+              border: `0.5px solid ${config.accentBorder}`,
+              color: config.badgeColor,
+              fontSize: '10px',
+              fontFamily: 'system-ui, sans-serif',
+              fontWeight: '600',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              marginBottom: '20px'
+            }}>
+              {config.badge}
+            </div>
+
+            <div style={{
+              width: '52px',
+              height: '52px',
+              borderRadius: '50%',
+              background: config.accentBg,
+              border: `0.5px solid ${config.accentBorder}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '22px',
+              marginBottom: '20px'
+            }}>
+              ⏳
+            </div>
+
+            <h1 style={{
+              fontFamily: 'Montage, Nevarademo, serif',
+              fontSize: '26px',
+              color: '#EEE6D8',
+              marginBottom: '10px',
+              lineHeight: 1.2
+            }}>
+              {config.pendingTitle}
+            </h1>
+
+            <p style={{
+              fontFamily: 'system-ui, sans-serif',
+              fontSize: '14px',
+              color: 'rgba(238,230,216,0.58)',
+              lineHeight: '1.65',
+              marginBottom: '16px'
+            }}>
+              {config.pendingSubtext}
+            </p>
+
+            <div style={{
+              background: 'rgba(255,255,255,0.03)',
+              border: '0.5px solid rgba(255,255,255,0.07)',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '20px'
+            }}>
+              <p style={{
+                fontFamily: 'system-ui, sans-serif',
+                fontSize: '10px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                color: 'rgba(238,230,216,0.35)',
+                marginBottom: '4px'
+              }}>
+                Registration ID
+              </p>
+              <p style={{
+                fontFamily: 'monospace',
+                fontSize: '13px',
+                color: config.accentColor,
+                wordBreak: 'break-all'
+              }}>
+                {id}
+              </p>
+            </div>
+
+            {isGroup && teamName && (
+              <div style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '0.5px solid rgba(255,255,255,0.07)',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                marginBottom: '20px'
+              }}>
+                <p style={{
+                  fontSize: '10px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.12em',
+                  color: 'rgba(238,230,216,0.35)',
+                  fontFamily: 'system-ui, sans-serif',
+                  marginBottom: '6px'
+                }}>
+                  Team Details
+                </p>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#EEE6D8',
+                  fontFamily: 'system-ui, sans-serif',
+                  fontWeight: '500'
+                }}>
+                  {teamName}
+                </p>
+                {eventName && (
+                  <p style={{
+                    fontSize: '12px',
+                    color: 'rgba(238,230,216,0.5)',
+                    fontFamily: 'system-ui, sans-serif',
+                    marginTop: '2px'
+                  }}>
+                    {eventName}
+                  </p>
+                )}
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={checkStatus}
-              disabled={isLoadingStatus}
-              className="mt-6 rounded-lg bg-[#C9A84C] px-5 py-2.5 text-sm font-semibold text-[#0A0A0A] transition hover:brightness-105 disabled:opacity-70"
-            >
-              {isLoadingStatus ? 'Checking Status...' : 'Check Approval Status'}
-            </button>
+            {isVolunteer && (
+              <div style={{
+                background: 'rgba(20,184,166,0.05)',
+                border: '0.5px solid rgba(20,184,166,0.2)',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                marginBottom: '20px'
+              }}>
+                <p style={{
+                  fontSize: '12px',
+                  color: 'rgba(20,184,166,0.8)',
+                  fontFamily: 'system-ui, sans-serif',
+                  lineHeight: '1.6'
+                }}>
+                  {teamAssigned
+                    ? `✓ Team Assigned: ${teamAssigned}`
+                    : '⏳ Team assignment pending - faculty will assign your team after review.'}
+                </p>
+              </div>
+            )}
 
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="ml-3 mt-6 rounded-lg border border-[#F5F0E8]/20 px-5 py-2.5 text-sm text-[#F5F0E8]/80 transition hover:border-[#C9A84C]/45 hover:text-[#F5F0E8]"
-            >
-              Back to Home
-            </button>
-          </motion.div>
-        </div>
+            {statusError && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                  background: 'rgba(178,34,52,0.08)',
+                  border: '0.5px solid rgba(178,34,52,0.25)',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  marginBottom: '16px',
+                  color: 'rgba(238,230,216,0.75)',
+                  fontSize: '13px',
+                  fontFamily: 'system-ui, sans-serif'
+                }}
+              >
+                {statusError}
+              </motion.div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={checkStatus}
+                disabled={isLoadingStatus}
+                style={{
+                  height: '42px',
+                  padding: '0 24px',
+                  borderRadius: '8px',
+                  background: config.accentColor,
+                  color: '#0A0800',
+                  fontFamily: 'system-ui, sans-serif',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  border: 'none',
+                  cursor: isLoadingStatus ? 'not-allowed' : 'pointer',
+                  opacity: isLoadingStatus ? 0.7 : 1,
+                  transition: 'opacity 0.18s ease'
+                }}
+              >
+                {isLoadingStatus ? 'Checking...' : 'Check Status'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                style={{
+                  height: '42px',
+                  padding: '0 24px',
+                  borderRadius: '8px',
+                  background: 'transparent',
+                  border: '0.5px solid rgba(255,255,255,0.12)',
+                  color: 'rgba(238,230,216,0.65)',
+                  fontFamily: 'system-ui, sans-serif',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Back to Home
+              </button>
+            </div>
+          </div>
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-[#F5F0E8]">
+    <div
+      style={{
+        minHeight: '100vh',
+        background: `
+          radial-gradient(900px 600px at 15% 85%,
+            rgba(158,38,54,0.10) 0%, transparent 60%),
+          radial-gradient(700px 500px at 80% 15%,
+            rgba(190,163,93,0.07) 0%, transparent 60%),
+          #080910
+        `,
+        color: '#F5F0E8'
+      }}
+    >
       <div className="mx-auto flex max-w-2xl flex-col items-center justify-center px-4 py-8 sm:px-6 lg:px-8 lg:py-16">
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', damping: 12, stiffness: 100, delay: 0.2 }}
-          className="mb-8 inline-flex h-20 w-20 items-center justify-center rounded-full bg-[#C9A84C]/20 text-5xl"
+          className="mb-8 inline-flex h-20 w-20 items-center justify-center rounded-full text-5xl"
+          style={{
+            background: config.accentBg,
+            color: config.accentColor,
+            border: `0.5px solid ${config.accentBorder}`
+          }}
         >
           ✓
         </motion.div>
@@ -128,7 +411,7 @@ export default function Confirmation() {
           className="text-center text-4xl font-light sm:text-5xl"
           style={DISPLAY_FONT}
         >
-          Registration Complete
+          {config.approvedTitle}
         </motion.h1>
 
         <motion.div
@@ -138,10 +421,10 @@ export default function Confirmation() {
           className="mt-6 text-center"
         >
           <p className="text-[#F5F0E8]/85">
-            {isParticipant ? 'You are all set to compete!' : 'Your entry pass is ready!'}
+            {config.approvedSubtext}
           </p>
           {userName && (
-            <p className="mt-2 text-lg text-[#C9A84C]" style={DISPLAY_FONT}>
+            <p className="mt-2 text-lg" style={{ ...DISPLAY_FONT, color: config.accentColor }}>
               {userName}
             </p>
           )}
@@ -154,10 +437,11 @@ export default function Confirmation() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.5 }}
-          className="mt-10 rounded-2xl border border-[#C9A84C]/40 bg-[#111111] p-6 sm:p-8"
+          className="mt-10 rounded-2xl bg-[#111111] p-6 sm:p-8"
+          style={{ border: `0.5px solid ${config.accentBorder}` }}
         >
-          <p className="mb-4 text-xs uppercase tracking-[0.15em] text-[#C9A84C]">
-            Your QR Code
+          <p className="mb-4 text-xs uppercase tracking-[0.15em]" style={{ color: config.accentColor }}>
+            Your Digital Pass
           </p>
 
           <div className="flex justify-center rounded-lg bg-[#0A0A0A] p-4">
@@ -167,6 +451,74 @@ export default function Confirmation() {
               className="h-48 w-48"
             />
           </div>
+
+          {isVolunteer && (
+            <div style={{
+              marginTop: '16px',
+              padding: '12px 14px',
+              background: 'rgba(20,184,166,0.06)',
+              border: '0.5px solid rgba(20,184,166,0.2)',
+              borderRadius: '8px'
+            }}>
+              <p style={{
+                fontSize: '10px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                color: 'rgba(20,184,166,0.7)',
+                fontFamily: 'system-ui, sans-serif',
+                marginBottom: '4px'
+              }}>
+                Team Assignment
+              </p>
+              <p style={{
+                fontSize: '14px',
+                color: '#14B8A6',
+                fontFamily: 'system-ui, sans-serif',
+                fontWeight: '500'
+              }}>
+                {teamAssigned || 'Check with faculty for team details'}
+              </p>
+            </div>
+          )}
+
+          {isGroup && teamName && (
+            <div style={{
+              marginTop: '16px',
+              padding: '12px 14px',
+              background: 'rgba(201,168,76,0.05)',
+              border: '0.5px solid rgba(201,168,76,0.2)',
+              borderRadius: '8px'
+            }}>
+              <p style={{
+                fontSize: '10px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                color: 'rgba(201,168,76,0.6)',
+                fontFamily: 'system-ui, sans-serif',
+                marginBottom: '4px'
+              }}>
+                Team
+              </p>
+              <p style={{
+                fontSize: '14px',
+                color: '#C9A84C',
+                fontFamily: 'system-ui, sans-serif',
+                fontWeight: '500'
+              }}>
+                {teamName} · {teamMembers.length} member(s)
+              </p>
+              {eventName && (
+                <p style={{
+                  fontSize: '12px',
+                  color: 'rgba(238,230,216,0.5)',
+                  fontFamily: 'system-ui, sans-serif',
+                  marginTop: '2px'
+                }}>
+                  {eventName}
+                </p>
+              )}
+            </div>
+          )}
 
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -180,27 +532,39 @@ export default function Confirmation() {
           </motion.div>
         </motion.div>
 
-        {isParticipant && selectedEvents.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="mt-8 w-full"
-          >
-            <p className="mb-3 text-xs uppercase tracking-[0.15em] text-[#C9A84C]">
+        {isParticipant && Array.isArray(selectedEventIds) && selectedEventIds.length > 0 && (
+          <div style={{ marginTop: '24px', width: '100%' }}>
+            <p style={{
+              fontSize: '10px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.15em',
+              color: config.accentColor,
+              fontFamily: 'system-ui, sans-serif',
+              marginBottom: '10px'
+            }}>
               Your Events
             </p>
-            <div className="flex flex-wrap gap-2">
-              {selectedEvents.map((event) => (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {selectedEventIds.map((event, i) => (
                 <span
-                  key={event.id}
-                  className="rounded-full border border-[#C9A84C]/45 bg-[#C9A84C]/12 px-3 py-1.5 text-xs text-[#F5F0E8]"
+                  key={i}
+                  style={{
+                    padding: '4px 14px',
+                    borderRadius: '999px',
+                    border: `0.5px solid ${config.accentBorder}`,
+                    background: config.accentBg,
+                    color: '#EEE6D8',
+                    fontSize: '12px',
+                    fontFamily: 'system-ui, sans-serif'
+                  }}
                 >
-                  {event.name}
+                  {typeof event === 'object'
+                    ? (event.event_name || event.name)
+                    : event}
                 </span>
               ))}
             </div>
-          </motion.div>
+          </div>
         )}
 
         <motion.button
@@ -209,12 +573,11 @@ export default function Confirmation() {
           transition={{ delay: 0.75 }}
           whileHover={{ y: -2 }}
           onClick={() => navigate('/')}
-          className="mt-12 rounded-lg bg-[#C9A84C] px-8 py-3 font-semibold text-[#0A0A0A] transition hover:brightness-105"
+          className="mt-12 rounded-lg px-8 py-3 font-semibold transition hover:brightness-105"
+          style={{ background: config.accentColor, color: '#0A0A0A' }}
         >
           Back to Home
         </motion.button>
-
-
       </div>
     </div>
   )
