@@ -1,86 +1,85 @@
-export const EVENTS = [
+export const CATEGORIES = [
   {
-    id: "dance",
-    name: "Dance",
-    icon: "💃",
-    category: "Solo & Group",
-    rules: [
-      "Minimum 2 minutes, maximum 5 minutes performance duration",
-      "Music must be submitted 30 minutes before the scheduled time slot",
-      "Solo or group performances (max 8 members per group)",
-      "Props and minimal stage setup allowed; no live instruments",
-      "Costumes must be appropriate and culturally respectful",
-      "All participants must sign the consent form before performance"
+    id: 'performance',
+    label: 'Performance-Based',
+    color: '#C9A84C',
+    icon: '🎭',
+    events: [
+      { id: 'singing-solo', name: 'Singing', type: 'Solo', 
+        isGroup: false, is_active: true },
+      { id: 'singing-band', name: 'Singing', type: 'Band', 
+        isGroup: true, is_active: true },
+      { id: 'dance-solo', name: 'Dance', type: 'Solo', 
+        isGroup: false, is_active: true },
+      { id: 'dance-crew', name: 'Dance', type: 'Crew', 
+        isGroup: true, is_active: true },
+      { id: 'instrumental', name: 'Instrumental', type: 'Solo', 
+        isGroup: false, is_active: true },
     ]
   },
   {
-    id: "standup-comedy",
-    name: "Standup Comedy",
-    icon: "🎙️",
-    category: "Solo",
-    rules: [
-      "Performances limited to 5 minutes maximum",
-      "Content must be clean, non-offensive, and suitable for college audience",
-      "No profanity, derogatory remarks about caste, religion, or gender",
-      "Participants perform with provided microphone only; no props allowed",
-      "Judges will disqualify acts containing explicit or hateful content",
-      "Solo performance only; backing tracks are not permitted"
+    id: 'expression',
+    label: 'Expression-Based',
+    color: '#C9A84C',
+    icon: '🎤',
+    events: [
+      { id: 'standup-comedy', name: 'Stand-up Comedy', type: 'Solo', 
+        isGroup: false, is_active: true },
+      { id: 'poetry', name: 'Poetry', type: 'Solo', 
+        isGroup: false, is_active: true },
+      { id: 'rap', name: 'Rap', type: 'Solo', 
+        isGroup: false, is_active: true },
+      { id: 'beatboxing', name: 'Beatboxing', type: 'Solo', 
+        isGroup: false, is_active: true },
     ]
   },
   {
-    id: "singing",
-    name: "Singing",
-    icon: "🎵",
-    category: "Solo & Duet",
-    rules: [
-      "Solo or duet performances (max 2 singers per group)",
-      "Duration: minimum 2 minutes, maximum 4 minutes",
-      "Backing track must be in CD/USB format, submitted 1 hour before event",
-      "Acoustic performances without backing track are also welcome",
-      "Any music genre accepted (Indian classical, Bollywood, Western, devotional, etc.)",
-      "Contestants must provide their own accompaniment or perform acapella"
+    id: 'creative',
+    label: 'Creative Talents',
+    color: '#C9A84C',
+    icon: '🎨',
+    events: [
+      { id: 'art-painting', name: 'Art (Live Painting)', type: 'Solo', 
+        isGroup: false, is_active: true },
+      { id: 'fashion-walk', name: 'Fashion Walk / Styling', type: 'Solo', 
+        isGroup: false, is_active: true },
+      { id: 'reel-making', name: 'Reel-making', type: 'Solo', 
+        isGroup: false, is_active: true },
+      { id: 'content-creation', name: 'Content Creation', type: 'Solo', 
+        isGroup: false, is_active: true },
     ]
   },
   {
-    id: "skit",
-    name: "Skit",
-    icon: "🎭",
-    category: "Group",
-    rules: [
-      "Team size: minimum 4, maximum 10 members",
-      "Duration: minimum 5 minutes, maximum 10 minutes",
-      "Props, backdrop, and minimal lighting changes allowed",
-      "Scripts can be original or adapted; must be submitted before the day of event",
-      "No live animals or hazardous materials allowed on stage",
-      "Content should be family-friendly and culturally appropriate"
-    ]
-  },
-  {
-    id: "fashion-show",
-    name: "Fashion Show",
-    icon: "👗",
-    category: "Group",
-    rules: [
-      "Team size: minimum 4 models, maximum 12 participants (including choreographer)",
-      "Duration: minimum 4 minutes, maximum 8 minutes with music",
-      "Theme-based or contemporary collections; creativity is encouraged",
-      "Models must be college students; professional models not allowed",
-      "Choreography and transitions between outfits are essential",
-      "Music backing track required; must be submitted 2 hours before performance"
-    ]
-  },
-  {
-    id: "rampwalk",
-    name: "Rampwalk",
-    icon: "👠",
-    category: "Solo & Duo",
-    rules: [
-      "Individual or pair participation (max 2 participants per entry)",
-      "Ramp walk duration: 45 seconds to 1 minute per participant",
-      "Outfit can be traditional, fusion, or contemporary; must be well-coordinated",
-      "Shoes and accessories must be appropriate and safe for walking on ramp",
-      "Confidence, posture, and grace are judging criteria",
-      "Contestants cannot participate in both Fashion Show and Rampwalk events"
+    id: 'wildcard',
+    label: 'Wildcard Category',
+    color: '#C9A84C',
+    icon: '⚡',
+    events: [
+      { id: 'anything-talent', name: 'Anything Talent', 
+        description: 'magic, mimicry, freestyle, etc.',
+        type: 'Open', isGroup: false, is_active: true },
     ]
   }
-];
+]
+
+// Global Others — not part of any category
+export const OTHERS_EVENT = {
+  id: 'others',
+  name: 'Others',
+  isOthers: true,
+  is_active: true
+}
+
+export const VOLUNTEER_TEAMS = [
+  { id: 'registration-reception', label: 'Registration & Reception Team' },
+  { id: 'program-coordination', label: 'Program Coordination Team' },
+  { id: 'discipline-security', label: 'Discipline & Security Committee' },
+  { id: 'hospitality-welfare', label: 'Hospitality & Welfare Team' },
+]
+
+// Flat EVENTS array for backward compatibility
+export const EVENTS = CATEGORIES.flatMap(cat => 
+  cat.events.map(ev => ({ ...ev, categoryId: cat.id, categoryLabel: cat.label }))
+)
+
+export default CATEGORIES

@@ -1,327 +1,600 @@
-import { useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion, useInView } from 'framer-motion'
-import { EVENTS } from '../data/events.js'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } },
-}
-
-const stagger = {
-  hidden: {},
-  show: {
-    transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.08,
-    },
+const CATEGORIES = [
+  {
+    id: 'performance',
+    label: 'Performance-Based',
+    icon: '🎭',
+    events: [
+      { id: 'singing-solo', name: 'Singing', type: 'Solo', isGroup: false },
+      { id: 'singing-band', name: 'Singing', type: 'Band', isGroup: true },
+      { id: 'dance-solo', name: 'Dance', type: 'Solo', isGroup: false },
+      { id: 'dance-crew', name: 'Dance', type: 'Crew', isGroup: true },
+      { id: 'instrumental', name: 'Instrumental', type: 'Solo', isGroup: false },
+    ],
   },
+  {
+    id: 'expression',
+    label: 'Expression-Based',
+    icon: '🎤',
+    events: [
+      { id: 'standup-comedy', name: 'Stand-up Comedy', type: 'Solo', isGroup: false },
+      { id: 'poetry', name: 'Poetry', type: 'Solo', isGroup: false },
+      { id: 'rap', name: 'Rap', type: 'Solo', isGroup: false },
+      { id: 'beatboxing', name: 'Beatboxing', type: 'Solo', isGroup: false },
+    ],
+  },
+  {
+    id: 'creative',
+    label: 'Creative Talents',
+    icon: '🎨',
+    events: [
+      { id: 'art-painting', name: 'Art', type: 'Live Painting', isGroup: false },
+      { id: 'fashion-walk', name: 'Fashion Walk', type: 'Styling', isGroup: false },
+      { id: 'reel-making', name: 'Reel-making', type: 'Solo', isGroup: false },
+      { id: 'content-creation', name: 'Content Creation', type: 'Solo', isGroup: false },
+    ],
+  },
+  {
+    id: 'wildcard',
+    label: 'Wildcard Category',
+    icon: '⚡',
+    events: [
+      {
+        id: 'anything-talent',
+        name: 'Anything Talent',
+        type: 'magic · mimicry · freestyle',
+        isGroup: false,
+      },
+    ],
+  },
+]
+
+const OTHERS_EVENT_ID = 'others'
+
+const getEventPillLabel = (event) => {
+  const hasMeaningfulType = event.type && event.type.toLowerCase() !== 'solo'
+  return hasMeaningfulType ? `${event.name} · ${event.type}` : event.name
 }
 
-const titleWords = ['Select', 'Your', 'Events']
-
-const getEventAccent = (event) => {
-  const name = event.name.toLowerCase()
-  if (name.includes('dance') || name.includes('fashion') || name.includes('ramp')) return '💃'
-  if (name.includes('sing')) return '🎤'
-  if (name.includes('comedy')) return '🎭'
-  if (name.includes('skit')) return '🎬'
-  return '✨'
+const getSelectionMessage = (count) => {
+  if (count === 0) return 'Select up to 2 events to continue'
+  if (count === 1) return '1 event selected · 1 more allowed'
+  return '2 events selected · Maximum reached'
 }
 
 export default function ParticipantEvents() {
   const navigate = useNavigate()
-  const gridRef = useRef(null)
-  const gridInView = useInView(gridRef, { once: true, amount: 0.15 })
 
-  const [selectedEventIds, setSelectedEventIds] = useState([])
-  const [activeEvent, setActiveEvent] = useState(null)
+  const [selectedIds, setSelectedIds] = useState([])
+  const [othersText, setOthersText] = useState('')
+  const [groupModalEvent, setGroupModalEvent] = useState(null)
 
-  const selectedEvents = selectedEventIds
-    .map((id) => EVENTS.find((event) => event.id === id))
-    .filter(Boolean)
+  const totalSelected = selectedIds.length
+  const othersSelected = selectedIds.includes(OTHERS_EVENT_ID)
+  const othersNeedsText = othersSelected && othersText.trim().length === 0
+  const canContinue = totalSelected >= 1 && !othersNeedsText
 
-  const atMaxSelection = selectedEventIds.length >= 2
-  const isActiveSelected = activeEvent ? selectedEventIds.includes(activeEvent.id) : false
-  const selectionBlocked = Boolean(activeEvent) && atMaxSelection && !isActiveSelected
+  useEffect(() => {
+    if (!groupModalEvent) return undefined
 
-  const openRulesModal = (event) => {
-    setActiveEvent(event)
-  }
-
-  const closeRulesModal = () => {
-    setActiveEvent(null)
-  }
-
-  const handleBackdropClick = () => {
-    if (selectedEventIds.length < 2) {
-      closeRulesModal()
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setGroupModalEvent(null)
+      }
     }
-  }
 
-  const handleSelectActiveEvent = () => {
-    if (!activeEvent || selectionBlocked || isActiveSelected) {
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    document.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      document.body.style.overflow = prevOverflow
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [groupModalEvent])
+
+  function handleEventClick(event) {
+    if (event.isGroup) {
+      setGroupModalEvent(event)
       return
     }
 
-    setSelectedEventIds((prev) => [...prev, activeEvent.id])
-    closeRulesModal()
+    if (selectedIds.includes(event.id)) {
+      setSelectedIds((prev) => prev.filter((id) => id !== event.id))
+      return
+    }
+
+    if (totalSelected >= 2) return
+
+    setSelectedIds((prev) => [...prev, event.id])
   }
 
-  const removeSelectedEvent = (idToRemove) => {
-    setSelectedEventIds((prev) => prev.filter((id) => id !== idToRemove))
+  function handleOthersToggle() {
+    if (selectedIds.includes(OTHERS_EVENT_ID)) {
+      setSelectedIds((prev) => prev.filter((id) => id !== OTHERS_EVENT_ID))
+      setOthersText('')
+    } else {
+      if (totalSelected >= 2) return
+      setSelectedIds((prev) => [...prev, OTHERS_EVENT_ID])
+    }
   }
 
-  const handleContinue = () => {
+  function handleContinue() {
+    if (!canContinue) return
+
+    const selectedEvents = CATEGORIES.flatMap((cat) => cat.events).filter((ev) => selectedIds.includes(ev.id))
+
     navigate('/participant/register', {
       state: {
-        selectedEventIds,
+        events: selectedEvents,
+        othersSelected: selectedIds.includes(OTHERS_EVENT_ID),
+        othersText,
       },
     })
   }
 
-  const progressPct = (selectedEventIds.length / 2) * 100
-
   return (
-    <div
-      className="min-h-screen pb-28 text-[#EEE6D8]"
-      style={{
-        background:
-          'radial-gradient(900px circle at 16% 88%, rgba(178,34,52,0.14), transparent 60%), radial-gradient(700px circle at 82% 12%, rgba(201,168,76,0.07), transparent 62%), radial-gradient(1400px at 50% 50%, rgba(20,28,60,0.3), transparent 70%), #080910',
-      }}
-    >
-      <header className="sticky top-0 z-30 border-b border-[#EEE6D8]/10 bg-[#080910]/88 backdrop-blur-md">
-        <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-[#EEE6D8]/38">
-            Home → Participant Registration → Select Events
-          </p>
+    <div style={{
+      minHeight: '100vh',
+      background: `
+        radial-gradient(900px 600px at 15% 85%, 
+          rgba(158,38,54,0.10) 0%, transparent 60%),
+        radial-gradient(700px 500px at 80% 15%, 
+          rgba(190,163,93,0.07) 0%, transparent 60%),
+        #080910
+      `,
+      color: '#EEE6D8',
+      paddingBottom: '100px'
+    }}>
+      <div style={{
+        maxWidth: '820px',
+        margin: '0 auto',
+        padding: '32px 24px 0'
+      }}>
+        <p className="text-[11px] tracking-[0.05em] text-[#EEE6D8]/30">
+          Home → Participant Registration → Select Events
+        </p>
 
-          <div className="mt-3 flex items-start justify-between gap-4">
-            <div>
-              <button
-                type="button"
-                onClick={() => navigate(-1)}
-                className="mb-2 inline-flex items-center gap-2 text-sm text-[#EEE6D8]/78 transition hover:text-[#EEE6D8]"
-              >
-                <span aria-hidden="true">&larr;</span>
-                Back
-              </button>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="mt-3 inline-flex items-center text-sm text-[#EEE6D8]/72 transition hover:text-[#EEE6D8]"
+        >
+          ← Back
+        </button>
 
-              <h1 className="text-[clamp(30px,5vw,56px)] leading-[1.04]" style={DISPLAY_FONT}>
-                {titleWords.map((word, index) => (
-                  <motion.span
-                    key={word}
-                    initial={{ y: 28, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ duration: 0.52, delay: index * 0.1, ease: 'easeOut' }}
-                    className="mr-[0.18em] inline-block"
-                  >
-                    {word}
-                  </motion.span>
-                ))}
-              </h1>
-              <p className="mt-2 text-sm text-[#C9A84C]">Choose up to 2 events</p>
-            </div>
+        <h1 className="mt-4 text-[clamp(28px,4vw,48px)] leading-[1.06] text-[#EEE6D8]" style={DISPLAY_FONT}>
+          Select Your Events
+        </h1>
+        <p className="mt-2 text-[15px] text-[#EEE6D8]/55">Choose up to 2 events from any category below</p>
 
-            <Link
-              to="/"
-              className="hidden rounded-full border border-[#EEE6D8]/20 px-4 py-2 text-sm text-[#EEE6D8]/75 transition hover:border-[#C9A84C]/50 hover:text-[#EEE6D8] sm:inline-flex"
-            >
-              Home
-            </Link>
+        <div style={{
+          marginBottom: '36px',
+          marginTop: '8px'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '8px'
+          }}>
+            <span style={{
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+              fontSize: '10px',
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'rgba(238,230,216,0.35)'
+            }}>MAX 2 EVENTS</span>
+            <span style={{
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+              fontSize: '12px',
+              fontWeight: '600',
+              color: totalSelected > 0 ? '#C9A84C' : 'rgba(238,230,216,0.35)'
+            }}>{totalSelected} / 2</span>
           </div>
-
-          <div className="mt-4 max-w-md">
-            <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.15em]">
-              <span className="text-[#EEE6D8]/55">Max 2 events</span>
-              <span className="text-[#C9A84C]">{selectedEventIds.length}/2</span>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full border border-[#C9A84C]/28 bg-[#EEE6D8]/6">
-              <motion.div
-                className="h-full rounded-full"
-                style={{
-                  width: `${progressPct}%`,
-                  background: 'linear-gradient(90deg, #C9A84C 0%, #A8893C 100%)',
-                }}
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPct}%` }}
-                transition={{ duration: 0.35, ease: 'easeOut' }}
-              />
-            </div>
+          <div style={{
+            width: '100%',
+            height: '2px',
+            background: 'rgba(255,255,255,0.07)',
+            borderRadius: '999px',
+            overflow: 'hidden'
+          }}>
+            <div
+              style={{
+                height: '100%',
+                width: `${(totalSelected / 2) * 100}%`,
+                background: 'linear-gradient(to right, #C9A84C, #E8C96A)',
+                borderRadius: '999px',
+                transition: 'width 0.35s ease'
+              }}
+            />
           </div>
         </div>
-      </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 pt-10 sm:px-6 lg:px-8">
-        <motion.div
-          ref={gridRef}
-          variants={stagger}
-          initial="hidden"
-          animate={gridInView ? 'show' : 'hidden'}
-          className="grid grid-cols-2 gap-4 lg:grid-cols-4"
-        >
-          {EVENTS.map((event) => {
-            const isSelected = selectedEventIds.includes(event.id)
-            const isDisabled = atMaxSelection && !isSelected
-
-            return (
-              <motion.button
-                key={event.id}
-                type="button"
-                onClick={() => !isDisabled && openRulesModal(event)}
-                disabled={isDisabled}
-                variants={fadeUp}
-                className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition duration-300 ease-out ${
-                  isSelected
-                    ? 'border-[#C9A84C]/75 shadow-[0_0_0_1px_rgba(201,168,76,0.32),0_0_24px_rgba(201,168,76,0.18)]'
-                    : 'border-[#EEE6D8]/12 hover:border-[#C9A84C]/45'
-                } ${isDisabled ? 'cursor-not-allowed opacity-40 blur-[0.8px]' : 'hover:-translate-y-1'}`}
-                style={{
-                  background:
-                    'linear-gradient(135deg, rgba(201,168,76,0.055) 0%, rgba(201,168,76,0.02) 100%), rgba(255,255,255,0.022)',
-                  backdropFilter: 'blur(12px) saturate(1.4)',
-                }}
-              >
-                <div
-                  className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
-                  style={{ background: 'linear-gradient(to right, transparent, rgba(201,168,76,0.85), transparent)' }}
-                />
-
-                {isSelected && (
-                  <span className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#C9A84C] text-sm font-semibold text-[#0A0A0A] shadow-[0_0_18px_rgba(201,168,76,0.45)]">
-                    ✓
-                  </span>
-                )}
-
-                <div className="mb-4 text-3xl">{event.icon}</div>
-                <h2 className="flex items-center gap-2 text-lg text-[#EEE6D8]" style={DISPLAY_FONT}>
-                  <span className="text-base" aria-hidden="true">{getEventAccent(event)}</span>
-                  {event.name}
-                </h2>
-                <p className="mt-1 text-sm text-[#EEE6D8]/62">{event.category}</p>
-
-                <span className="mt-5 inline-flex rounded-full border border-[#C9A84C]/45 px-3 py-1.5 text-xs font-medium text-[#C9A84C] transition group-hover:bg-[#C9A84C]/10">
-                  View Rules & Select
+        <div className="mt-8">
+          {CATEGORIES.map((category, index) => (
+            <motion.section
+              key={category.id}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: index * 0.08 }}
+              style={{ marginBottom: '40px' }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginBottom: '16px'
+              }}>
+                <span style={{
+                  fontSize: '18px',
+                  lineHeight: 1,
+                  flexShrink: 0
+                }} aria-hidden="true">
+                  {category.icon}
                 </span>
-              </motion.button>
-            )
-          })}
-        </motion.div>
-      </main>
+                <span style={{
+                  fontFamily: "'Montage', serif",
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  letterSpacing: '0.14em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(238,230,216,0.75)',
+                  flexShrink: 0
+                }}>
+                  {category.label}
+                </span>
+                <div style={{
+                  flex: 1,
+                  height: '0.5px',
+                  background: 'rgba(255,255,255,0.07)'
+                }} />
+              </div>
+
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '10px',
+                marginTop: '14px'
+              }}>
+                {category.events.map((event) => {
+                  const isGroup = event.isGroup
+                  const isSelected = !isGroup && selectedIds.includes(event.id)
+                  const isDisabled = !isGroup && totalSelected >= 2 && !isSelected
+
+                  const basePillStyle = {
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    height: '36px',
+                    padding: '0 18px',
+                    borderRadius: '999px',
+                    fontSize: '13px',
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    fontWeight: '400',
+                    cursor: isDisabled ? 'not-allowed' : 'pointer',
+                    border: '0.5px solid rgba(255,255,255,0.15)',
+                    background: 'rgba(255,255,255,0.05)',
+                    color: 'rgba(238,230,216,0.72)',
+                    transition: 'all 0.18s ease',
+                    userSelect: 'none',
+                    whiteSpace: 'nowrap',
+                    opacity: isDisabled ? 0.28 : 1,
+                    pointerEvents: isDisabled ? 'none' : 'auto'
+                  }
+
+                  let pillStyle = { ...basePillStyle }
+
+                  if (isSelected) {
+                    pillStyle.background = 'rgba(201,168,76,0.13)'
+                    pillStyle.border = '1px solid rgba(201,168,76,0.55)'
+                    pillStyle.color = '#C9A84C'
+                    pillStyle.fontWeight = '500'
+                    pillStyle.boxShadow = '0 0 12px rgba(201,168,76,0.08)'
+                  } else if (isGroup) {
+                    pillStyle.border = '0.5px solid rgba(201,168,76,0.18)'
+                  }
+
+                  return (
+                    <motion.button
+                      key={event.id}
+                      type="button"
+                      onClick={() => handleEventClick(event)}
+                      whileTap={{ scale: 0.96 }}
+                      layout
+                      style={pillStyle}
+                    >
+                      {isSelected ? <span aria-hidden="true">✓</span> : null}
+                      <span>{getEventPillLabel(event)}</span>
+                      {isGroup ? <span aria-hidden="true" style={{ fontSize: '12px', opacity: 0.7 }}>👥</span> : null}
+                    </motion.button>
+                  )
+                })}
+              </div>
+            </motion.section>
+          ))}
+
+          <motion.section
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: CATEGORIES.length * 0.08 }}
+            style={{
+              marginTop: '8px',
+              marginBottom: '40px',
+              paddingTop: '24px',
+              borderTop: '0.5px solid rgba(255,255,255,0.06)'
+            }}
+          >
+            <label style={{
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+              fontSize: '10px',
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'rgba(238,230,216,0.35)',
+              marginBottom: '10px',
+              display: 'block'
+            }}>✦ OTHERS / UNIQUE TALENT</label>
+
+            <button
+              type="button"
+              onClick={handleOthersToggle}
+              disabled={!othersSelected && totalSelected >= 2}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                height: '36px',
+                padding: '0 18px',
+                borderRadius: '999px',
+                border: othersSelected ? '1px dashed rgba(201,168,76,0.45)' : '1px dashed rgba(255,255,255,0.18)',
+                background: othersSelected ? 'rgba(201,168,76,0.07)' : 'transparent',
+                color: othersSelected ? '#C9A84C' : 'rgba(238,230,216,0.5)',
+                fontSize: '13px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                cursor: !othersSelected && totalSelected >= 2 ? 'not-allowed' : 'pointer',
+                opacity: !othersSelected && totalSelected >= 2 ? 0.3 : 1
+              }}
+            >
+              <span>✦ Others / Unique Talent</span>
+            </button>
+
+            <AnimatePresence initial={false}>
+              {othersSelected && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.28, ease: 'easeOut' }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <textarea
+                    rows={3}
+                    value={othersText}
+                    onChange={(event) => setOthersText(event.target.value)}
+                    placeholder="Describe your unique talent or performance idea..."
+                    style={{
+                      width: '100%',
+                      maxWidth: '560px',
+                      marginTop: '12px',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '0.5px solid rgba(201,168,76,0.22)',
+                      borderRadius: '10px',
+                      color: '#EEE6D8',
+                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      fontSize: '13px',
+                      lineHeight: '1.6',
+                      padding: '12px 16px',
+                      resize: 'vertical',
+                      outline: 'none',
+                      display: 'block'
+                    }}
+                  />
+                  {othersNeedsText && (
+                    <p style={{
+                      marginTop: '8px',
+                      fontSize: '11px',
+                      color: 'rgba(178,34,52,0.8)'
+                    }}>Please describe your talent to continue</p>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.section>
+        </div>
+      </div>
+
+      <div style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 40,
+        background: 'rgba(8,9,16,0.95)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderTop: '0.5px solid rgba(255,255,255,0.08)',
+        padding: '14px 32px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+      }}>
+        <p
+          style={{
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontSize: '13px',
+            color: totalSelected === 2
+              ? '#C9A84C'
+              : totalSelected === 1
+                ? 'rgba(238,230,216,0.6)'
+                : 'rgba(238,230,216,0.35)'
+          }}
+        >
+          {getSelectionMessage(totalSelected)}
+        </p>
+
+        <button
+          type="button"
+          onClick={handleContinue}
+          disabled={!canContinue}
+          style={canContinue
+            ? {
+                height: '42px',
+                padding: '0 32px',
+                borderRadius: '999px',
+                background: 'linear-gradient(135deg, #C9A84C 0%, #A8893C 100%)',
+                color: '#0A0800',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                fontWeight: '600',
+                fontSize: '14px',
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 4px 20px rgba(201,168,76,0.28)',
+                letterSpacing: '0.03em'
+              }
+            : {
+                height: '42px',
+                padding: '0 32px',
+                borderRadius: '999px',
+                background: 'rgba(201,168,76,0.15)',
+                color: 'rgba(201,168,76,0.4)',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                fontWeight: '600',
+                fontSize: '14px',
+                border: '0.5px solid rgba(201,168,76,0.15)',
+                cursor: 'not-allowed'
+              }}
+        >
+          Continue →
+        </button>
+      </div>
 
       <AnimatePresence>
-        {activeEvent && (
+        {groupModalEvent && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/72 p-3 backdrop-blur-[4px] sm:p-6"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.75)',
+              backdropFilter: 'blur(6px)',
+              WebkitBackdropFilter: 'blur(6px)',
+              zIndex: 50,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px'
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={handleBackdropClick}
+            onClick={() => setGroupModalEvent(null)}
           >
             <motion.div
-              className="card-glass relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-[#EEE6D8]/15 bg-[#111111]/88 p-5 sm:rounded-3xl sm:p-7"
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
+              style={{
+                width: '100%',
+                maxWidth: '460px',
+                background: '#0D0E12',
+                border: '0.5px solid rgba(201,168,76,0.2)',
+                borderRadius: '16px',
+                overflow: 'hidden'
+              }}
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
               onClick={(event) => event.stopPropagation()}
             >
               <div
-                className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
-                style={{ background: 'linear-gradient(to right, transparent, rgba(201,168,76,0.9), transparent)' }}
+                style={{
+                  height: '3px',
+                  background: 'linear-gradient(to right, transparent, #C9A84C, transparent)'
+                }}
               />
 
-              <button
-                type="button"
-                onClick={closeRulesModal}
-                className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#EEE6D8]/18 text-[#EEE6D8]/78 transition hover:border-[#C9A84C]/45 hover:text-[#C9A84C]"
-                aria-label="Close rules"
-              >
-                x
-              </button>
+              <div style={{ padding: '28px 28px 24px' }}>
+                <h3 style={{
+                  fontFamily: "'Montage', serif",
+                  fontSize: '22px',
+                  color: '#EEE6D8',
+                  marginBottom: '8px'
+                }}>
+                  Group Registration
+                </h3>
 
-              <h3 className="pr-10 text-3xl text-[#EEE6D8]" style={DISPLAY_FONT}>
-                {activeEvent.name}
-              </h3>
-              <p className="mt-2 text-sm uppercase tracking-[0.15em] text-[#C9A84C]">Rules & Eligibility</p>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '3px 12px',
+                  borderRadius: '999px',
+                  background: 'rgba(201,168,76,0.1)',
+                  border: '0.5px solid rgba(201,168,76,0.3)',
+                  color: '#C9A84C',
+                  fontSize: '12px',
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  marginBottom: '16px'
+                }}>
+                  {groupModalEvent.name} · {groupModalEvent.type}
+                </div>
 
-              <ol className="mt-6 space-y-3">
-                {activeEvent.rules.map((rule, index) => (
-                  <li key={rule} className="flex items-start gap-3 rounded-xl border border-[#EEE6D8]/10 bg-[#0F0F0F]/85 p-3">
-                    <span className="mt-0.5 inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#C9A84C]/16 text-sm font-semibold text-[#C9A84C]">
-                      {index + 1}
-                    </span>
-                    <span className="text-sm leading-relaxed text-[#EEE6D8]/84">{rule}</span>
-                  </li>
-                ))}
-              </ol>
+                <p style={{
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  fontSize: '14px',
+                  lineHeight: '1.7',
+                  color: 'rgba(238,230,216,0.62)',
+                  marginBottom: '24px'
+                }}>
+                  This is a group event. The team leader should register the entire team together - including all
+                  member names and roll numbers.
+                </p>
 
-              <div className="mt-6">
-                <button
-                  type="button"
-                  onClick={handleSelectActiveEvent}
-                  disabled={selectionBlocked || isActiveSelected}
-                  className={`w-full rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                    selectionBlocked || isActiveSelected
-                      ? 'cursor-not-allowed bg-[#C9A84C]/28 text-[#0A0A0A]/60'
-                      : 'bg-[#C9A84C] text-[#0A0A0A] hover:brightness-105'
-                  }`}
-                >
-                  {isActiveSelected ? 'Event Selected' : 'Select This Event'}
-                </button>
-                {selectionBlocked && (
-                  <p className="mt-2 text-center text-sm text-[#C9A84C]">Max 2 events reached</p>
-                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate('/participant/group-register', {
+                        state: { groupEvent: groupModalEvent },
+                      })
+                    }
+                    style={{
+                      width: '100%',
+                      height: '44px',
+                      borderRadius: '10px',
+                      background: 'linear-gradient(135deg, #C9A84C, #A8893C)',
+                      color: '#0A0800',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      border: 'none',
+                      cursor: 'pointer',
+                      marginBottom: '10px'
+                    }}
+                  >
+                    Register as Group →
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setGroupModalEvent(null)}
+                    style={{
+                      width: '100%',
+                      height: '36px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'rgba(238,230,216,0.35)',
+                      fontSize: '13px',
+                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {selectedEventIds.length > 0 && (
-          <motion.div
-            className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#C9A84C]/25 bg-[#0B0B0B]/95 backdrop-blur-md"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-          >
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-              <div className="flex flex-wrap items-center gap-2">
-                {selectedEvents.map((event) => (
-                  <span
-                    key={event.id}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/35 bg-[#C9A84C]/10 px-3 py-1.5 text-xs text-[#EEE6D8]"
-                  >
-                    {event.name}
-                    <button
-                      type="button"
-                      aria-label={`Remove ${event.name}`}
-                      onClick={() => removeSelectedEvent(event.id)}
-                      className="rounded-full px-1 text-[#EEE6D8]/70 transition hover:text-[#EEE6D8]"
-                    >
-                      x
-                    </button>
-                  </span>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleContinue}
-                disabled={selectedEventIds.length === 0}
-                className="w-full rounded-xl px-5 py-3 text-sm font-semibold text-[#0C0D10] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40 lg:w-auto"
-                style={{
-                  background: 'linear-gradient(135deg, #C9A84C, #A8893C)',
-                  boxShadow: '0 4px 24px rgba(201,168,76,0.25)',
-                }}
-              >
-                Continue to Registration
-              </button>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>

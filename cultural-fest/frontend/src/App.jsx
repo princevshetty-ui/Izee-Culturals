@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 const Home = lazy(() => import('./pages/Home'))
 const ParticipantEvents = lazy(() => import('./pages/ParticipantEvents'))
 const ParticipantRegister = lazy(() => import('./pages/ParticipantRegister'))
+const ParticipantGroupRegister = lazy(() => import('./pages/ParticipantGroupRegister'))
+const VolunteerRegister = lazy(() => import('./pages/VolunteerRegister'))
 const StudentRegister = lazy(() => import('./pages/StudentRegister'))
 const Confirmation = lazy(() => import('./pages/Confirmation'))
 const FacultyLogin = lazy(() => import('./pages/FacultyLogin'))
@@ -83,10 +85,26 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/participant/group-register"
+            element={
+              <PageTransition>
+                <ParticipantGroupRegister />
+              </PageTransition>
+            }
+          />
+          <Route
             path="/student/register"
             element={
               <PageTransition>
                 <StudentRegister />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/volunteer/register"
+            element={
+              <PageTransition>
+                <VolunteerRegister />
               </PageTransition>
             }
           />
