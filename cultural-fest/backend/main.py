@@ -16,7 +16,7 @@ def validate_startup_env() -> None:
 
 validate_startup_env()
 
-from routes import students, participants, faculty
+from routes import students, participants, faculty, volunteers
 
 app = FastAPI(title="Cultural Fest API")
 
@@ -36,6 +36,7 @@ app.add_middleware(
 # Include route routers
 app.include_router(students.router, prefix="/api")
 app.include_router(participants.router, prefix="/api")
+app.include_router(volunteers.router, prefix="/api")
 app.include_router(faculty.router, prefix="/api")
 
 @app.get("/health")
