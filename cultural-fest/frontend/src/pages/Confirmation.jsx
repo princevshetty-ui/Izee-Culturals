@@ -1,7 +1,6 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
-import { EVENTS } from '../data/events.js'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 
@@ -12,7 +11,9 @@ export default function Confirmation() {
 
   const [qrCode, setQrCode] = useState(location.state?.qr_code || null)
   const [userName, setUserName] = useState(location.state?.name || '')
-  const [selectedEventIds, setSelectedEventIds] = useState(location.state?.selectedEventIds || [])
+  const [selectedEvents, setSelectedEvents] = useState(location.state?.events || [])
+  const [othersSelected, setOthersSelected] = useState(Boolean(location.state?.othersSelected))
+  const [othersText, setOthersText] = useState(location.state?.othersText || '')
   const [isLoadingStatus, setIsLoadingStatus] = useState(!location.state?.qr_code)
   const [statusError, setStatusError] = useState('')
   const [isPending, setIsPending] = useState(Boolean(location.state?.pending || !location.state?.qr_code))
@@ -62,7 +63,35 @@ export default function Confirmation() {
       // Volunteer specific
       if (data.team_label) setTeamAssigned(data.team_label)
 
-      if (Array.isArray(data.events)) setSelectedEventIds(data.events)
+      if (Array.isArray(data.events)) {
+        const mappedEvents = []
+        let mappedOthersSelected = false
+        let mappedOthersText = ''
+
+        for (const event of data.events) {
+          const eventId = event?.event_id || event?.id || ''
+          const eventName = event?.event_name || event?.name || ''
+          const isOthersEvent = String(eventId).toLowerCase() === 'others' || String(eventName).toLowerCase() === 'others'
+
+          if (isOthersEvent) {
+            mappedOthersSelected = true
+            if (event?.others_description) mappedOthersText = event.others_description
+            continue
+          }
+
+          mappedEvents.push({
+            id: eventId,
+            name: eventName,
+            type: event?.type || '',
+            categoryId: event?.category_id || event?.categoryId || '',
+            categoryLabel: event?.category_label || event?.categoryLabel || '',
+          })
+        }
+
+        setSelectedEvents(mappedEvents)
+        setOthersSelected(mappedOthersSelected)
+        setOthersText(mappedOthersText)
+      }
 
       if (data.qr_code) {
         setQrCode(data.qr_code)
@@ -248,6 +277,77 @@ export default function Confirmation() {
                 {id}
               </p>
             </div>
+
+            {isParticipant && (selectedEvents.length > 0 || othersSelected) && (
+              <div
+                style={{
+                  background: 'rgba(201,168,76,0.05)',
+                  border: '0.5px solid rgba(201,168,76,0.2)',
+                  borderRadius: '10px',
+                  padding: '14px 16px',
+                  marginBottom: '20px',
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.14em',
+                    color: 'rgba(201,168,76,0.7)',
+                    fontFamily: 'system-ui, sans-serif',
+                    marginBottom: '10px',
+                  }}
+                >
+                  Selected Events
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {selectedEvents.map((ev) => (
+                    <span
+                      key={ev.id}
+                      style={{
+                        padding: '4px 12px',
+                        borderRadius: '999px',
+                        background: 'rgba(201,168,76,0.08)',
+                        border: '0.5px solid rgba(201,168,76,0.25)',
+                        color: '#C9A84C',
+                        fontSize: '12px',
+                        fontFamily: 'system-ui, sans-serif',
+                      }}
+                    >
+                      {ev.type && ev.type.toLowerCase() !== 'solo' ? `${ev.name} · ${ev.type}` : ev.name}
+                    </span>
+                  ))}
+                  {othersSelected && (
+                    <span
+                      style={{
+                        padding: '4px 12px',
+                        borderRadius: '999px',
+                        background: 'rgba(201,168,76,0.08)',
+                        border: '0.5px dashed rgba(201,168,76,0.25)',
+                        color: 'rgba(201,168,76,0.8)',
+                        fontSize: '12px',
+                        fontFamily: 'system-ui, sans-serif',
+                      }}
+                    >
+                      ✦ Others
+                    </span>
+                  )}
+                </div>
+                {othersSelected && othersText && (
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: 'rgba(238,230,216,0.45)',
+                      fontFamily: 'system-ui, sans-serif',
+                      marginTop: '8px',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    "{othersText}"
+                  </p>
+                )}
+              </div>
+            )}
 
             {isGroup && teamName && (
               <div style={{
@@ -441,14 +541,25 @@ export default function Confirmation() {
           style={{ border: `0.5px solid ${config.accentBorder}` }}
         >
           <p className="mb-4 text-xs uppercase tracking-[0.15em]" style={{ color: config.accentColor }}>
-            Your Digital Pass
+            Your Digital Admit Pass
           </p>
 
-          <div className="flex justify-center rounded-lg bg-[#0A0A0A] p-4">
+          <div style={{
+            width: '100%',
+            overflowX: 'auto',
+            borderRadius: '12px',
+            overflow: 'hidden'
+          }}>
             <img
               src={`data:image/png;base64,${qrCode}`}
-              alt="Registration QR Code"
-              className="h-48 w-48"
+              alt="Digital Admit Pass"
+              style={{
+                width: '100%',
+                maxWidth: '900px',
+                height: 'auto',
+                display: 'block',
+                borderRadius: '12px'
+              }}
             />
           </div>
 
@@ -527,43 +638,80 @@ export default function Confirmation() {
             className="mt-6 rounded-lg border border-amber-500/35 bg-amber-500/12 p-4"
           >
             <p className="text-center text-sm font-semibold text-amber-400">
-              📸 Screenshot or save this QR code — it is required for entry
+              📸 Save or screenshot your admit pass — present it at the entry gate
             </p>
           </motion.div>
         </motion.div>
 
-        {isParticipant && Array.isArray(selectedEventIds) && selectedEventIds.length > 0 && (
-          <div style={{ marginTop: '24px', width: '100%' }}>
-            <p style={{
-              fontSize: '10px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.15em',
-              color: config.accentColor,
-              fontFamily: 'system-ui, sans-serif',
-              marginBottom: '10px'
-            }}>
-              Your Events
+        {isParticipant && (selectedEvents.length > 0 || othersSelected) && (
+          <div
+            style={{
+              background: 'rgba(201,168,76,0.05)',
+              border: '0.5px solid rgba(201,168,76,0.2)',
+              borderRadius: '10px',
+              padding: '14px 16px',
+              marginTop: '24px',
+              width: '100%',
+            }}
+          >
+            <p
+              style={{
+                fontSize: '10px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.14em',
+                color: 'rgba(201,168,76,0.7)',
+                fontFamily: 'system-ui, sans-serif',
+                marginBottom: '10px',
+              }}
+            >
+              Selected Events
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {selectedEventIds.map((event, i) => (
+              {selectedEvents.map((ev) => (
                 <span
-                  key={i}
+                  key={ev.id}
                   style={{
-                    padding: '4px 14px',
+                    padding: '4px 12px',
                     borderRadius: '999px',
-                    border: `0.5px solid ${config.accentBorder}`,
-                    background: config.accentBg,
-                    color: '#EEE6D8',
+                    background: 'rgba(201,168,76,0.08)',
+                    border: '0.5px solid rgba(201,168,76,0.25)',
+                    color: '#C9A84C',
                     fontSize: '12px',
-                    fontFamily: 'system-ui, sans-serif'
+                    fontFamily: 'system-ui, sans-serif',
                   }}
                 >
-                  {typeof event === 'object'
-                    ? (event.event_name || event.name)
-                    : event}
+                  {ev.type && ev.type.toLowerCase() !== 'solo' ? `${ev.name} · ${ev.type}` : ev.name}
                 </span>
               ))}
+              {othersSelected && (
+                <span
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: '999px',
+                    background: 'rgba(201,168,76,0.08)',
+                    border: '0.5px dashed rgba(201,168,76,0.25)',
+                    color: 'rgba(201,168,76,0.8)',
+                    fontSize: '12px',
+                    fontFamily: 'system-ui, sans-serif',
+                  }}
+                >
+                  ✦ Others
+                </span>
+              )}
             </div>
+            {othersSelected && othersText && (
+              <p
+                style={{
+                  fontSize: '12px',
+                  color: 'rgba(238,230,216,0.45)',
+                  fontFamily: 'system-ui, sans-serif',
+                  marginTop: '8px',
+                  fontStyle: 'italic',
+                }}
+              >
+                "{othersText}"
+              </p>
+            )}
           </div>
         )}
 
