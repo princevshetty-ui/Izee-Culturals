@@ -3,6 +3,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from db import supabase
 from qr_utils import generate_qr
+from pass_generator import (
+    generate_student_pass,
+    generate_participant_pass,
+    generate_volunteer_pass,
+    generate_group_pass,
+)
 import os
 import base64
 import smtplib
@@ -25,6 +31,8 @@ EVENT_LABELS = {
     "fashion_show": "Fashion Show",
     "rampwalk": "Rampwalk",
 }
+
+LOGO_PATH = "assets/logo.png"  # Relative to backend folder
 
 
 class FacultyLoginRequest(BaseModel):
@@ -217,12 +225,15 @@ def send_approval_email(
                                         <p style="margin:0 0 10px 0;font-size:15px;color:#F5F0E8">Hello {name},</p>
                                         <p style="margin:0 0 14px 0;font-size:14px;line-height:1.6;color:#F5F0E8">
                                             Your {user_type} registration has been approved by the Cultural Committee.
-                                            Please carry the QR pass below during the event.
+                                            Your digital admit pass is attached below. Save it and present at the entry gate.
                                         </p>
                                         <p style="margin:0 0 16px 0;font-size:13px;color:#C9A84C">Registration ID: {registration_id}</p>
-                                        <div style="display:inline-block;padding:10px;border-radius:10px;background:#0A0A0A;border:1px solid rgba(201,168,76,0.28)">
-                                            <img src="cid:approval_qr" width="220" height="220" alt="QR Code" style="display:block" />
+                                        <div style="margin-top:16px;border-radius:10px;overflow:hidden;border:1px solid rgba(201,168,76,0.22)">
+                                            <img src="cid:approval_pass" width="600" style="display:block;max-width:100%;height:auto;border-radius:8px;" alt="Admit Pass" />
                                         </div>
+                                        <p style="margin:12px 0 0 0;font-size:12px;color:rgba(245,240,232,0.5);font-style:italic;">
+                                            Save this image — it is your entry pass for the event. Show it at the entry gate for scanning.
+                                        </p>
                                         {events_html}
                                         <p style="margin:20px 0 0 0;font-size:13px;line-height:1.6;color:#F5F0E8">
                                             Keep this email or take a screenshot of your QR code. It is required at entry.
@@ -249,10 +260,14 @@ def send_approval_email(
                 message.attach(alternative)
 
                 qr_bytes = base64.b64decode(qr_code_base64)
-                qr_image = MIMEImage(qr_bytes, _subtype="png")
-                qr_image.add_header("Content-ID", "<approval_qr>")
-                qr_image.add_header("Content-Disposition", "inline", filename="qr.png")
-                message.attach(qr_image)
+                pass_image = MIMEImage(qr_bytes, _subtype="png")
+                pass_image.add_header("Content-ID", "<approval_pass>")
+                pass_image.add_header(
+                    "Content-Disposition",
+                    "attachment",
+                    filename="izee_culturals_pass.png"
+                )
+                message.attach(pass_image)
 
                 server = smtplib.SMTP(smtp_host, smtp_port, timeout=25)
                 if smtp_use_tls:
@@ -396,29 +411,29 @@ async def approve_student(student_id: str, authorization: str = Header(None)):
                 "message": "Student already approved",
             }
 
-        qr_payload = {
-            "id": str(student.get("id")),
-            "type": "student",
-            "name": student.get("name"),
-            "roll_no": student.get("roll_no"),
-            "course": student.get("course"),
-            "year": student.get("year"),
-            "phone": student.get("phone"),
-            "registered_at": str(student.get("registered_at")),
-        }
+        # Generate digital pass
+        pass_base64 = generate_student_pass(
+            {
+                "id": str(student.get("id")),
+                "name": student.get("name"),
+                "roll_no": student.get("roll_no"),
+                "course": student.get("course"),
+                "year": student.get("year"),
+            },
+            logo_path=LOGO_PATH,
+        )
 
-        qr_code = generate_qr(qr_payload)
         approval_timestamp = datetime.now(timezone.utc).isoformat()
         try:
-            supabase.table("students").update({"qr_code": qr_code, "approved_at": approval_timestamp}).eq("id", student_id).execute()
+            supabase.table("students").update({"qr_code": pass_base64, "approved_at": approval_timestamp}).eq("id", student_id).execute()
         except Exception:
             # Backward compatibility for databases where approved_at is not added yet.
-            supabase.table("students").update({"qr_code": qr_code}).eq("id", student_id).execute()
+            supabase.table("students").update({"qr_code": pass_base64}).eq("id", student_id).execute()
 
         email_sent, email_error = send_approval_email(
             to_email=student.get("email"),
-            name=student.get("name", "Participant"),
-            qr_code_base64=qr_code,
+            name=student.get("name", "Student"),
+            qr_code_base64=pass_base64,
             registration_id=student_id,
             user_type="student",
         )
@@ -428,7 +443,7 @@ async def approve_student(student_id: str, authorization: str = Header(None)):
             "data": {
                 "id": student_id,
                 "approved": True,
-                "qr_code": qr_code,
+                "qr_code": pass_base64,
                 "email_sent": email_sent,
                 "email_error": email_error,
             },
@@ -514,39 +529,65 @@ async def approve_participant(participant_id: str, authorization: str = Header(N
                 "message": "Participant already approved",
             }
 
-        events_response = supabase.table("participant_events").select("event_id").eq(
-            "participant_id", participant_id
-        ).execute()
-        event_ids = [event.get("event_id") for event in events_response.data]
+        # Fetch participant events
+        events_response = supabase.table("participant_events").select(
+            "event_id, event_name, category_id, category_label"
+        ).eq("participant_id", participant_id).execute()
 
-        qr_payload = {
-            "id": str(participant.get("id")),
-            "type": "participant",
-            "name": participant.get("name"),
-            "roll_no": participant.get("roll_no"),
-            "course": participant.get("course"),
-            "year": participant.get("year"),
-            "phone": participant.get("phone"),
-            "events": event_ids,
-            "registered_at": str(participant.get("registered_at")),
-        }
+        participant_events = []
+        for event in events_response.data or []:
+            participant_events.append({
+                "event_id": event.get("event_id"),
+                "event_name": event.get("event_name"),
+                "category_id": event.get("category_id", ""),
+                "category_label": event.get("category_label", ""),
+            })
 
-        qr_code = generate_qr(qr_payload)
+        # Generate digital pass with full event details
+        pass_base64 = generate_participant_pass(
+            {
+                "id": str(participant.get("id")),
+                "name": participant.get("name"),
+                "roll_no": participant.get("roll_no"),
+                "course": participant.get("course"),
+                "year": participant.get("year"),
+                "events": participant_events,
+            },
+            logo_path=LOGO_PATH,
+        )
+
         approval_timestamp = datetime.now(timezone.utc).isoformat()
         try:
-            supabase.table("participants").update({"qr_code": qr_code, "approved_at": approval_timestamp}).eq("id", participant_id).execute()
+            supabase.table("participants").update({"qr_code": pass_base64, "approved_at": approval_timestamp}).eq("id", participant_id).execute()
         except Exception:
             # Backward compatibility for databases where approved_at is not added yet.
-            supabase.table("participants").update({"qr_code": qr_code}).eq("id", participant_id).execute()
+            supabase.table("participants").update({"qr_code": pass_base64}).eq("id", participant_id).execute()
+
+        event_labels = [
+            ev.get("event_name", "")
+            for ev in participant_events
+            if ev.get("event_name")
+        ]
+
+        email_sent, email_error = send_approval_email(
+            to_email=participant.get("email"),
+            name=participant.get("name", "Participant"),
+            qr_code_base64=pass_base64,
+            registration_id=participant_id,
+            user_type="participant",
+            events=event_labels,
+        )
 
         return {
             "success": True,
             "data": {
                 "id": participant_id,
                 "approved": True,
-                "qr_code": qr_code,
+                "qr_code": pass_base64,
+                "email_sent": email_sent,
+                "email_error": email_error,
             },
-            "message": "Participant approved successfully",
+            "message": "Participant approved and email sent",
         }
     except HTTPException:
         raise

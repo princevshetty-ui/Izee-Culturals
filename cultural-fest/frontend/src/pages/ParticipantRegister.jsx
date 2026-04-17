@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { EVENTS } from '../data/events.js'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
@@ -15,18 +14,17 @@ const inputBase =
 export default function ParticipantRegister() {
   const navigate = useNavigate()
   const location = useLocation()
+  const locationState = location.state
 
-  const selectedEventIds = location.state?.selectedEventIds || []
+  const selectedEvents = locationState?.events || []
+  const othersSelected = locationState?.othersSelected || false
+  const othersText = locationState?.othersText || ''
 
   useEffect(() => {
-    if (selectedEventIds.length === 0) {
-      navigate('/participant/events')
+    if (!locationState || (selectedEvents.length === 0 && !othersSelected)) {
+      navigate('/participant/events', { replace: true })
     }
-  }, [selectedEventIds, navigate])
-
-  const selectedEvents = selectedEventIds
-    .map((id) => EVENTS.find((event) => event.id === id))
-    .filter(Boolean)
+  }, [locationState, selectedEvents, othersSelected, navigate])
 
   const [formData, setFormData] = useState({
     name: '',
@@ -83,21 +81,40 @@ export default function ParticipantRegister() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          events: selectedEventIds,
+          name: formData.name,
+          roll_no: formData.roll_no,
+          course: formData.course,
+          year: formData.year,
+          email: formData.email,
+          phone: formData.phone || '',
+          events: selectedEvents.map((ev) => ({
+            event_id: ev.id,
+            event_name: ev.name,
+            category_id: ev.categoryId || '',
+            category_label: ev.categoryLabel || '',
+            is_group: false,
+          })),
+          others_selected: othersSelected,
+          others_description: othersText || null,
         }),
       })
 
       const data = await response.json()
 
       if (response.ok && data.success) {
-        const registrationId = data.data?.id
+        const registrationId = data?.data?.id
+        if (!registrationId) {
+          setApiError('Registration failed. No registration ID returned.')
+          return
+        }
+
         navigate(`/confirmation/participant/${registrationId}`, {
           state: {
-            qr_code: data.data?.qr_code || null,
             name: formData.name,
-            selectedEventIds,
-            pending: !data.data?.qr_code,
+            pending: true,
+            events: selectedEvents,
+            othersSelected,
+            othersText,
           },
         })
       } else {
@@ -148,16 +165,75 @@ export default function ParticipantRegister() {
             </h1>
             <p className="mt-2 text-[#C9A84C]">Participant Details</p>
 
-            {selectedEvents.length > 0 && (
-              <div className="mt-6 flex flex-wrap gap-2 rounded-xl border border-[#C9A84C]/25 bg-[#C9A84C]/8 p-4">
-                {selectedEvents.map((event) => (
-                  <span
-                    key={event.id}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/45 bg-[#C9A84C]/12 px-3 py-1.5 text-xs text-[#EEE6D8]"
+            {(selectedEvents.length > 0 || othersSelected) && (
+              <div
+                style={{
+                  background: 'rgba(201,168,76,0.05)',
+                  border: '0.5px solid rgba(201,168,76,0.2)',
+                  borderRadius: '10px',
+                  padding: '14px 16px',
+                  marginBottom: '24px',
+                  marginTop: '8px',
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.14em',
+                    color: 'rgba(201,168,76,0.7)',
+                    fontFamily: 'system-ui, sans-serif',
+                    marginBottom: '10px',
+                  }}
+                >
+                  Selected Events
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {selectedEvents.map((ev) => (
+                    <span
+                      key={ev.id}
+                      style={{
+                        padding: '4px 12px',
+                        borderRadius: '999px',
+                        background: 'rgba(201,168,76,0.08)',
+                        border: '0.5px solid rgba(201,168,76,0.25)',
+                        color: '#C9A84C',
+                        fontSize: '12px',
+                        fontFamily: 'system-ui, sans-serif',
+                      }}
+                    >
+                      {ev.type && ev.type.toLowerCase() !== 'solo' ? `${ev.name} · ${ev.type}` : ev.name}
+                    </span>
+                  ))}
+                  {othersSelected && (
+                    <span
+                      style={{
+                        padding: '4px 12px',
+                        borderRadius: '999px',
+                        background: 'rgba(201,168,76,0.08)',
+                        border: '0.5px dashed rgba(201,168,76,0.25)',
+                        color: 'rgba(201,168,76,0.8)',
+                        fontSize: '12px',
+                        fontFamily: 'system-ui, sans-serif',
+                      }}
+                    >
+                      ✦ Others
+                    </span>
+                  )}
+                </div>
+                {othersSelected && othersText && (
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: 'rgba(238,230,216,0.45)',
+                      fontFamily: 'system-ui, sans-serif',
+                      marginTop: '8px',
+                      fontStyle: 'italic',
+                    }}
                   >
-                    {event.name}
-                  </span>
-                ))}
+                    "{othersText}"
+                  </p>
+                )}
               </div>
             )}
 

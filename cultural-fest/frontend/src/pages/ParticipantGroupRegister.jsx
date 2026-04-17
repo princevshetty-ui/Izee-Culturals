@@ -91,6 +91,11 @@ export default function ParticipantGroupRegister() {
     e.preventDefault()
     setError('')
 
+    if (!groupEvent) {
+      setError('No event selected. Please go back and try again.')
+      return
+    }
+
     if (!teamName.trim()) {
       setError('Team name is required')
       return
@@ -132,11 +137,17 @@ export default function ParticipantGroupRegister() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.detail || data.message || 'Registration failed. Please try again.')
+        setError(data.detail || 'Registration failed. Please try again.')
         return
       }
 
-      navigate('/confirmation/group/' + data.id)
+      const registrationId = data?.data?.id
+      if (!registrationId) {
+        setError('Registration failed — no ID returned.')
+        return
+      }
+
+      navigate('/confirmation/group/' + registrationId)
     } catch {
       setError('Network error. Please check your connection.')
     } finally {
