@@ -1,6 +1,8 @@
 import { Suspense, lazy } from 'react'
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
+
+const MotionDiv = m.div
 
 const Home = lazy(() => import('./pages/Home'))
 const ParticipantEvents = lazy(() => import('./pages/ParticipantEvents'))
@@ -11,6 +13,7 @@ const StudentRegister = lazy(() => import('./pages/StudentRegister'))
 const Confirmation = lazy(() => import('./pages/Confirmation'))
 const FacultyLogin = lazy(() => import('./pages/FacultyLogin'))
 const FacultyDashboard = lazy(() => import('./pages/FacultyDashboard'))
+const QRValidator = lazy(() => import('./pages/QRValidator'))
 
 function PageLoader() {
   return (
@@ -23,7 +26,7 @@ function PageLoader() {
         backgroundColor: '#0A0A0A'
       }}
     >
-      <motion.div
+      <MotionDiv
         aria-label="Loading"
         role="status"
         animate={{ rotate: 360 }}
@@ -42,14 +45,14 @@ function PageLoader() {
 
 function PageTransition({ children }) {
   return (
-    <motion.div
+    <MotionDiv
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.4 }}
     >
       {children}
-    </motion.div>
+    </MotionDiv>
   )
 }
 
@@ -129,6 +132,14 @@ function AppRoutes() {
             element={
               <PageTransition>
                 <FacultyDashboard />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/validate"
+            element={
+              <PageTransition>
+                <QRValidator />
               </PageTransition>
             }
           />

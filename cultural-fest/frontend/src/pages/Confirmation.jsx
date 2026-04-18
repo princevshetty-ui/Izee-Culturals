@@ -179,8 +179,16 @@ export default function Confirmation() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px'
+        padding: '24px',
+        position: 'relative'
       }}>
+        <button
+          onClick={() => navigate('/')}
+          className="absolute top-6 left-6 flex items-center gap-1 text-sm text-[rgba(238,230,216,0.45)] hover:text-[#EEE6D8] transition-colors group"
+        >
+          <span className="group-hover:-translate-x-1 transition-transform">←</span>
+          <span>Home</span>
+        </button>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

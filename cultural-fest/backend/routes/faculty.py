@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Header, Query
+from fastapi import APIRouter, HTTPException, Header, Query, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from db import supabase
@@ -13,14 +13,41 @@ import os
 import base64
 import smtplib
 import time
+import asyncio
 import csv
 from datetime import datetime, timezone
 from io import StringIO
+from pathlib import Path
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
+from dotenv import load_dotenv
 
 router = APIRouter()
+
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
+
+REQUIRED_ENV_VARS = [
+    "SUPABASE_URL",
+    "SUPABASE_KEY",
+    "FACULTY_PASSWORD",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_USER",
+    "SMTP_PASSWORD",
+    "SMTP_FROM_EMAIL",
+    "SMTP_USE_TLS",
+    "FRONTEND_URL",
+]
+
+
+def warn_missing_env_vars() -> None:
+    missing = [name for name in REQUIRED_ENV_VARS if not os.environ.get(name)]
+    if missing:
+        print(f"[WARN] Missing environment variable(s): {', '.join(missing)}")
+
+
+warn_missing_env_vars()
 
 
 EVENT_LABELS = {
@@ -39,6 +66,11 @@ class FacultyLoginRequest(BaseModel):
     password: str
 
 
+class VolunteerTeamAssignRequest(BaseModel):
+    team_id: str
+    team_label: str
+
+
 def verify_faculty_token(authorization: str = Header(None)):
     """Verify faculty token from Authorization header."""
     if not authorization:
@@ -49,7 +81,7 @@ def verify_faculty_token(authorization: str = Header(None)):
     except (IndexError, AttributeError):
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    faculty_password = os.getenv("FACULTY_PASSWORD")
+    faculty_password = os.environ.get("FACULTY_PASSWORD")
     
     if bearer_token != faculty_password:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -194,12 +226,12 @@ def send_approval_email(
         events: list[str] | None = None,
 ):
         """Send approval email with branded HTML template and inline QR image."""
-        smtp_host = os.getenv("SMTP_HOST")
-        smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        smtp_user = os.getenv("SMTP_USER")
-        smtp_password = os.getenv("SMTP_PASSWORD")
-        smtp_from = os.getenv("SMTP_FROM_EMAIL", smtp_user)
-        smtp_use_tls = os.getenv("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes"}
+        smtp_host = os.environ.get("SMTP_HOST")
+        smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+        smtp_user = os.environ.get("SMTP_USER")
+        smtp_password = os.environ.get("SMTP_PASSWORD")
+        smtp_from = os.environ.get("SMTP_FROM_EMAIL", smtp_user)
+        smtp_use_tls = os.environ.get("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes"}
 
         if not smtp_host or not smtp_user or not smtp_password or not smtp_from:
                 return False, "SMTP configuration missing"
@@ -226,7 +258,7 @@ def send_approval_email(
                             <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;background:#111111;border:1px solid rgba(201,168,76,0.32);border-radius:14px;overflow:hidden;">
                                 <tr>
                                     <td style="padding:22px 24px;background:linear-gradient(90deg,#0A0A0A,#181818);border-bottom:1px solid rgba(201,168,76,0.22)">
-                                        <p style="margin:0;font-size:12px;letter-spacing:2px;color:#C9A84C">IZEE CULTURALS</p>
+                                        <p style="margin:0;font-size:12px;letter-spacing:2px;color:#C9A84C">IZEE GOT TALENT</p>
                                         <h1 style="margin:8px 0 0 0;font-size:24px;line-height:1.3;color:#F5F0E8">Registration Approved</h1>
                                     </td>
                                 </tr>
@@ -260,7 +292,7 @@ def send_approval_email(
 
         try:
                 message = MIMEMultipart("related")
-                message["Subject"] = "Izee Culturals - Registration Approved"
+                message["Subject"] = "IZee Got Talent - Registration Approved"
                 message["From"] = smtp_from
                 message["To"] = to_email
 
@@ -275,7 +307,7 @@ def send_approval_email(
                 pass_image.add_header(
                     "Content-Disposition",
                     "attachment",
-                    filename="izee_culturals_pass.png"
+                    filename="izee_gta_pass.png"
                 )
                 message.attach(pass_image)
 
@@ -290,10 +322,314 @@ def send_approval_email(
                 return False, str(exc)
 
 
+def generate_placeholder_qr(record: dict, record_type: str) -> str:
+    payload = {
+        "id": str(record.get("id") or ""),
+        "type": record_type,
+        "name": str(
+            record.get("name")
+            or record.get("leader_name")
+            or record.get("team_name")
+            or ""
+        ),
+        "approved": True,
+    }
+    return generate_qr(payload)
+
+
+def update_approved_record(table_name: str, record_id: str, qr_code: str, approved_at: str) -> None:
+    try:
+        supabase.table(table_name).update(
+            {"qr_code": qr_code, "approved_at": approved_at}
+        ).eq("id", record_id).execute()
+    except Exception:
+        # Backward compatibility for databases where approved_at is missing.
+        supabase.table(table_name).update(
+            {"qr_code": qr_code}
+        ).eq("id", record_id).execute()
+
+
+def build_pass_for_record(record: dict, record_type: str) -> tuple[str, list[str] | None]:
+    if record_type == "student":
+        pass_base64 = generate_student_pass(
+            {
+                "id": str(record.get("id")),
+                "name": record.get("name"),
+                "roll_no": record.get("roll_no"),
+                "course": record.get("course"),
+                "year": record.get("year"),
+            },
+            logo_path=LOGO_PATH,
+        )
+        return pass_base64, None
+
+    if record_type == "participant":
+        events_response = supabase.table("participant_events").select(
+            "event_id, event_name, category_id, category_label"
+        ).eq("participant_id", record.get("id")).execute()
+
+        participant_events = []
+        for event in events_response.data or []:
+            participant_events.append(
+                {
+                    "event_id": event.get("event_id"),
+                    "event_name": event.get("event_name"),
+                    "category_id": event.get("category_id", ""),
+                    "category_label": event.get("category_label", ""),
+                }
+            )
+
+        pass_base64 = generate_participant_pass(
+            {
+                "id": str(record.get("id")),
+                "name": record.get("name"),
+                "roll_no": record.get("roll_no"),
+                "course": record.get("course"),
+                "year": record.get("year"),
+                "events": participant_events,
+            },
+            logo_path=LOGO_PATH,
+        )
+
+        event_labels = [
+            ev.get("event_name", "")
+            for ev in participant_events
+            if ev.get("event_name")
+        ]
+        return pass_base64, event_labels
+
+    if record_type == "volunteer":
+        pass_base64 = generate_volunteer_pass(
+            {
+                "id": str(record.get("id")),
+                "name": record.get("name"),
+                "roll_no": record.get("roll_no"),
+                "course": record.get("course"),
+                "year": record.get("year"),
+                "team_label": record.get("team_label"),
+            },
+            logo_path=LOGO_PATH,
+        )
+        return pass_base64, None
+
+    if record_type == "group":
+        members_response = supabase.table("group_members").select("id").eq(
+            "group_id", record.get("id")
+        ).execute()
+        member_count = len(members_response.data or [])
+
+        pass_base64 = generate_group_pass(
+            {
+                "id": str(record.get("id")),
+                "team_name": record.get("team_name"),
+                "event_name": record.get("event_name"),
+                "leader_roll_no": record.get("leader_roll_no"),
+                "member_count": member_count,
+            },
+            logo_path=LOGO_PATH,
+        )
+
+        event_name = str(record.get("event_name") or "").strip()
+        return pass_base64, ([event_name] if event_name else None)
+
+    raise ValueError(f"Unsupported record type: {record_type}")
+
+
+def get_record_table_name(record_type: str) -> str:
+    table_map = {
+        "student": "students",
+        "participant": "participants",
+        "volunteer": "volunteers",
+        "group": "group_registrations",
+    }
+    return table_map[record_type]
+
+
+def get_record_email(record: dict, record_type: str) -> str | None:
+    if record_type == "group":
+        return record.get("leader_email")
+    return record.get("email")
+
+
+def get_record_name(record: dict, record_type: str) -> str:
+    if record_type == "group":
+        return record.get("leader_name", "Group Leader")
+    return record.get("name", record_type.title())
+
+
+def build_qr_validation_data(record_type: str, record: dict, participant_events: list[str] | None = None) -> dict:
+    if record_type == "student":
+        return {
+            "name": record.get("name") or "",
+            "role": "Student",
+            "course": record.get("course") or "",
+            "year": record.get("year") or "",
+            "roll_no": record.get("roll_no") or "",
+            "team_label": None,
+            "events": None,
+            "group_name": None,
+        }
+
+    if record_type == "participant":
+        return {
+            "name": record.get("name") or "",
+            "role": "Participant",
+            "course": record.get("course") or "",
+            "year": record.get("year") or "",
+            "roll_no": record.get("roll_no") or "",
+            "team_label": None,
+            "events": participant_events or [],
+            "group_name": None,
+        }
+
+    if record_type == "volunteer":
+        return {
+            "name": record.get("name") or "",
+            "role": "Volunteer",
+            "course": record.get("course") or "",
+            "year": record.get("year") or "",
+            "roll_no": record.get("roll_no") or "",
+            "team_label": record.get("team_label") or None,
+            "events": None,
+            "group_name": None,
+        }
+
+    return {
+        "name": record.get("leader_name") or record.get("name") or "",
+        "role": "Group Leader",
+        "course": record.get("leader_course") or record.get("course") or "",
+        "year": record.get("leader_year") or record.get("year") or "",
+        "roll_no": record.get("leader_roll_no") or record.get("roll_no") or "",
+        "team_label": None,
+        "events": None,
+        "group_name": record.get("team_name") or record.get("group_name") or None,
+    }
+
+
+@router.get("/validate/{qr_id}")
+async def validate_qr(qr_id: str):
+    """Public endpoint for entry-gate QR validation by registration ID."""
+    try:
+        lookup_order = [
+            ("students", "student"),
+            ("participants", "participant"),
+            ("volunteers", "volunteer"),
+            ("group_registrations", "group"),
+        ]
+
+        for table_name, record_type in lookup_order:
+            response = supabase.table(table_name).select("*").eq("id", qr_id).limit(1).execute()
+            if not response.data:
+                continue
+
+            record = response.data[0]
+            if not record.get("qr_code"):
+                return {
+                    "success": True,
+                    "valid": False,
+                    "message": "Registration pending approval. Entry not permitted.",
+                }
+
+            participant_events = None
+            if record_type == "participant":
+                events_response = supabase.table("participant_events").select(
+                    "event_id, event_name"
+                ).eq("participant_id", qr_id).execute()
+                participant_events = [
+                    event.get("event_name") or event_id_to_label(event.get("event_id"))
+                    for event in (events_response.data or [])
+                    if event.get("event_name") or event.get("event_id")
+                ]
+
+            return {
+                "success": True,
+                "valid": True,
+                "data": build_qr_validation_data(record_type, record, participant_events),
+            }
+
+        return {
+            "success": True,
+            "valid": False,
+            "message": "Invalid QR code. Not registered.",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def send_approval_email_background(record: dict, record_type: str):
+    def _run_sync() -> None:
+        pass_base64, event_labels = build_pass_for_record(record, record_type)
+
+        update_approved_record(
+            table_name=get_record_table_name(record_type),
+            record_id=str(record.get("id")),
+            qr_code=pass_base64,
+            approved_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+        email_sent, email_error = send_approval_email(
+            to_email=get_record_email(record, record_type),
+            name=get_record_name(record, record_type),
+            qr_code_base64=pass_base64,
+            registration_id=str(record.get("id") or ""),
+            user_type="group participant" if record_type == "group" else record_type,
+            events=event_labels,
+        )
+        if not email_sent:
+            print(
+                f"Background email failed for {record_type} {record.get('id')}: {email_error}"
+            )
+
+    try:
+        await asyncio.to_thread(_run_sync)
+    except Exception as e:
+        print(f"Background email failed for {record_type} {record.get('id')}: {e}")
+
+
+async def resend_approved_batch_emails(records: list[dict], record_type: str):
+    batch_size = 25
+
+    for index in range(0, len(records), batch_size):
+        batch = records[index:index + batch_size]
+        for record in batch:
+            try:
+                def _run_sync_resend() -> None:
+                    event_labels = None
+                    if record_type == "participant":
+                        events_response = supabase.table("participant_events").select("event_id").eq(
+                            "participant_id", record.get("id")
+                        ).execute()
+                        event_ids = [item.get("event_id") for item in (events_response.data or [])]
+                        event_labels = [event_id_to_label(event_id) for event_id in event_ids if event_id]
+                    elif record_type == "group":
+                        event_name = str(record.get("event_name") or "").strip()
+                        event_labels = [event_name] if event_name else None
+
+                    email_sent, email_error = send_approval_email(
+                        to_email=get_record_email(record, record_type),
+                        name=get_record_name(record, record_type),
+                        qr_code_base64=str(record.get("qr_code") or ""),
+                        registration_id=str(record.get("id") or ""),
+                        user_type="group participant" if record_type == "group" else record_type,
+                        events=event_labels,
+                    )
+                    if not email_sent:
+                        print(
+                            f"Background resend failed for {record_type} {record.get('id')}: {email_error}"
+                        )
+
+                await asyncio.to_thread(_run_sync_resend)
+            except Exception as exc:
+                print(f"Background resend failed for {record_type} {record.get('id')}: {exc}")
+
+        if index + batch_size < len(records):
+            await asyncio.sleep(3)
+
+
 @router.post("/faculty/login")
 async def faculty_login(req: FacultyLoginRequest):
     """Faculty login endpoint."""
-    faculty_password = os.getenv("FACULTY_PASSWORD")
+    faculty_password = os.environ.get("FACULTY_PASSWORD")
     
     if req.password != faculty_password:
         raise HTTPException(status_code=401, detail="Invalid password")
@@ -394,8 +730,12 @@ async def get_all_participants(
 
 
 @router.post("/faculty/approve/student/{student_id}")
-async def approve_student(student_id: str, authorization: str = Header(None)):
-    """Approve a student registration and generate QR code."""
+async def approve_student(
+    student_id: str,
+    background_tasks: BackgroundTasks,
+    authorization: str = Header(None),
+):
+    """Approve a student registration and queue pass/email generation in background."""
     verify_faculty_token(authorization)
 
     try:
@@ -416,48 +756,31 @@ async def approve_student(student_id: str, authorization: str = Header(None)):
                     "id": student_id,
                     "approved": True,
                     "qr_code": existing_qr,
-                    "email_sent": False,
+                    "email_queued": False,
                 },
                 "message": "Student already approved",
             }
 
-        # Generate digital pass
-        pass_base64 = generate_student_pass(
-            {
-                "id": str(student.get("id")),
-                "name": student.get("name"),
-                "roll_no": student.get("roll_no"),
-                "course": student.get("course"),
-                "year": student.get("year"),
-            },
-            logo_path=LOGO_PATH,
-        )
-
         approval_timestamp = datetime.now(timezone.utc).isoformat()
-        try:
-            supabase.table("students").update({"qr_code": pass_base64, "approved_at": approval_timestamp}).eq("id", student_id).execute()
-        except Exception:
-            # Backward compatibility for databases where approved_at is not added yet.
-            supabase.table("students").update({"qr_code": pass_base64}).eq("id", student_id).execute()
-
-        email_sent, email_error = send_approval_email(
-            to_email=student.get("email"),
-            name=student.get("name", "Student"),
-            qr_code_base64=pass_base64,
-            registration_id=student_id,
-            user_type="student",
+        placeholder_qr = generate_placeholder_qr(student, "student")
+        update_approved_record(
+            table_name="students",
+            record_id=student_id,
+            qr_code=placeholder_qr,
+            approved_at=approval_timestamp,
         )
+
+        background_tasks.add_task(send_approval_email_background, student, "student")
 
         return {
             "success": True,
             "data": {
                 "id": student_id,
                 "approved": True,
-                "qr_code": pass_base64,
-                "email_sent": email_sent,
-                "email_error": email_error,
+                "qr_code": placeholder_qr,
+                "email_queued": True,
             },
-            "message": "Student approved successfully",
+            "message": "Approved",
         }
     except HTTPException:
         raise
@@ -513,8 +836,12 @@ async def resend_student_approval_email(student_id: str, authorization: str = He
 
 
 @router.post("/faculty/approve/participant/{participant_id}")
-async def approve_participant(participant_id: str, authorization: str = Header(None)):
-    """Approve a participant registration and generate QR code."""
+async def approve_participant(
+    participant_id: str,
+    background_tasks: BackgroundTasks,
+    authorization: str = Header(None),
+):
+    """Approve a participant registration and queue pass/email generation in background."""
     verify_faculty_token(authorization)
 
     try:
@@ -535,69 +862,31 @@ async def approve_participant(participant_id: str, authorization: str = Header(N
                     "id": participant_id,
                     "approved": True,
                     "qr_code": existing_qr,
+                    "email_queued": False,
                 },
                 "message": "Participant already approved",
             }
 
-        # Fetch participant events
-        events_response = supabase.table("participant_events").select(
-            "event_id, event_name, category_id, category_label"
-        ).eq("participant_id", participant_id).execute()
-
-        participant_events = []
-        for event in events_response.data or []:
-            participant_events.append({
-                "event_id": event.get("event_id"),
-                "event_name": event.get("event_name"),
-                "category_id": event.get("category_id", ""),
-                "category_label": event.get("category_label", ""),
-            })
-
-        # Generate digital pass with full event details
-        pass_base64 = generate_participant_pass(
-            {
-                "id": str(participant.get("id")),
-                "name": participant.get("name"),
-                "roll_no": participant.get("roll_no"),
-                "course": participant.get("course"),
-                "year": participant.get("year"),
-                "events": participant_events,
-            },
-            logo_path=LOGO_PATH,
-        )
-
         approval_timestamp = datetime.now(timezone.utc).isoformat()
-        try:
-            supabase.table("participants").update({"qr_code": pass_base64, "approved_at": approval_timestamp}).eq("id", participant_id).execute()
-        except Exception:
-            # Backward compatibility for databases where approved_at is not added yet.
-            supabase.table("participants").update({"qr_code": pass_base64}).eq("id", participant_id).execute()
-
-        event_labels = [
-            ev.get("event_name", "")
-            for ev in participant_events
-            if ev.get("event_name")
-        ]
-
-        email_sent, email_error = send_approval_email(
-            to_email=participant.get("email"),
-            name=participant.get("name", "Participant"),
-            qr_code_base64=pass_base64,
-            registration_id=participant_id,
-            user_type="participant",
-            events=event_labels,
+        placeholder_qr = generate_placeholder_qr(participant, "participant")
+        update_approved_record(
+            table_name="participants",
+            record_id=participant_id,
+            qr_code=placeholder_qr,
+            approved_at=approval_timestamp,
         )
+
+        background_tasks.add_task(send_approval_email_background, participant, "participant")
 
         return {
             "success": True,
             "data": {
                 "id": participant_id,
                 "approved": True,
-                "qr_code": pass_base64,
-                "email_sent": email_sent,
-                "email_error": email_error,
+                "qr_code": placeholder_qr,
+                "email_queued": True,
             },
-            "message": "Participant approved and email sent",
+            "message": "Approved",
         }
     except HTTPException:
         raise
@@ -850,9 +1139,13 @@ async def get_all_volunteers(
                     "year": volunteer.get("year"),
                     "email": volunteer.get("email"),
                     "phone": volunteer.get("phone"),
+                    "team_id": volunteer.get("team_id") or "",
+                    "team_label": volunteer.get("team_label") or role_value,
+                    "motivation": volunteer.get("motivation") or "",
                     "volunteer_role": role_value,
                     "registered_at": volunteer.get("registered_at"),
                     "approved_at": volunteer.get("approved_at"),
+                    "qr_code": volunteer.get("qr_code"),
                     "is_approved": bool(volunteer.get("qr_code")),
                 }
             )
@@ -931,8 +1224,12 @@ async def get_all_groups(
 
 
 @router.post("/faculty/approve/volunteer/{volunteer_id}")
-async def approve_volunteer(volunteer_id: str, authorization: str = Header(None)):
-    """Approve a volunteer registration and generate digital pass."""
+async def approve_volunteer(
+    volunteer_id: str,
+    background_tasks: BackgroundTasks,
+    authorization: str = Header(None),
+):
+    """Approve a volunteer registration and queue pass/email generation in background."""
     verify_faculty_token(authorization)
 
     try:
@@ -950,49 +1247,67 @@ async def approve_volunteer(volunteer_id: str, authorization: str = Header(None)
                     "id": volunteer_id,
                     "approved": True,
                     "qr_code": existing_qr,
-                    "email_sent": False,
+                    "email_queued": False,
                 },
                 "message": "Volunteer already approved",
             }
 
-        pass_base64 = generate_volunteer_pass(
-            {
-                "id": str(volunteer.get("id")),
-                "name": volunteer.get("name"),
-                "roll_no": volunteer.get("roll_no"),
-                "course": volunteer.get("course"),
-                "year": volunteer.get("year"),
-                "team_label": volunteer.get("team_label"),
-            },
-            logo_path=LOGO_PATH,
-        )
-
         approval_timestamp = datetime.now(timezone.utc).isoformat()
-        try:
-            supabase.table("volunteers").update(
-                {"qr_code": pass_base64, "approved_at": approval_timestamp}
-            ).eq("id", volunteer_id).execute()
-        except Exception:
-            supabase.table("volunteers").update({"qr_code": pass_base64}).eq("id", volunteer_id).execute()
-
-        email_sent, email_error = send_approval_email(
-            to_email=volunteer.get("email"),
-            name=volunteer.get("name", "Volunteer"),
-            qr_code_base64=pass_base64,
-            registration_id=volunteer_id,
-            user_type="volunteer",
+        placeholder_qr = generate_placeholder_qr(volunteer, "volunteer")
+        update_approved_record(
+            table_name="volunteers",
+            record_id=volunteer_id,
+            qr_code=placeholder_qr,
+            approved_at=approval_timestamp,
         )
+
+        background_tasks.add_task(send_approval_email_background, volunteer, "volunteer")
 
         return {
             "success": True,
             "data": {
                 "id": volunteer_id,
                 "approved": True,
-                "qr_code": pass_base64,
-                "email_sent": email_sent,
-                "email_error": email_error,
+                "qr_code": placeholder_qr,
+                "email_queued": True,
             },
-            "message": "Volunteer approved",
+            "message": "Approved",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/faculty/volunteer/{volunteer_id}/assign-team")
+async def assign_volunteer_team(
+    volunteer_id: str,
+    payload: VolunteerTeamAssignRequest,
+    authorization: str = Header(None),
+):
+    """Assign or update a volunteer's official team."""
+    verify_faculty_token(authorization)
+
+    try:
+        existing = supabase.table("volunteers").select("id").eq("id", volunteer_id).limit(1).execute()
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Volunteer registration not found")
+
+        supabase.table("volunteers").update(
+            {
+                "team_id": payload.team_id,
+                "team_label": payload.team_label,
+            }
+        ).eq("id", volunteer_id).execute()
+
+        return {
+            "success": True,
+            "data": {
+                "id": volunteer_id,
+                "team_id": payload.team_id,
+                "team_label": payload.team_label,
+            },
+            "message": "Team assigned",
         }
     except HTTPException:
         raise
@@ -1001,8 +1316,12 @@ async def approve_volunteer(volunteer_id: str, authorization: str = Header(None)
 
 
 @router.post("/faculty/approve/group/{group_id}")
-async def approve_group(group_id: str, authorization: str = Header(None)):
-    """Approve a group registration and generate digital pass."""
+async def approve_group(
+    group_id: str,
+    background_tasks: BackgroundTasks,
+    authorization: str = Header(None),
+):
+    """Approve a group registration and queue pass/email generation in background."""
     verify_faculty_token(authorization)
 
     try:
@@ -1020,53 +1339,31 @@ async def approve_group(group_id: str, authorization: str = Header(None)):
                     "id": group_id,
                     "approved": True,
                     "qr_code": existing_qr,
-                    "email_sent": False,
+                    "email_queued": False,
                 },
                 "message": "Group participant already approved",
             }
 
-        members_response = supabase.table("group_members").select("id").eq("group_id", group_id).execute()
-        member_count = len(members_response.data or [])
-
-        pass_base64 = generate_group_pass(
-            {
-                "id": str(group.get("id")),
-                "team_name": group.get("team_name"),
-                "event_name": group.get("event_name"),
-                "leader_roll_no": group.get("leader_roll_no"),
-                "member_count": member_count,
-            },
-            logo_path=LOGO_PATH,
-        )
-
         approval_timestamp = datetime.now(timezone.utc).isoformat()
-        try:
-            supabase.table("group_registrations").update(
-                {"qr_code": pass_base64, "approved_at": approval_timestamp}
-            ).eq("id", group_id).execute()
-        except Exception:
-            supabase.table("group_registrations").update({"qr_code": pass_base64}).eq("id", group_id).execute()
-
-        event_name = str(group.get("event_name") or "").strip()
-        email_sent, email_error = send_approval_email(
-            to_email=group.get("leader_email"),
-            name=group.get("leader_name", "Group Leader"),
-            qr_code_base64=pass_base64,
-            registration_id=group_id,
-            user_type="group participant",
-            events=[event_name] if event_name else None,
+        placeholder_qr = generate_placeholder_qr(group, "group")
+        update_approved_record(
+            table_name="group_registrations",
+            record_id=group_id,
+            qr_code=placeholder_qr,
+            approved_at=approval_timestamp,
         )
+
+        background_tasks.add_task(send_approval_email_background, group, "group")
 
         return {
             "success": True,
             "data": {
                 "id": group_id,
                 "approved": True,
-                "qr_code": pass_base64,
-                "email_sent": email_sent,
-                "email_error": email_error,
+                "qr_code": placeholder_qr,
+                "email_queued": True,
             },
-            "message": "Group participant approved",
+            "message": "Approved",
         }
     except HTTPException:
         raise
@@ -1166,6 +1463,69 @@ async def resend_group_approval_email(group_id: str, authorization: str = Header
         }
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/faculty/resend-all/{record_type}")
+async def resend_all_approved_emails(
+    record_type: str,
+    background_tasks: BackgroundTasks,
+    authorization: str = Header(None),
+):
+    """Queue bulk resend for approved records in background batches."""
+    verify_faculty_token(authorization)
+
+    config = {
+        "student": {
+            "table": "students",
+            "select": "id, name, email, qr_code",
+        },
+        "participant": {
+            "table": "participants",
+            "select": "id, name, email, qr_code",
+        },
+        "volunteer": {
+            "table": "volunteers",
+            "select": "id, name, email, qr_code",
+        },
+        "group": {
+            "table": "group_registrations",
+            "select": "id, leader_name, leader_email, event_name, qr_code",
+        },
+    }
+
+    if record_type not in config:
+        raise HTTPException(
+            status_code=400,
+            detail="Type must be one of: student, participant, volunteer, group",
+        )
+
+    try:
+        selected_config = config[record_type]
+        response = supabase.table(selected_config["table"]).select(
+            selected_config["select"]
+        ).execute()
+
+        approved_records = [
+            row for row in (response.data or [])
+            if row.get("qr_code")
+        ]
+
+        background_tasks.add_task(
+            resend_approved_batch_emails,
+            approved_records,
+            record_type,
+        )
+
+        return {
+            "success": True,
+            "data": {
+                "type": record_type,
+                "queued": len(approved_records),
+            },
+            "message": f"Batch resend queued for {len(approved_records)} records",
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

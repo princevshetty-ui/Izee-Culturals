@@ -11,7 +11,7 @@ def validate_startup_env() -> None:
     required = ["FACULTY_PASSWORD"]
     missing = [name for name in required if not os.getenv(name)]
     if missing:
-        raise RuntimeError(f"Missing required environment variable(s): {', '.join(missing)}")
+        print(f"[WARN] Missing environment variable(s): {', '.join(missing)}")
 
 
 validate_startup_env()

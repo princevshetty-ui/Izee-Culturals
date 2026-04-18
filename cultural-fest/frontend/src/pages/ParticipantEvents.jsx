@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
+const MotionSection = motion.section
+const MotionButton = motion.button
+const MotionDiv = motion.div
 
 const CATEGORIES = [
   {
@@ -141,37 +144,80 @@ export default function ParticipantEvents() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: `
-        radial-gradient(900px 600px at 15% 85%, 
-          rgba(158,38,54,0.10) 0%, transparent 60%),
-        radial-gradient(700px 500px at 80% 15%, 
-          rgba(190,163,93,0.07) 0%, transparent 60%),
-        #080910
-      `,
+      position: 'relative',
+      overflow: 'hidden',
+      background: '#07070B',
       color: '#EEE6D8',
       paddingBottom: '100px'
     }}>
+      <style>{`
+        @keyframes festival-breathe {
+          0% {
+            transform: scale(1) translate3d(0, 0, 0);
+            opacity: 0.72;
+          }
+          50% {
+            transform: scale(1.06) translate3d(1.5%, -1.5%, 0);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1) translate3d(0, 0, 0);
+            opacity: 0.72;
+          }
+        }
+
+        @keyframes festival-shimmer {
+          0% {
+            transform: translateX(-130%);
+          }
+          100% {
+            transform: translateX(130%);
+          }
+        }
+      `}</style>
+
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: '-12%',
+          pointerEvents: 'none',
+          zIndex: 0,
+          background: `
+            radial-gradient(60% 55% at 18% 78%, rgba(184,134,11,0.15) 0%, rgba(184,134,11,0) 70%),
+            radial-gradient(55% 48% at 82% 18%, rgba(74,0,128,0.14) 0%, rgba(74,0,128,0) 72%),
+            radial-gradient(40% 35% at 50% 52%, rgba(184,134,11,0.08) 0%, rgba(184,134,11,0) 70%)
+          `,
+          animation: 'festival-breathe 8s ease-in-out infinite'
+        }}
+      />
+
       <div style={{
         maxWidth: '820px',
         margin: '0 auto',
-        padding: '32px 24px 0'
+        padding: '32px 24px 0',
+        position: 'relative',
+        zIndex: 1
       }}>
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="mb-3 inline-flex items-center text-[12px] tracking-[0.06em] text-[#EEE6D8]/45 transition hover:text-[#EEE6D8]/78"
+        >
+          ← Back to Home
+        </button>
+
         <p className="text-[11px] tracking-[0.05em] text-[#EEE6D8]/30">
           Home → Participant Registration → Select Events
         </p>
 
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="mt-3 inline-flex items-center text-sm text-[#EEE6D8]/72 transition hover:text-[#EEE6D8]"
+        <h1
+          className="mt-4 text-[clamp(28px,4vw,48px)] leading-[1.06] text-[#EEE6D8]"
+          style={{ ...DISPLAY_FONT, textShadow: '0 0 30px rgba(184,134,11,0.3)' }}
         >
-          ← Back
-        </button>
-
-        <h1 className="mt-4 text-[clamp(28px,4vw,48px)] leading-[1.06] text-[#EEE6D8]" style={DISPLAY_FONT}>
           Select Your Events
         </h1>
-        <p className="mt-2 text-[15px] text-[#EEE6D8]/55">Choose up to 2 events from any category below</p>
+        <p className="mt-2 text-[15px] text-[#CFC6B7]/78">Choose up to 2 events from any category below</p>
 
         <div style={{
           marginBottom: '36px',
@@ -189,36 +235,49 @@ export default function ParticipantEvents() {
               letterSpacing: '0.14em',
               textTransform: 'uppercase',
               color: 'rgba(238,230,216,0.35)'
-            }}>MAX 2 EVENTS</span>
+            }}>MAX 2 EVENTS — {totalSelected}/2</span>
             <span style={{
               fontFamily: 'system-ui, -apple-system, sans-serif',
               fontSize: '12px',
               fontWeight: '600',
-              color: totalSelected > 0 ? '#C9A84C' : 'rgba(238,230,216,0.35)'
+              color: totalSelected > 0 ? '#B8860B' : 'rgba(238,230,216,0.35)'
             }}>{totalSelected} / 2</span>
           </div>
           <div style={{
             width: '100%',
-            height: '2px',
+            height: '6px',
             background: 'rgba(255,255,255,0.07)',
             borderRadius: '999px',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            border: '1px solid rgba(255,255,255,0.06)'
           }}>
             <div
               style={{
+                position: 'relative',
                 height: '100%',
                 width: `${(totalSelected / 2) * 100}%`,
-                background: 'linear-gradient(to right, #C9A84C, #E8C96A)',
+                background: 'linear-gradient(90deg, #8B6914 0%, #B8860B 45%, #D1A032 100%)',
                 borderRadius: '999px',
-                transition: 'width 0.35s ease'
+                transition: 'width 0.35s ease',
+                boxShadow: totalSelected === 2 ? '0 0 18px rgba(184,134,11,0.45)' : 'none'
               }}
-            />
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'linear-gradient(110deg, transparent 20%, rgba(255,255,255,0.35) 50%, transparent 80%)',
+                  animation: 'festival-shimmer 1.8s linear infinite'
+                }}
+              />
+            </div>
           </div>
         </div>
 
         <div className="mt-8">
           {CATEGORIES.map((category, index) => (
-            <motion.section
+            <MotionSection
               key={category.id}
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
@@ -232,9 +291,18 @@ export default function ParticipantEvents() {
                 marginBottom: '16px'
               }}>
                 <span style={{
-                  fontSize: '18px',
+                  color: 'rgba(184,134,11,0.96)',
+                  fontSize: '13px',
                   lineHeight: 1,
                   flexShrink: 0
+                }} aria-hidden="true">
+                  ●
+                </span>
+                <span style={{
+                  fontSize: '18px',
+                  lineHeight: 1,
+                  flexShrink: 0,
+                  opacity: 0.72
                 }} aria-hidden="true">
                   {category.icon}
                 </span>
@@ -242,17 +310,17 @@ export default function ParticipantEvents() {
                   fontFamily: "'Montage', serif",
                   fontSize: '13px',
                   fontWeight: '600',
-                  letterSpacing: '0.14em',
+                  letterSpacing: '0.18em',
                   textTransform: 'uppercase',
-                  color: 'rgba(238,230,216,0.75)',
+                  color: 'rgba(238,230,216,0.82)',
                   flexShrink: 0
                 }}>
                   {category.label}
                 </span>
                 <div style={{
                   flex: 1,
-                  height: '0.5px',
-                  background: 'rgba(255,255,255,0.07)'
+                  height: '1px',
+                  background: 'rgba(184,134,11,0.3)'
                 }} />
               </div>
 
@@ -265,7 +333,7 @@ export default function ParticipantEvents() {
                 {category.events.map((event) => {
                   const isGroup = event.isGroup
                   const isSelected = !isGroup && selectedIds.includes(event.id)
-                  const isDisabled = !isGroup && totalSelected >= 2 && !isSelected
+                  const isDisabled = totalSelected >= 2 && !isSelected
 
                   const basePillStyle = {
                     display: 'inline-flex',
@@ -278,48 +346,55 @@ export default function ParticipantEvents() {
                     fontFamily: 'system-ui, -apple-system, sans-serif',
                     fontWeight: '400',
                     cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    border: '0.5px solid rgba(255,255,255,0.15)',
+                    border: '1px solid rgba(255,255,255,0.15)',
                     background: 'rgba(255,255,255,0.05)',
-                    color: 'rgba(238,230,216,0.72)',
-                    transition: 'all 0.18s ease',
+                    color: 'rgba(238,230,216,0.76)',
+                    transition: 'all 200ms ease',
                     userSelect: 'none',
                     whiteSpace: 'nowrap',
-                    opacity: isDisabled ? 0.28 : 1,
+                    opacity: isDisabled ? 0.3 : 1,
                     pointerEvents: isDisabled ? 'none' : 'auto'
                   }
 
                   let pillStyle = { ...basePillStyle }
 
                   if (isSelected) {
-                    pillStyle.background = 'rgba(201,168,76,0.13)'
-                    pillStyle.border = '1px solid rgba(201,168,76,0.55)'
-                    pillStyle.color = '#C9A84C'
-                    pillStyle.fontWeight = '500'
-                    pillStyle.boxShadow = '0 0 12px rgba(201,168,76,0.08)'
+                    pillStyle.background = 'linear-gradient(135deg, #B8860B, #8B6914)'
+                    pillStyle.border = '1px solid #B8860B'
+                    pillStyle.color = '#FFFFFF'
+                    pillStyle.fontWeight = '600'
+                    pillStyle.boxShadow = '0 0 16px rgba(184,134,11,0.4)'
                   } else if (isGroup) {
-                    pillStyle.border = '0.5px solid rgba(201,168,76,0.18)'
+                    pillStyle.border = '1px solid rgba(255,255,255,0.15)'
                   }
 
                   return (
-                    <motion.button
+                    <MotionButton
                       key={event.id}
                       type="button"
                       onClick={() => handleEventClick(event)}
                       whileTap={{ scale: 0.96 }}
+                      whileHover={isDisabled || isSelected
+                        ? undefined
+                        : {
+                            borderColor: 'rgba(184,134,11,0.6)',
+                            boxShadow: '0 0 12px rgba(184,134,11,0.2)',
+                            y: -1,
+                          }}
                       layout
                       style={pillStyle}
                     >
                       {isSelected ? <span aria-hidden="true">✓</span> : null}
                       <span>{getEventPillLabel(event)}</span>
                       {isGroup ? <span aria-hidden="true" style={{ fontSize: '12px', opacity: 0.7 }}>👥</span> : null}
-                    </motion.button>
+                    </MotionButton>
                   )
                 })}
               </div>
-            </motion.section>
+            </MotionSection>
           ))}
 
-          <motion.section
+          <MotionSection
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: CATEGORIES.length * 0.08 }}
@@ -365,7 +440,7 @@ export default function ParticipantEvents() {
 
             <AnimatePresence initial={false}>
               {othersSelected && (
-                <motion.div
+                <MotionDiv
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
@@ -401,10 +476,10 @@ export default function ParticipantEvents() {
                       color: 'rgba(178,34,52,0.8)'
                     }}>Please describe your talent to continue</p>
                   )}
-                </motion.div>
+                </MotionDiv>
               )}
             </AnimatePresence>
-          </motion.section>
+          </MotionSection>
         </div>
       </div>
 
@@ -414,10 +489,10 @@ export default function ParticipantEvents() {
         left: 0,
         right: 0,
         zIndex: 40,
-        background: 'rgba(8,9,16,0.95)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        borderTop: '0.5px solid rgba(255,255,255,0.08)',
+        background: 'rgba(184,134,11,0.1)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        borderTop: '1px solid rgba(184,134,11,0.3)',
         padding: '14px 32px',
         display: 'flex',
         alignItems: 'center',
@@ -428,32 +503,39 @@ export default function ParticipantEvents() {
             fontFamily: 'system-ui, -apple-system, sans-serif',
             fontSize: '13px',
             color: totalSelected === 2
-              ? '#C9A84C'
+              ? '#D7AD41'
               : totalSelected === 1
-                ? 'rgba(238,230,216,0.6)'
-                : 'rgba(238,230,216,0.35)'
+                ? 'rgba(238,230,216,0.76)'
+                : 'rgba(238,230,216,0.52)'
           }}
         >
           {getSelectionMessage(totalSelected)}
         </p>
 
-        <button
+        <MotionButton
           type="button"
           onClick={handleContinue}
           disabled={!canContinue}
+          whileTap={canContinue ? { scale: 0.97 } : undefined}
+          whileHover={canContinue
+            ? {
+                boxShadow: '0 0 22px rgba(184,134,11,0.4)',
+                y: -1,
+              }
+            : undefined}
           style={canContinue
             ? {
                 height: '42px',
                 padding: '0 32px',
                 borderRadius: '999px',
-                background: 'linear-gradient(135deg, #C9A84C 0%, #A8893C 100%)',
+                background: 'linear-gradient(135deg, #B8860B 0%, #8B6914 100%)',
                 color: '#0A0800',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
                 fontWeight: '600',
                 fontSize: '14px',
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 4px 20px rgba(201,168,76,0.28)',
+                boxShadow: '0 6px 20px rgba(184,134,11,0.3)',
                 letterSpacing: '0.03em'
               }
             : {
@@ -465,17 +547,17 @@ export default function ParticipantEvents() {
                 fontFamily: 'system-ui, -apple-system, sans-serif',
                 fontWeight: '600',
                 fontSize: '14px',
-                border: '0.5px solid rgba(201,168,76,0.15)',
+                border: '1px solid rgba(201,168,76,0.15)',
                 cursor: 'not-allowed'
               }}
         >
           Continue →
-        </button>
+        </MotionButton>
       </div>
 
       <AnimatePresence>
         {groupModalEvent && (
-          <motion.div
+          <MotionDiv
             style={{
               position: 'fixed',
               inset: 0,
@@ -493,7 +575,7 @@ export default function ParticipantEvents() {
             exit={{ opacity: 0 }}
             onClick={() => setGroupModalEvent(null)}
           >
-            <motion.div
+            <MotionDiv
               style={{
                 width: '100%',
                 maxWidth: '460px',
@@ -594,8 +676,8 @@ export default function ParticipantEvents() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </MotionDiv>
+          </MotionDiv>
         )}
       </AnimatePresence>
     </div>

@@ -39,9 +39,11 @@
 #   year        TEXT NOT NULL
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from datetime import datetime
 from db import supabase
+from utils.duplicate_check import check_duplicate_roll
 import uuid
 import re
 
@@ -92,6 +94,16 @@ async def register_volunteer(req: VolunteerRegisterRequest):
             raise HTTPException(status_code=400, detail="Valid email is required")
         if not re.match(r'^\d{10}$', req.phone.strip()):
             raise HTTPException(status_code=400, detail="Phone must be 10 digits")
+
+        duplicate_check = await check_duplicate_roll(supabase, req.roll_no.strip())
+        if duplicate_check["is_duplicate"]:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "message": "This roll number is already registered. Please contact the coordinator if this is an error.",
+                },
+            )
 
         volunteer_id = str(uuid.uuid4())
         registered_at = datetime.utcnow().isoformat()

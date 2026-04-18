@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
-const COURSES = ['BCA', 'BBA', 'B.Com']
+const COURSES = ['BCA', 'BBA', 'BBA - Aviation']
 const YEARS = ['1st', '2nd', '3rd']
 
 const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#C9A84C]'
@@ -25,6 +25,7 @@ export default function StudentRegister() {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState('')
+  const [rollNoApiError, setRollNoApiError] = useState('')
 
   const validateEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -51,6 +52,9 @@ export default function StudentRegister() {
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    if (name === 'roll_no' && rollNoApiError) {
+      setRollNoApiError('')
+    }
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }))
     }
@@ -59,6 +63,7 @@ export default function StudentRegister() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setApiError('')
+    setRollNoApiError('')
 
     if (!validateForm()) return
 
@@ -83,7 +88,11 @@ export default function StudentRegister() {
           },
         })
       } else {
-        setApiError(data.message || 'Registration failed. Please try again.')
+        if (response.status === 400) {
+          setRollNoApiError(data.message || 'This roll number is already registered. Please contact the coordinator if this is an error.')
+        } else {
+          setApiError(data.message || 'Registration failed. Please try again.')
+        }
       }
     } catch (error) {
       setApiError('Network error. Please check your connection and try again.')
@@ -112,6 +121,13 @@ export default function StudentRegister() {
               className="text-sm text-[#EEE6D8]/78 transition hover:text-[#EEE6D8]"
             >
               ← Back
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-1 text-sm text-[rgba(238,230,216,0.45)] hover:text-[#EEE6D8] transition-colors group"
+            >
+              <span className="group-hover:-translate-x-1 transition-transform">←</span>
+              <span>Home</span>
             </button>
           </div>
         </div>
@@ -173,12 +189,14 @@ export default function StudentRegister() {
                   onChange={handleInputChange}
                   placeholder="e.g., U03EX24S0091"
                   className={`${inputBase} ${
-                    errors.roll_no
+                    errors.roll_no || rollNoApiError
                       ? 'border-red-500/60 focus:border-red-500'
                       : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
                   }`}
                 />
-                {errors.roll_no && <p className="mt-1.5 text-xs text-red-400">{errors.roll_no}</p>}
+                {(rollNoApiError || errors.roll_no) && (
+                  <p className="mt-1.5 text-xs text-red-400">{rollNoApiError || errors.roll_no}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

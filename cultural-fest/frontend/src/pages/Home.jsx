@@ -271,25 +271,11 @@ export default function Home() {
       >
         <nav className="mx-auto flex h-[72px] w-full max-w-[1440px] items-center justify-between px-4 sm:px-8 lg:px-[60px]">
           <div className="flex items-center">
-            <span
-              className="bg-clip-text font-display text-[20px] font-semibold uppercase tracking-[0.12em] text-transparent"
-              style={{ backgroundImage: 'linear-gradient(120deg, #D6BF81 0%, #C9A84C 52%, #A9832D 100%)' }}
-            >
-              IZEE
-            </span>
-            <span
-              className="mx-3 block w-px"
-              style={{
-                height: '16px',
-                background: 'linear-gradient(to bottom, #B22234, #C9A84C)',
-              }}
+            <img
+              src="/college-logo.png"
+              alt="College Logo"
+              className="h-10 w-auto object-contain"
             />
-            <span
-              className="bg-clip-text font-display text-[20px] font-semibold uppercase tracking-[0.12em] text-transparent"
-              style={{ backgroundImage: 'linear-gradient(120deg, #D6BF81 0%, #C9A84C 52%, #A9832D 100%)' }}
-            >
-              CULTURALS
-            </span>
           </div>
 
           <button
@@ -739,7 +725,7 @@ export default function Home() {
             MozOsxFontSmoothing: 'grayscale',
           }}
         >
-          © 2026 IZee · Cultural Committee
+          © 2026 IZee Got Talent
         </span>
       </footer>
 

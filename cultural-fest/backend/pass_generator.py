@@ -325,336 +325,347 @@ def generate_admit_pass(
     """
     Generate a digital admit pass using a template PNG as background.
     Overlays text, logo, and QR code on the template.
+    Returns a fallback PNG if generation fails.
     """
-    role = (role or 'participant').lower()
-    colors = get_color_scheme(role)
-    accent_rgb = colors['accent_rgb']
+    try:
+        role = (role or 'participant').lower()
+        colors = get_color_scheme(role)
+        accent_rgb = colors['accent_rgb']
 
-    # ── STEP 1: LOAD TEMPLATE ──
-    template_file = TEMPLATES.get(role, TEMPLATES['participant'])
-    
-    if not os.path.exists(template_file):
-        # Fallback: create plain dark background
-        img = Image.new('RGBA', (TW, TH), (13, 10, 4, 255))
-    else:
-        img = Image.open(template_file).convert('RGBA')
-        # Ensure correct size
-        if img.size != (TW, TH):
-            img = img.resize((TW, TH), Image.Resampling.LANCZOS)
+        # ── STEP 1: LOAD TEMPLATE ──
+        template_file = TEMPLATES.get(role, TEMPLATES['participant'])
+        
+        if not os.path.exists(template_file):
+            # Fallback: create plain dark background
+            img = Image.new('RGBA', (TW, TH), (13, 10, 4, 255))
+        else:
+            img = Image.open(template_file).convert('RGBA')
+            # Ensure correct size
+            if img.size != (TW, TH):
+                img = img.resize((TW, TH), Image.Resampling.LANCZOS)
 
-    draw = ImageDraw.Draw(img, 'RGBA')
+        draw = ImageDraw.Draw(img, 'RGBA')
 
-    # ── STEP 2: ROLE BADGE ──
-    badge_label = colors['badge_label']
-    badge_font = get_font(28, bold=True)
-    
-    draw.rectangle(
-        [BADGE_X, BADGE_Y, BADGE_X + BADGE_W, BADGE_Y + BADGE_H],
-        fill=colors['badge_fill']
-    )
-    
-    blw, blh = text_size(draw, badge_label, badge_font)
-    badge_text_x = BADGE_X + (BADGE_W - blw) // 2
-    badge_text_y = BADGE_Y + (BADGE_H - blh) // 2
-    draw.text(
-        (badge_text_x, badge_text_y),
-        badge_label,
-        font=badge_font,
-        fill=colors['badge_text']
-    )
-
-    # ── STEP 3: MAIN NAME ──
-    if role == 'group':
-        raw_name = str(data.get('team_name') or 'N/A')
-    else:
-        raw_name = str(data.get('name') or 'N/A')
-
-    display_name, name_font, _, name_h = fit_name_text(
-        draw,
-        raw_name,
-        max_width=700,
-        start_size=NAME_FONT_MAX_SIZE,
-        min_size=NAME_FONT_MIN_SIZE,
-    )
-
-    draw.text(
-        (CONTENT_X, NAME_Y),
-        display_name,
-        font=name_font,
-        fill=colors['text_primary']
-    )
-    name_bottom = NAME_Y + name_h
-
-    # ── STEP 4: DETAILS ROW ──
-    details_y = name_bottom + DETAILS_Y_OFFSET
-
-    bold_font = get_font(30, bold=True)
-    reg_font = get_font(30, bold=False)
-    sep_font = get_font(30, bold=False)
-
-    if role == 'group':
-        roll = str(data.get('leader_roll_no') or 'N/A')
-        course = "Group Leader"
-        year = str(data.get('event_name') or '')
-    else:
-        roll = str(data.get('roll_no') or 'N/A')
-        course = str(data.get('course') or 'N/A')
-        year = str(data.get('year') or 'N/A')
-        if not year.lower().endswith('year'):
-            year = year + ' Year'
-
-    cursor_x = CONTENT_X
-
-    # Roll No
-    draw.text((cursor_x, details_y), roll,
-              font=bold_font, fill=colors['text_primary'])
-    rw, rh = text_size(draw, roll, bold_font)
-    cursor_x += rw
-
-    # Separator 1
-    sep = "  ·  "
-    draw.text((cursor_x, details_y), sep,
-              font=sep_font, fill=(*accent_rgb, 200))
-    sw, _ = text_size(draw, sep, sep_font)
-    cursor_x += sw
-
-    # Course
-    draw.text((cursor_x, details_y), course,
-              font=reg_font, fill=colors['text_secondary'])
-    cw, _ = text_size(draw, course, reg_font)
-    cursor_x += cw
-
-    # Separator 2
-    draw.text((cursor_x, details_y), sep,
-              font=sep_font, fill=(*accent_rgb, 200))
-    cursor_x += sw
-
-    # Year
-    draw.text((cursor_x, details_y), year,
-              font=reg_font, fill=colors['text_secondary'])
-
-    details_bottom = details_y + rh
-
-    # ── STEP 5: ROLE-SPECIFIC CONTENT ──
-    label_font = get_font(22, bold=True)
-    event_name_font = get_font(32, bold=False)
-    cat_font = get_font(22, bold=False)
-    value_font = get_font(36, bold=True)
-    note_font = get_font(24, bold=False)
-
-    section_y = details_bottom + SECTION_LABEL_OFFSET
-
-    if role == 'participant':
-        label_text = "R E G I S T E R E D   E V E N T S"
-        draw.text(
-            (CONTENT_X, section_y),
-            label_text,
-            font=label_font,
-            fill=colors['section_label']
+        # ── STEP 2: ROLE BADGE ──
+        badge_label = colors['badge_label']
+        badge_font = get_font(28, bold=True)
+        
+        draw.rectangle(
+            [BADGE_X, BADGE_Y, BADGE_X + BADGE_W, BADGE_Y + BADGE_H],
+            fill=colors['badge_fill']
         )
-        _, label_h = text_size(draw, label_text, label_font)
+        
+        blw, blh = text_size(draw, badge_label, badge_font)
+        badge_text_x = BADGE_X + (BADGE_W - blw) // 2
+        badge_text_y = BADGE_Y + (BADGE_H - blh) // 2
+        draw.text(
+            (badge_text_x, badge_text_y),
+            badge_label,
+            font=badge_font,
+            fill=colors['badge_text']
+        )
 
-        events = data.get('events', []) or []
-        regular_events = []
-        others_event = None
+        # ── STEP 3: MAIN NAME ──
+        if role == 'group':
+            raw_name = str(data.get('team_name') or 'N/A')
+        else:
+            raw_name = str(data.get('name') or 'N/A')
 
-        for ev in events:
-            eid = str(ev.get('event_id') or ev.get('id') or '').lower()
-            ename = str(ev.get('event_name') or ev.get('name') or '').strip()
-            if eid == 'others' or ename.lower() == 'others':
-                others_event = ev
-            elif ename:
-                regular_events.append(ev)
+        display_name, name_font, _, name_h = fit_name_text(
+            draw,
+            raw_name,
+            max_width=700,
+            start_size=NAME_FONT_MAX_SIZE,
+            min_size=NAME_FONT_MIN_SIZE,
+        )
 
-        row_y = section_y + label_h + EVENT_LIST_OFFSET
+        draw.text(
+            (CONTENT_X, NAME_Y),
+            display_name,
+            font=name_font,
+            fill=colors['text_primary']
+        )
+        name_bottom = NAME_Y + name_h
 
-        for ev in regular_events[:3]:
-            ename = str(ev.get('event_name') or ev.get('name') or 'Event')
-            category = str(ev.get('category_label') or '').strip()
+        # ── STEP 4: DETAILS ROW ──
+        details_y = name_bottom + DETAILS_Y_OFFSET
 
-            draw.rectangle(
-                [CONTENT_X, row_y + 10, CONTENT_X + 12, row_y + 22],
-                fill=(*accent_rgb, 200)
+        bold_font = get_font(30, bold=True)
+        reg_font = get_font(30, bold=False)
+        sep_font = get_font(30, bold=False)
+
+        if role == 'group':
+            roll = str(data.get('leader_roll_no') or 'N/A')
+            course = "Group Leader"
+            year = str(data.get('event_name') or '')
+        else:
+            roll = str(data.get('roll_no') or 'N/A')
+            course = str(data.get('course') or 'N/A')
+            year = str(data.get('year') or 'N/A')
+            if not year.lower().endswith('year'):
+                year = year + ' Year'
+
+        cursor_x = CONTENT_X
+
+        # Roll No
+        draw.text((cursor_x, details_y), roll,
+                  font=bold_font, fill=colors['text_primary'])
+        rw, rh = text_size(draw, roll, bold_font)
+        cursor_x += rw
+
+        # Separator 1
+        sep = "  ·  "
+        draw.text((cursor_x, details_y), sep,
+                  font=sep_font, fill=(*accent_rgb, 200))
+        sw, _ = text_size(draw, sep, sep_font)
+        cursor_x += sw
+
+        # Course
+        draw.text((cursor_x, details_y), course,
+                  font=reg_font, fill=colors['text_secondary'])
+        cw, _ = text_size(draw, course, reg_font)
+        cursor_x += cw
+
+        # Separator 2
+        draw.text((cursor_x, details_y), sep,
+                  font=sep_font, fill=(*accent_rgb, 200))
+        cursor_x += sw
+
+        # Year
+        draw.text((cursor_x, details_y), year,
+                  font=reg_font, fill=colors['text_secondary'])
+
+        details_bottom = details_y + rh
+
+        # ── STEP 5: ROLE-SPECIFIC CONTENT ──
+        label_font = get_font(22, bold=True)
+        event_name_font = get_font(32, bold=False)
+        cat_font = get_font(22, bold=False)
+        value_font = get_font(36, bold=True)
+        note_font = get_font(24, bold=False)
+
+        section_y = details_bottom + SECTION_LABEL_OFFSET
+
+        if role == 'participant':
+            label_text = "R E G I S T E R E D   E V E N T S"
+            draw.text(
+                (CONTENT_X, section_y),
+                label_text,
+                font=label_font,
+                fill=colors['section_label']
             )
+            _, label_h = text_size(draw, label_text, label_font)
+
+            events = data.get('events', []) or []
+            regular_events = []
+            others_event = None
+
+            for ev in events:
+                eid = str(ev.get('event_id') or ev.get('id') or '').lower()
+                ename = str(ev.get('event_name') or ev.get('name') or '').strip()
+                if eid == 'others' or ename.lower() == 'others':
+                    others_event = ev
+                elif ename:
+                    regular_events.append(ev)
+
+            row_y = section_y + label_h + EVENT_LIST_OFFSET
+
+            for ev in regular_events[:3]:
+                ename = str(ev.get('event_name') or ev.get('name') or 'Event')
+                category = str(ev.get('category_label') or '').strip()
+
+                draw.rectangle(
+                    [CONTENT_X, row_y + 10, CONTENT_X + 12, row_y + 22],
+                    fill=(*accent_rgb, 200)
+                )
+
+                draw.text(
+                    (CONTENT_X + 24, row_y),
+                    ename,
+                    font=event_name_font,
+                    fill=colors['text_primary']
+                )
+                enw, enh = text_size(draw, ename, event_name_font)
+
+                if category and category.lower() != 'others':
+                    draw.text(
+                        (CONTENT_X + 24 + enw + 20, row_y + 5),
+                        category,
+                        font=cat_font,
+                        fill=colors['text_dim']
+                    )
+
+                row_y += enh + EVENT_ROW_GAP
+
+            if others_event:
+                desc = str(others_event.get('others_description') or '').strip()
+                draw.rectangle(
+                    [CONTENT_X, row_y + 10, CONTENT_X + 12, row_y + 22],
+                    fill=(*accent_rgb, 150)
+                )
+                others_label = f"Others" + (f": {desc[:40]}" if desc else "")
+                draw.text(
+                    (CONTENT_X + 24, row_y),
+                    others_label,
+                    font=event_name_font,
+                    fill=colors['text_secondary']
+                )
+
+        elif role == 'volunteer':
+            label_text = "T E A M   A S S I G N M E N T"
+            draw.text(
+                (CONTENT_X, section_y),
+                label_text,
+                font=label_font,
+                fill=colors['section_label']
+            )
+            _, label_h = text_size(draw, label_text, label_font)
+
+            team = str(data.get('team_label') or '').strip()
+            team_text = team if team else "Pending Assignment"
 
             draw.text(
-                (CONTENT_X + 24, row_y),
-                ename,
-                font=event_name_font,
+                (CONTENT_X, section_y + label_h + EVENT_LIST_OFFSET),
+                team_text,
+                font=value_font,
                 fill=colors['text_primary']
             )
-            enw, enh = text_size(draw, ename, event_name_font)
 
-            if category and category.lower() != 'others':
+            if not team:
+                _, vh = text_size(draw, team_text, value_font)
                 draw.text(
-                    (CONTENT_X + 24 + enw + 20, row_y + 5),
-                    category,
-                    font=cat_font,
+                    (CONTENT_X, section_y + label_h + EVENT_LIST_OFFSET + vh + 12),
+                    "Faculty will confirm your team assignment",
+                    font=note_font,
                     fill=colors['text_dim']
                 )
 
-            row_y += enh + EVENT_ROW_GAP
-
-        if others_event:
-            desc = str(others_event.get('others_description') or '').strip()
-            draw.rectangle(
-                [CONTENT_X, row_y + 10, CONTENT_X + 12, row_y + 22],
-                fill=(*accent_rgb, 150)
-            )
-            others_label = f"Others" + (f": {desc[:40]}" if desc else "")
+        elif role == 'student':
+            label_text = "P A S S   T Y P E"
             draw.text(
-                (CONTENT_X + 24, row_y),
-                others_label,
-                font=event_name_font,
-                fill=colors['text_secondary']
+                (CONTENT_X, section_y),
+                label_text,
+                font=label_font,
+                fill=colors['section_label']
             )
+            _, label_h = text_size(draw, label_text, label_font)
 
-    elif role == 'volunteer':
-        label_text = "T E A M   A S S I G N M E N T"
-        draw.text(
-            (CONTENT_X, section_y),
-            label_text,
-            font=label_font,
-            fill=colors['section_label']
-        )
-        _, label_h = text_size(draw, label_text, label_font)
+            draw.text(
+                (CONTENT_X, section_y + label_h + EVENT_LIST_OFFSET),
+                "General Audience",
+                font=value_font,
+                fill=colors['text_primary']
+            )
+            _, vh = text_size(draw, "General Audience", value_font)
 
-        team = str(data.get('team_label') or '').strip()
-        team_text = team if team else "Pending Assignment"
-
-        draw.text(
-            (CONTENT_X, section_y + label_h + EVENT_LIST_OFFSET),
-            team_text,
-            font=value_font,
-            fill=colors['text_primary']
-        )
-
-        if not team:
-            _, vh = text_size(draw, team_text, value_font)
             draw.text(
                 (CONTENT_X, section_y + label_h + EVENT_LIST_OFFSET + vh + 12),
-                "Faculty will confirm your team assignment",
+                "Full Access  ·  Main Auditorium  ·  24 April 2026",
                 font=note_font,
                 fill=colors['text_dim']
             )
 
-    elif role == 'student':
-        label_text = "P A S S   T Y P E"
-        draw.text(
-            (CONTENT_X, section_y),
-            label_text,
-            font=label_font,
-            fill=colors['section_label']
-        )
-        _, label_h = text_size(draw, label_text, label_font)
+        elif role == 'group':
+            label_text = "G R O U P   R E G I S T R A T I O N"
+            draw.text(
+                (CONTENT_X, section_y),
+                label_text,
+                font=label_font,
+                fill=colors['section_label']
+            )
+            _, label_h = text_size(draw, label_text, label_font)
 
-        draw.text(
-            (CONTENT_X, section_y + label_h + EVENT_LIST_OFFSET),
-            "General Audience",
-            font=value_font,
-            fill=colors['text_primary']
-        )
-        _, vh = text_size(draw, "General Audience", value_font)
+            event_nm = str(data.get('event_name') or 'Event')
+            team_nm = str(data.get('team_name') or 'N/A')
+            member_count = int(data.get('member_count') or 0)
 
+            base_y = section_y + label_h + EVENT_LIST_OFFSET
+            draw.text((CONTENT_X, base_y), event_nm,
+                      font=value_font, fill=(*accent_rgb, 255))
+            _, evh = text_size(draw, event_nm, value_font)
+
+            draw.text((CONTENT_X, base_y + evh + 10), team_nm,
+                      font=event_name_font, fill=colors['text_secondary'])
+            _, tnh = text_size(draw, team_nm, event_name_font)
+
+            draw.text(
+                (CONTENT_X, base_y + evh + 10 + tnh + 10),
+                f"Team of {member_count + 1} members",
+                font=note_font,
+                fill=colors['text_dim']
+            )
+
+        # ── STEP 6: QR CODE ──
+        qr_data = {
+            'type': role,
+            'id': str(data.get('id') or ''),
+            'name': raw_name,
+            'verified': True
+        }
+
+        # Center QR using template anchors (not constrained to a black box).
+        qr_center_x = (QR_BOX_X1 + QR_BOX_X2) // 2
+        qr_center_y = (QR_BOX_Y1 + QR_BOX_Y2) // 2
+
+        plate_size = QR_SIZE + (2 * QR_BG_PADDING)
+
+        plate_x1 = qr_center_x - (plate_size // 2)
+        plate_y1 = qr_center_y - (plate_size // 2)
+        plate_x2 = plate_x1 + plate_size
+        plate_y2 = plate_y1 + plate_size
+
+        qr_img = generate_qr_code(qr_data, size=QR_SIZE)
+
+        qr_paste_x = qr_center_x - (QR_SIZE // 2)
+        qr_paste_y = qr_center_y - (QR_SIZE // 2)
+
+        # White background behind QR
+        draw.rectangle(
+            [plate_x1, plate_y1, plate_x2, plate_y2],
+            fill=(255, 255, 255, 255)
+        )
+
+        # Paste QR
+        img.alpha_composite(qr_img, (qr_paste_x, qr_paste_y))
+
+        # ── STEP 7: QR LABELS ──
+        scan_font = get_font(20, bold=False)
+        id_font = get_font(22, bold=True)
+
+        scan_text = "SCAN TO VERIFY"
+        stw, _ = text_size(draw, scan_text, scan_font)
         draw.text(
-            (CONTENT_X, section_y + label_h + EVENT_LIST_OFFSET + vh + 12),
-            "Full Access  ·  Main Auditorium  ·  24 April 2026",
-            font=note_font,
+            (QR_CENTER_X - stw // 2, QR_LABEL_Y),
+            scan_text,
+            font=scan_font,
             fill=colors['text_dim']
         )
 
-    elif role == 'group':
-        label_text = "G R O U P   R E G I S T R A T I O N"
+        pass_id = str(data.get('id') or 'N/A')[:8].upper()
+        id_text = f"ID: {pass_id}"
+        idw, _ = text_size(draw, id_text, id_font)
         draw.text(
-            (CONTENT_X, section_y),
-            label_text,
-            font=label_font,
-            fill=colors['section_label']
-        )
-        _, label_h = text_size(draw, label_text, label_font)
-
-        event_nm = str(data.get('event_name') or 'Event')
-        team_nm = str(data.get('team_name') or 'N/A')
-        member_count = int(data.get('member_count') or 0)
-
-        base_y = section_y + label_h + EVENT_LIST_OFFSET
-        draw.text((CONTENT_X, base_y), event_nm,
-                  font=value_font, fill=(*accent_rgb, 255))
-        _, evh = text_size(draw, event_nm, value_font)
-
-        draw.text((CONTENT_X, base_y + evh + 10), team_nm,
-                  font=event_name_font, fill=colors['text_secondary'])
-        _, tnh = text_size(draw, team_nm, event_name_font)
-
-        draw.text(
-            (CONTENT_X, base_y + evh + 10 + tnh + 10),
-            f"Team of {member_count + 1} members",
-            font=note_font,
-            fill=colors['text_dim']
+            (QR_CENTER_X - idw // 2, QR_ID_Y),
+            id_text,
+            font=id_font,
+            fill=(*accent_rgb, 160)
         )
 
-    # ── STEP 6: QR CODE ──
-    qr_data = {
-        'type': role,
-        'id': str(data.get('id') or ''),
-        'name': raw_name,
-        'verified': True
-    }
+        # ── STEP 8: SAVE AND RETURN ──
+        final = img.convert('RGB')
+        buffer = io.BytesIO()
+        final.save(buffer, format='PNG', optimize=False, compress_level=1)
+        buffer.seek(0)
+        return base64.b64encode(buffer.read()).decode('utf-8')
 
-    # Center QR using template anchors (not constrained to a black box).
-    qr_center_x = (QR_BOX_X1 + QR_BOX_X2) // 2
-    qr_center_y = (QR_BOX_Y1 + QR_BOX_Y2) // 2
-
-    plate_size = QR_SIZE + (2 * QR_BG_PADDING)
-
-    plate_x1 = qr_center_x - (plate_size // 2)
-    plate_y1 = qr_center_y - (plate_size // 2)
-    plate_x2 = plate_x1 + plate_size
-    plate_y2 = plate_y1 + plate_size
-
-    qr_img = generate_qr_code(qr_data, size=QR_SIZE)
-
-    qr_paste_x = qr_center_x - (QR_SIZE // 2)
-    qr_paste_y = qr_center_y - (QR_SIZE // 2)
-
-    # White background behind QR
-    draw.rectangle(
-        [plate_x1, plate_y1, plate_x2, plate_y2],
-        fill=(255, 255, 255, 255)
-    )
-
-    # Paste QR
-    img.alpha_composite(qr_img, (qr_paste_x, qr_paste_y))
-
-    # ── STEP 7: QR LABELS ──
-    scan_font = get_font(20, bold=False)
-    id_font = get_font(22, bold=True)
-
-    scan_text = "SCAN TO VERIFY"
-    stw, _ = text_size(draw, scan_text, scan_font)
-    draw.text(
-        (QR_CENTER_X - stw // 2, QR_LABEL_Y),
-        scan_text,
-        font=scan_font,
-        fill=colors['text_dim']
-    )
-
-    pass_id = str(data.get('id') or 'N/A')[:8].upper()
-    id_text = f"ID: {pass_id}"
-    idw, _ = text_size(draw, id_text, id_font)
-    draw.text(
-        (QR_CENTER_X - idw // 2, QR_ID_Y),
-        id_text,
-        font=id_font,
-        fill=(*accent_rgb, 160)
-    )
-
-    # ── STEP 8: SAVE AND RETURN ──
-    final = img.convert('RGB')
-    buffer = io.BytesIO()
-    final.save(buffer, format='PNG', optimize=False, compress_level=1)
-    buffer.seek(0)
-    return base64.b64encode(buffer.read()).decode('utf-8')
+    except Exception as e:
+        print(f"Pass generation failed for role '{role}': {e}")
+        # Return minimal fallback: 1x1 white pixel PNG (safe, always valid)
+        FALLBACK_PNG = (
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
+            "AAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        )
+        return FALLBACK_PNG
 
 
 def generate_participant_pass(data: Dict[str, Any], logo_path: Optional[str] = None) -> str:
