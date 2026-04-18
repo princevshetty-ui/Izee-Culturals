@@ -145,6 +145,16 @@ def compute_summary(records: list[dict]) -> dict:
     }
 
 
+def compute_approval_counts(records: list[dict]) -> dict:
+    total = len(records)
+    approved_count = sum(1 for record in records if record.get("qr_code"))
+    return {
+        "total": total,
+        "approved_count": approved_count,
+        "pending_count": total - approved_count,
+    }
+
+
 def fetch_summary_records(table_name: str) -> list[dict]:
     try:
         response = fetch_with_retry(
@@ -801,6 +811,516 @@ async def export_participants_csv(authorization: str = Header(None)):
             iter([csv_content]),
             media_type="text/csv; charset=utf-8",
             headers={"Content-Disposition": "attachment; filename=participants-report.csv"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/faculty/volunteers")
+async def get_all_volunteers(
+    authorization: str = Header(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=5, le=100),
+):
+    """Get paginated volunteer registrations for faculty dashboard."""
+    verify_faculty_token(authorization)
+
+    try:
+        summary_records = fetch_summary_records("volunteers")
+        summary = compute_approval_counts(summary_records)
+        current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
+
+        volunteer_records = []
+        if summary["total"] > 0:
+            response = fetch_with_retry(
+                lambda: supabase.table("volunteers").select("*").order("registered_at", desc=True).range(start, end).execute(),
+                attempts=3,
+            )
+            volunteer_records = response.data or []
+
+        data = []
+        for volunteer in volunteer_records:
+            role_value = volunteer.get("volunteer_role") or volunteer.get("role") or ""
+            data.append(
+                {
+                    "id": volunteer.get("id"),
+                    "name": volunteer.get("name"),
+                    "roll_no": volunteer.get("roll_no"),
+                    "course": volunteer.get("course"),
+                    "year": volunteer.get("year"),
+                    "email": volunteer.get("email"),
+                    "phone": volunteer.get("phone"),
+                    "volunteer_role": role_value,
+                    "registered_at": volunteer.get("registered_at"),
+                    "approved_at": volunteer.get("approved_at"),
+                    "is_approved": bool(volunteer.get("qr_code")),
+                }
+            )
+
+        return {
+            "success": True,
+            "data": data,
+            "pagination": {
+                "page": current_page,
+                "page_size": page_size,
+                "total": summary["total"],
+                "total_pages": total_pages,
+            },
+            "summary": summary,
+            "message": "Volunteers retrieved successfully",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/faculty/groups")
+async def get_all_groups(
+    authorization: str = Header(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=5, le=100),
+):
+    """Get paginated group registrations for faculty dashboard."""
+    verify_faculty_token(authorization)
+
+    try:
+        summary_records = fetch_summary_records("group_registrations")
+        summary = compute_approval_counts(summary_records)
+        current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
+
+        group_records = []
+        if summary["total"] > 0:
+            response = fetch_with_retry(
+                lambda: supabase.table("group_registrations").select("*").order("registered_at", desc=True).range(start, end).execute(),
+                attempts=3,
+            )
+            group_records = response.data or []
+
+        data = []
+        for group in group_records:
+            data.append(
+                {
+                    "id": group.get("id"),
+                    "name": group.get("leader_name") or group.get("name"),
+                    "roll_no": group.get("leader_roll_no") or group.get("roll_no"),
+                    "course": group.get("leader_course") or group.get("course"),
+                    "year": group.get("leader_year") or group.get("year"),
+                    "email": group.get("leader_email") or group.get("email"),
+                    "phone": group.get("leader_phone") or group.get("phone"),
+                    "group_name": group.get("team_name") or group.get("group_name"),
+                    "event_id": group.get("event_id"),
+                    "registered_at": group.get("registered_at"),
+                    "approved_at": group.get("approved_at"),
+                    "is_approved": bool(group.get("qr_code")),
+                }
+            )
+
+        return {
+            "success": True,
+            "data": data,
+            "pagination": {
+                "page": current_page,
+                "page_size": page_size,
+                "total": summary["total"],
+                "total_pages": total_pages,
+            },
+            "summary": summary,
+            "message": "Groups retrieved successfully",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/faculty/approve/volunteer/{volunteer_id}")
+async def approve_volunteer(volunteer_id: str, authorization: str = Header(None)):
+    """Approve a volunteer registration and generate digital pass."""
+    verify_faculty_token(authorization)
+
+    try:
+        volunteer_response = supabase.table("volunteers").select("*").eq("id", volunteer_id).limit(1).execute()
+
+        if not volunteer_response.data:
+            raise HTTPException(status_code=404, detail="Volunteer registration not found")
+
+        volunteer = volunteer_response.data[0]
+        existing_qr = volunteer.get("qr_code")
+        if existing_qr:
+            return {
+                "success": True,
+                "data": {
+                    "id": volunteer_id,
+                    "approved": True,
+                    "qr_code": existing_qr,
+                    "email_sent": False,
+                },
+                "message": "Volunteer already approved",
+            }
+
+        pass_base64 = generate_volunteer_pass(
+            {
+                "id": str(volunteer.get("id")),
+                "name": volunteer.get("name"),
+                "roll_no": volunteer.get("roll_no"),
+                "course": volunteer.get("course"),
+                "year": volunteer.get("year"),
+                "team_label": volunteer.get("team_label"),
+            },
+            logo_path=LOGO_PATH,
+        )
+
+        approval_timestamp = datetime.now(timezone.utc).isoformat()
+        try:
+            supabase.table("volunteers").update(
+                {"qr_code": pass_base64, "approved_at": approval_timestamp}
+            ).eq("id", volunteer_id).execute()
+        except Exception:
+            supabase.table("volunteers").update({"qr_code": pass_base64}).eq("id", volunteer_id).execute()
+
+        email_sent, email_error = send_approval_email(
+            to_email=volunteer.get("email"),
+            name=volunteer.get("name", "Volunteer"),
+            qr_code_base64=pass_base64,
+            registration_id=volunteer_id,
+            user_type="volunteer",
+        )
+
+        return {
+            "success": True,
+            "data": {
+                "id": volunteer_id,
+                "approved": True,
+                "qr_code": pass_base64,
+                "email_sent": email_sent,
+                "email_error": email_error,
+            },
+            "message": "Volunteer approved",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/faculty/approve/group/{group_id}")
+async def approve_group(group_id: str, authorization: str = Header(None)):
+    """Approve a group registration and generate digital pass."""
+    verify_faculty_token(authorization)
+
+    try:
+        group_response = supabase.table("group_registrations").select("*").eq("id", group_id).limit(1).execute()
+
+        if not group_response.data:
+            raise HTTPException(status_code=404, detail="Group registration not found")
+
+        group = group_response.data[0]
+        existing_qr = group.get("qr_code")
+        if existing_qr:
+            return {
+                "success": True,
+                "data": {
+                    "id": group_id,
+                    "approved": True,
+                    "qr_code": existing_qr,
+                    "email_sent": False,
+                },
+                "message": "Group participant already approved",
+            }
+
+        members_response = supabase.table("group_members").select("id").eq("group_id", group_id).execute()
+        member_count = len(members_response.data or [])
+
+        pass_base64 = generate_group_pass(
+            {
+                "id": str(group.get("id")),
+                "team_name": group.get("team_name"),
+                "event_name": group.get("event_name"),
+                "leader_roll_no": group.get("leader_roll_no"),
+                "member_count": member_count,
+            },
+            logo_path=LOGO_PATH,
+        )
+
+        approval_timestamp = datetime.now(timezone.utc).isoformat()
+        try:
+            supabase.table("group_registrations").update(
+                {"qr_code": pass_base64, "approved_at": approval_timestamp}
+            ).eq("id", group_id).execute()
+        except Exception:
+            supabase.table("group_registrations").update({"qr_code": pass_base64}).eq("id", group_id).execute()
+
+        event_name = str(group.get("event_name") or "").strip()
+        email_sent, email_error = send_approval_email(
+            to_email=group.get("leader_email"),
+            name=group.get("leader_name", "Group Leader"),
+            qr_code_base64=pass_base64,
+            registration_id=group_id,
+            user_type="group participant",
+            events=[event_name] if event_name else None,
+        )
+
+        return {
+            "success": True,
+            "data": {
+                "id": group_id,
+                "approved": True,
+                "qr_code": pass_base64,
+                "email_sent": email_sent,
+                "email_error": email_error,
+            },
+            "message": "Group participant approved",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/faculty/resend/volunteer/{volunteer_id}")
+async def resend_volunteer_approval_email(volunteer_id: str, authorization: str = Header(None)):
+    """Resend approval email with pass to an already approved volunteer."""
+    verify_faculty_token(authorization)
+
+    try:
+        volunteer_response = supabase.table("volunteers").select(
+            "id, name, email, qr_code"
+        ).eq("id", volunteer_id).limit(1).execute()
+
+        if not volunteer_response.data:
+            raise HTTPException(status_code=404, detail="Volunteer registration not found")
+
+        volunteer = volunteer_response.data[0]
+        qr_code = volunteer.get("qr_code")
+
+        if not qr_code:
+            raise HTTPException(
+                status_code=400,
+                detail="Volunteer is not approved yet. QR code not available.",
+            )
+
+        email_sent, email_error = send_approval_email(
+            to_email=volunteer.get("email"),
+            name=volunteer.get("name", "Volunteer"),
+            qr_code_base64=qr_code,
+            registration_id=volunteer_id,
+            user_type="volunteer",
+        )
+
+        if not email_sent:
+            raise HTTPException(status_code=500, detail=f"Unable to send email: {email_error}")
+
+        return {
+            "success": True,
+            "data": {
+                "id": volunteer_id,
+                "email_sent": True,
+            },
+            "message": "Email resent",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/faculty/resend/group/{group_id}")
+async def resend_group_approval_email(group_id: str, authorization: str = Header(None)):
+    """Resend approval email with pass to an already approved group leader."""
+    verify_faculty_token(authorization)
+
+    try:
+        group_response = supabase.table("group_registrations").select(
+            "id, leader_name, leader_email, event_name, qr_code"
+        ).eq("id", group_id).limit(1).execute()
+
+        if not group_response.data:
+            raise HTTPException(status_code=404, detail="Group registration not found")
+
+        group = group_response.data[0]
+        qr_code = group.get("qr_code")
+
+        if not qr_code:
+            raise HTTPException(
+                status_code=400,
+                detail="Group participant is not approved yet. QR code not available.",
+            )
+
+        event_name = str(group.get("event_name") or "").strip()
+        email_sent, email_error = send_approval_email(
+            to_email=group.get("leader_email"),
+            name=group.get("leader_name", "Group Leader"),
+            qr_code_base64=qr_code,
+            registration_id=group_id,
+            user_type="group participant",
+            events=[event_name] if event_name else None,
+        )
+
+        if not email_sent:
+            raise HTTPException(status_code=500, detail=f"Unable to send email: {email_error}")
+
+        return {
+            "success": True,
+            "data": {
+                "id": group_id,
+                "email_sent": True,
+            },
+            "message": "Email resent",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/faculty/volunteer/{volunteer_id}")
+async def delete_volunteer(volunteer_id: str, authorization: str = Header(None)):
+    """Delete a volunteer registration."""
+    verify_faculty_token(authorization)
+
+    try:
+        existing = supabase.table("volunteers").select("id").eq("id", volunteer_id).limit(1).execute()
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Volunteer registration not found")
+
+        supabase.table("volunteers").delete().eq("id", volunteer_id).execute()
+
+        return {
+            "success": True,
+            "data": {"id": volunteer_id},
+            "message": "Volunteer record deleted",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/faculty/group/{group_id}")
+async def delete_group(group_id: str, authorization: str = Header(None)):
+    """Delete a group registration and linked group members."""
+    verify_faculty_token(authorization)
+
+    try:
+        existing = supabase.table("group_registrations").select("id").eq("id", group_id).limit(1).execute()
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Group registration not found")
+
+        supabase.table("group_members").delete().eq("group_id", group_id).execute()
+        supabase.table("group_registrations").delete().eq("id", group_id).execute()
+
+        return {
+            "success": True,
+            "data": {"id": group_id},
+            "message": "Group record deleted",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/faculty/export/volunteers")
+async def export_volunteers_csv(authorization: str = Header(None)):
+    """Export all volunteers as CSV."""
+    verify_faculty_token(authorization)
+
+    try:
+        response = supabase.table("volunteers").select("*").order(
+            "registered_at", desc=True
+        ).execute()
+
+        volunteers = response.data or []
+
+        headers = [
+            "id",
+            "name",
+            "roll_no",
+            "course",
+            "year",
+            "email",
+            "phone",
+            "volunteer_role",
+            "registered_at",
+            "approved_at",
+            "status",
+        ]
+
+        rows = []
+        for volunteer in volunteers:
+            role_value = volunteer.get("volunteer_role") or volunteer.get("role") or ""
+            rows.append([
+                str(volunteer.get("id") or ""),
+                str(volunteer.get("name") or ""),
+                str(volunteer.get("roll_no") or ""),
+                str(volunteer.get("course") or ""),
+                str(volunteer.get("year") or ""),
+                str(volunteer.get("email") or ""),
+                str(volunteer.get("phone") or ""),
+                str(role_value),
+                format_datetime_for_export(volunteer.get("registered_at")),
+                format_datetime_for_export(volunteer.get("approved_at")),
+                "Approved" if volunteer.get("qr_code") else "Pending",
+            ])
+
+        csv_content = build_csv_content(headers, rows)
+
+        return StreamingResponse(
+            iter([csv_content]),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": "attachment; filename=volunteers-report.csv"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/faculty/export/groups")
+async def export_groups_csv(authorization: str = Header(None)):
+    """Export all group registrations as CSV."""
+    verify_faculty_token(authorization)
+
+    try:
+        response = supabase.table("group_registrations").select("*").order(
+            "registered_at", desc=True
+        ).execute()
+
+        groups = response.data or []
+
+        headers = [
+            "id",
+            "name",
+            "roll_no",
+            "course",
+            "year",
+            "email",
+            "phone",
+            "group_name",
+            "event_id",
+            "registered_at",
+            "approved_at",
+            "status",
+        ]
+
+        rows = []
+        for group in groups:
+            rows.append([
+                str(group.get("id") or ""),
+                str(group.get("leader_name") or group.get("name") or ""),
+                str(group.get("leader_roll_no") or group.get("roll_no") or ""),
+                str(group.get("leader_course") or group.get("course") or ""),
+                str(group.get("leader_year") or group.get("year") or ""),
+                str(group.get("leader_email") or group.get("email") or ""),
+                str(group.get("leader_phone") or group.get("phone") or ""),
+                str(group.get("team_name") or group.get("group_name") or ""),
+                str(group.get("event_id") or ""),
+                format_datetime_for_export(group.get("registered_at")),
+                format_datetime_for_export(group.get("approved_at")),
+                "Approved" if group.get("qr_code") else "Pending",
+            ])
+
+        csv_content = build_csv_content(headers, rows)
+
+        return StreamingResponse(
+            iter([csv_content]),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": "attachment; filename=groups-report.csv"},
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

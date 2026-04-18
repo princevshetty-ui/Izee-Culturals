@@ -1,17 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { EVENTS } from '../data/events.js'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 
 const STUDENT_COLUMNS = ['name', 'roll_no', 'course', 'year', 'email', 'qr_code', 'registered_at']
 const PARTICIPANT_COLUMNS = ['name', 'roll_no', 'course', 'year', 'email', 'event_1', 'event_2', 'qr_code', 'registered_at']
+const VOLUNTEER_COLUMNS = ['name', 'roll_no', 'course', 'year', 'team_label', 'motivation', 'email', 'phone', 'registered_at', 'qr_code']
+const GROUP_COLUMNS = ['team_name', 'event_name', 'leader_name', 'leader_roll_no', 'leader_course', 'leader_year', 'leader_email', 'leader_phone', 'registered_at', 'qr_code']
 
 const COLUMN_LABELS = {
   roll_no: 'Roll No',
   event_1: 'Event1',
   event_2: 'Event2',
+  team_label: 'Team Label',
+  team_name: 'Team Name',
+  event_name: 'Event Name',
+  leader_name: 'Leader Name',
+  leader_roll_no: 'Leader Roll No',
+  leader_course: 'Leader Course',
+  leader_year: 'Leader Year',
+  leader_email: 'Leader Email',
+  leader_phone: 'Leader Phone',
   qr_code: 'Status',
   registered_at: 'Registered At',
 }
@@ -24,6 +35,8 @@ const EVENT_NAME_BY_ID = EVENTS.reduce((accumulator, event) => {
 const NAV_ITEMS = [
   { id: 'students', label: 'Students' },
   { id: 'participants', label: 'Participants' },
+  { id: 'volunteers', label: 'Volunteers' },
+  { id: 'groups', label: 'Groups' },
 ]
 
 const DEFAULT_PAGE_SIZE = 25
@@ -49,6 +62,85 @@ function normalizeEvents(events) {
 
 function getApiErrorMessage(payload, fallback) {
   return payload?.detail || payload?.message || fallback
+}
+
+function getTabTitle(tabId) {
+  if (tabId === 'students') return 'Students'
+  if (tabId === 'participants') return 'Participants'
+  if (tabId === 'volunteers') return 'Volunteers'
+  return 'Groups'
+}
+
+function isRecordApproved(record) {
+  return Boolean(record?.qr_code || record?.is_approved)
+}
+
+function getCourseByTab(record, tabId) {
+  if (tabId === 'groups') return record.leader_course || record.course || ''
+  return record.course || ''
+}
+
+function getYearByTab(record, tabId) {
+  if (tabId === 'groups') return record.leader_year || record.year || ''
+  return record.year || ''
+}
+
+function getSearchFieldsByTab(record, tabId) {
+  if (tabId === 'groups') {
+    return [record.leader_name, record.leader_roll_no, record.leader_email]
+  }
+
+  return [record.name, record.roll_no, record.email]
+}
+
+function getNameByTab(record, tabId) {
+  if (tabId === 'groups') return record.leader_name || ''
+  return record.name || ''
+}
+
+function normalizeDashboardRecords(tabId, records) {
+  if (!Array.isArray(records)) return []
+
+  if (tabId === 'volunteers') {
+    return records.map((record) => ({
+      ...record,
+      team_label: record.team_label || '',
+      motivation: record.motivation || '',
+    }))
+  }
+
+  if (tabId === 'groups') {
+    return records.map((record) => ({
+      ...record,
+      team_name: record.team_name || record.group_name || '',
+      event_name: record.event_name || EVENT_NAME_BY_ID[record.event_id] || record.event_id || '',
+      leader_name: record.leader_name || record.name || '',
+      leader_roll_no: record.leader_roll_no || record.roll_no || '',
+      leader_course: record.leader_course || record.course || '',
+      leader_year: record.leader_year || record.year || '',
+      leader_email: record.leader_email || record.email || '',
+      leader_phone: record.leader_phone || record.phone || '',
+    }))
+  }
+
+  return records
+}
+
+function normalizeSummaryPayload(summary, fallbackRecords) {
+  const total = Number(summary?.total ?? fallbackRecords?.length ?? 0)
+  const approvedCount = Number(
+    summary?.approved_count ??
+      summary?.approved ??
+      Math.max(total - Number(summary?.pending_count ?? summary?.pending ?? 0), 0)
+  )
+  const pendingCount = Number(summary?.pending_count ?? summary?.pending ?? Math.max(total - approvedCount, 0))
+
+  return {
+    total,
+    approved_count: approvedCount,
+    pending_count: pendingCount,
+    approved_today: Number(summary?.approved_today || 0),
+  }
 }
 
 function ExportIcon() {
@@ -142,12 +234,21 @@ export default function FacultyDashboard() {
   const [selectedCourse, setSelectedCourse] = useState('all')
   const [selectedYear, setSelectedYear] = useState('all')
   const [selectedEvent, setSelectedEvent] = useState('all')
+  const [selectedTeamLabel, setSelectedTeamLabel] = useState('all')
   const [nameSearch, setNameSearch] = useState('')
   const [sortKey, setSortKey] = useState('registered_desc')
-  const [pageByTab, setPageByTab] = useState({ students: 1, participants: 1 })
+  const [pageByTab, setPageByTab] = useState({ students: 1, participants: 1, volunteers: 1, groups: 1 })
   const [paginationByTab, setPaginationByTab] = useState({
     students: { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 },
     participants: { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 },
+    volunteers: { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 },
+    groups: { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 },
+  })
+  const [summaryByTab, setSummaryByTab] = useState({
+    students: { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 },
+    participants: { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 },
+    volunteers: { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 },
+    groups: { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 },
   })
   const [selectedIds, setSelectedIds] = useState([])
 
@@ -177,10 +278,40 @@ export default function FacultyDashboard() {
       const payload = await response.json().catch(() => ({}))
 
       if (response.ok && payload?.success) {
+        const payloadData = payload.data
+        const records = Array.isArray(payloadData)
+          ? payloadData
+          : Array.isArray(payloadData?.records)
+            ? payloadData.records
+            : []
+
+        const pagination = payload.pagination || (
+          payloadData
+            ? {
+                page: payloadData.page,
+                page_size: payloadData.page_size,
+                total: payloadData.total,
+                total_pages: payloadData.total_pages || payloadData.totalPages,
+              }
+            : null
+        )
+
+        const summary = payload.summary || (
+          payloadData
+            ? {
+                total: payloadData.total,
+                approved_count: payloadData.approved_count,
+                pending_count: payloadData.pending_count,
+                pending: payloadData.pending,
+                approved_today: payloadData.approved_today,
+              }
+            : null
+        )
+
         return {
-          records: payload.data || [],
-          pagination: payload.pagination || null,
-          summary: payload.summary || null,
+          records,
+          pagination: pagination || null,
+          summary: summary || null,
         }
       }
 
@@ -216,6 +347,7 @@ export default function FacultyDashboard() {
     setSelectedCourse('all')
     setSelectedYear('all')
     setSelectedEvent('all')
+    setSelectedTeamLabel('all')
     setNameSearch('')
     setSelectedIds([])
     setInfoMessage('')
@@ -230,41 +362,54 @@ export default function FacultyDashboard() {
       setErrorMessage('')
 
       try {
-        const currentEndpoint =
-          activeTab === 'students'
-            ? `/api/faculty/students?page=${activePage}&page_size=${DEFAULT_PAGE_SIZE}`
-            : `/api/faculty/participants?page=${activePage}&page_size=${DEFAULT_PAGE_SIZE}`
-        const alternateEndpoint =
-          activeTab === 'students'
-            ? '/api/faculty/participants?page=1&page_size=5'
-            : '/api/faculty/students?page=1&page_size=5'
+        const endpointByTab = {
+          students: '/api/faculty/students',
+          participants: '/api/faculty/participants',
+          volunteers: '/api/faculty/volunteers',
+          groups: '/api/faculty/groups',
+        }
 
-        const [currentResult, alternateResult] = await Promise.all([
-          fetchFacultyList(currentEndpoint),
-          fetchFacultyList(alternateEndpoint),
-        ])
-
-        const currentRecords = currentResult.records || []
-        const currentSummary = currentResult.summary || {}
-        const alternateSummary = alternateResult.summary || {}
-
-        const studentsSummary = activeTab === 'students' ? currentSummary : alternateSummary
-        const participantsSummary = activeTab === 'participants' ? currentSummary : alternateSummary
+        const currentEndpoint = `${endpointByTab[activeTab]}?page=${activePage}&page_size=${DEFAULT_PAGE_SIZE}`
+        const currentResult = await fetchFacultyList(currentEndpoint)
+        const currentRecords = normalizeDashboardRecords(activeTab, currentResult.records || [])
+        const currentSummary = normalizeSummaryPayload(currentResult.summary || {}, currentRecords)
 
         const nextPage = currentResult.pagination?.page || activePage
 
         setRecords(currentRecords)
         setSelectedIds([])
-        setStats({
-          totalStudents: Number(studentsSummary.total || 0),
-          totalParticipants: Number(participantsSummary.total || 0),
-          pendingApprovals:
-            Number(studentsSummary.pending || 0) +
-            Number(participantsSummary.pending || 0),
-          approvedToday:
-            Number(studentsSummary.approved_today || 0) +
-            Number(participantsSummary.approved_today || 0),
-        })
+        setSummaryByTab((previous) => ({
+          ...previous,
+          [activeTab]: currentSummary,
+        }))
+
+        if (activeTab === 'students' || activeTab === 'participants') {
+          const alternateTab = activeTab === 'students' ? 'participants' : 'students'
+          const alternateEndpoint = `${endpointByTab[alternateTab]}?page=1&page_size=5`
+          const alternateResult = await fetchFacultyList(alternateEndpoint)
+          const alternateRecords = normalizeDashboardRecords(alternateTab, alternateResult.records || [])
+          const alternateSummary = normalizeSummaryPayload(alternateResult.summary || {}, alternateRecords)
+
+          setSummaryByTab((previous) => ({
+            ...previous,
+            [activeTab]: currentSummary,
+            [alternateTab]: alternateSummary,
+          }))
+
+          const studentsSummary = activeTab === 'students' ? currentSummary : alternateSummary
+          const participantsSummary = activeTab === 'participants' ? currentSummary : alternateSummary
+
+          setStats({
+            totalStudents: Number(studentsSummary.total || 0),
+            totalParticipants: Number(participantsSummary.total || 0),
+            pendingApprovals:
+              Number(studentsSummary.pending_count || 0) +
+              Number(participantsSummary.pending_count || 0),
+            approvedToday:
+              Number(studentsSummary.approved_today || 0) +
+              Number(participantsSummary.approved_today || 0),
+          })
+        }
 
         setPaginationByTab((previous) => ({
           ...previous,
@@ -296,62 +441,83 @@ export default function FacultyDashboard() {
   }, [activeTab, activePage, facultyPassword, refreshKey])
 
   const courseOptions = useMemo(() => {
-    return [...new Set(records.map((record) => record.course).filter(Boolean))]
-  }, [records])
+    return [...new Set(records.map((record) => getCourseByTab(record, activeTab)).filter(Boolean))]
+  }, [records, activeTab])
 
   const yearOptions = useMemo(() => {
-    return [...new Set(records.map((record) => record.year).filter(Boolean))]
-  }, [records])
+    return [...new Set(records.map((record) => getYearByTab(record, activeTab)).filter(Boolean))]
+  }, [records, activeTab])
 
   const eventOptions = useMemo(() => {
-    if (activeTab !== 'participants') return []
+    if (activeTab !== 'participants' && activeTab !== 'groups') return []
 
     const uniqueEvents = new Set()
     records.forEach((record) => {
-      normalizeEvents(record.events).forEach((eventId) => uniqueEvents.add(eventId))
+      if (activeTab === 'participants') {
+        normalizeEvents(record.events).forEach((eventId) => uniqueEvents.add(eventId))
+      } else if (record.event_id) {
+        uniqueEvents.add(record.event_id)
+      }
     })
 
     return [...uniqueEvents]
+  }, [activeTab, records])
+
+  const teamLabelOptions = useMemo(() => {
+    if (activeTab !== 'volunteers') return []
+    return [...new Set(records.map((record) => record.team_label).filter(Boolean))]
   }, [activeTab, records])
 
   const filteredRecords = useMemo(() => {
     const normalizedSearch = nameSearch.trim().toLowerCase()
 
     return records.filter((record) => {
-      if (selectedCourse !== 'all' && record.course !== selectedCourse) return false
-      if (selectedYear !== 'all' && record.year !== selectedYear) return false
+      const courseValue = getCourseByTab(record, activeTab)
+      const yearValue = getYearByTab(record, activeTab)
+
+      if (selectedCourse !== 'all' && courseValue !== selectedCourse) return false
+      if (selectedYear !== 'all' && yearValue !== selectedYear) return false
+
+      if (activeTab === 'volunteers' && selectedTeamLabel !== 'all') {
+        if ((record.team_label || '') !== selectedTeamLabel) return false
+      }
 
       if (normalizedSearch) {
-        const searchableText = [record.name, record.roll_no, record.email]
+        const searchableText = getSearchFieldsByTab(record, activeTab)
           .filter(Boolean)
           .join(' ')
           .toLowerCase()
         if (!searchableText.includes(normalizedSearch)) return false
       }
 
-      if (activeTab === 'participants' && selectedEvent !== 'all') {
+      if ((activeTab === 'participants' || activeTab === 'groups') && selectedEvent !== 'all') {
+        if (activeTab === 'groups') {
+          if ((record.event_id || '') !== selectedEvent) return false
+          return true
+        }
+
         const eventIds = normalizeEvents(record.events)
         if (!eventIds.includes(selectedEvent)) return false
       }
 
       return true
     })
-  }, [records, activeTab, selectedCourse, selectedYear, selectedEvent, nameSearch])
+  }, [records, activeTab, selectedCourse, selectedYear, selectedEvent, selectedTeamLabel, nameSearch])
 
   const sortedRecords = useMemo(() => {
     const output = [...filteredRecords]
 
     output.sort((left, right) => {
       if (sortKey === 'name_asc') {
-        return String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' })
+        return String(getNameByTab(left, activeTab)).localeCompare(String(getNameByTab(right, activeTab)), undefined, { sensitivity: 'base' })
       }
 
       if (sortKey === 'name_desc') {
-        return String(right.name || '').localeCompare(String(left.name || ''), undefined, { sensitivity: 'base' })
+        return String(getNameByTab(right, activeTab)).localeCompare(String(getNameByTab(left, activeTab)), undefined, { sensitivity: 'base' })
       }
 
       if (sortKey === 'course_asc') {
-        return String(left.course || '').localeCompare(String(right.course || ''), undefined, { sensitivity: 'base' })
+        return String(getCourseByTab(left, activeTab)).localeCompare(String(getCourseByTab(right, activeTab)), undefined, { sensitivity: 'base' })
       }
 
       const leftTs = new Date(left.registered_at || 0).getTime()
@@ -362,16 +528,23 @@ export default function FacultyDashboard() {
     })
 
     return output
-  }, [filteredRecords, sortKey])
+  }, [filteredRecords, sortKey, activeTab])
 
-  const columns = activeTab === 'students' ? STUDENT_COLUMNS : PARTICIPANT_COLUMNS
+  const columns =
+    activeTab === 'students'
+      ? STUDENT_COLUMNS
+      : activeTab === 'participants'
+        ? PARTICIPANT_COLUMNS
+        : activeTab === 'volunteers'
+          ? VOLUNTEER_COLUMNS
+          : GROUP_COLUMNS
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
   const visibleIds = useMemo(() => sortedRecords.map((record) => record.id), [sortedRecords])
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedSet.has(id))
 
   const selectedPendingIds = useMemo(() => {
     return sortedRecords
-      .filter((record) => selectedSet.has(record.id) && !record.qr_code)
+      .filter((record) => selectedSet.has(record.id) && !isRecordApproved(record))
       .map((record) => record.id)
   }, [sortedRecords, selectedSet])
 
@@ -384,10 +557,13 @@ export default function FacultyDashboard() {
     Boolean(bulkAction)
 
   const approveRecordById = async (recordId) => {
-    const endpoint =
-      activeTab === 'students'
-        ? `/api/faculty/approve/student/${recordId}`
-        : `/api/faculty/approve/participant/${recordId}`
+    const approveEndpointByTab = {
+      students: `/api/faculty/approve/student/${recordId}`,
+      participants: `/api/faculty/approve/participant/${recordId}`,
+      volunteers: `/api/faculty/approve/volunteer/${recordId}`,
+      groups: `/api/faculty/approve/group/${recordId}`,
+    }
+    const endpoint = approveEndpointByTab[activeTab]
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -410,10 +586,13 @@ export default function FacultyDashboard() {
   }
 
   const deleteRecordById = async (recordId) => {
-    const endpoint =
-      activeTab === 'students'
-        ? `/api/faculty/student/${recordId}`
-        : `/api/faculty/participant/${recordId}`
+    const deleteEndpointByTab = {
+      students: `/api/faculty/student/${recordId}`,
+      participants: `/api/faculty/participant/${recordId}`,
+      volunteers: `/api/faculty/volunteer/${recordId}`,
+      groups: `/api/faculty/group/${recordId}`,
+    }
+    const endpoint = deleteEndpointByTab[activeTab]
 
     const response = await fetch(endpoint, {
       method: 'DELETE',
@@ -477,16 +656,68 @@ export default function FacultyDashboard() {
     return { ok: true }
   }
 
+  const resendVolunteerMailById = async (recordId) => {
+    const response = await fetch(`/api/faculty/resend/volunteer/${recordId}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${facultyPassword}`,
+      },
+    })
+
+    if (response.status === 401) {
+      updateAuthFailure()
+      return { ok: false, unauthorized: true }
+    }
+
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok || !payload.success) {
+      return { ok: false, message: getApiErrorMessage(payload, 'Resend failed') }
+    }
+
+    return { ok: true }
+  }
+
+  const resendGroupMailById = async (recordId) => {
+    const response = await fetch(`/api/faculty/resend/group/${recordId}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${facultyPassword}`,
+      },
+    })
+
+    if (response.status === 401) {
+      updateAuthFailure()
+      return { ok: false, unauthorized: true }
+    }
+
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok || !payload.success) {
+      return { ok: false, message: getApiErrorMessage(payload, 'Resend failed') }
+    }
+
+    return { ok: true }
+  }
+
   const handleExport = async () => {
     setIsExporting(true)
     setErrorMessage('')
     setInfoMessage('')
 
     try {
-      const exportEndpoint =
-        activeTab === 'students'
-          ? '/api/faculty/export/students'
-          : '/api/faculty/export/participants'
+      const exportEndpointByTab = {
+        students: '/api/faculty/export/students',
+        participants: '/api/faculty/export/participants',
+        volunteers: '/api/faculty/export/volunteers',
+        groups: '/api/faculty/export/groups',
+      }
+      const exportFileByTab = {
+        students: 'students_report.csv',
+        participants: 'participants_report.csv',
+        volunteers: 'volunteers_report.csv',
+        groups: 'groups_report.csv',
+      }
+
+      const exportEndpoint = exportEndpointByTab[activeTab]
 
       const response = await fetch(exportEndpoint, {
         headers: {
@@ -507,7 +738,7 @@ export default function FacultyDashboard() {
       const url = window.URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = activeTab === 'students' ? 'students_report.csv' : 'participants_report.csv'
+      anchor.download = exportFileByTab[activeTab] || 'dashboard_report.csv'
       document.body.appendChild(anchor)
       anchor.click()
       anchor.remove()
@@ -540,8 +771,12 @@ export default function FacultyDashboard() {
 
       if (activeTab === 'students') {
         setInfoMessage(result.emailSent ? 'Student approved and email sent.' : 'Student approved.')
+        } else if (activeTab === 'participants') {
+          setInfoMessage('Participant approved successfully.')
+        } else if (activeTab === 'volunteers') {
+          setInfoMessage('Volunteer approved successfully.')
       } else {
-        setInfoMessage('Participant approved successfully.')
+          setInfoMessage('Group approved successfully.')
       }
 
       setRefreshKey((previous) => previous + 1)
@@ -553,10 +788,13 @@ export default function FacultyDashboard() {
   }
 
   const handleDeleteOne = async (recordId) => {
-    const confirmationText =
-      activeTab === 'students'
-        ? 'Delete this student registration? This cannot be undone.'
-        : 'Delete this participant and linked event records? This cannot be undone.'
+    const confirmationByTab = {
+      students: 'Delete this student registration? This cannot be undone.',
+      participants: 'Delete this participant and linked event records? This cannot be undone.',
+      volunteers: 'Delete this volunteer registration? This cannot be undone.',
+      groups: 'Delete this group registration and linked group members? This cannot be undone.',
+    }
+    const confirmationText = confirmationByTab[activeTab] || 'Delete this record? This cannot be undone.'
 
     if (!window.confirm(confirmationText)) return
 
@@ -613,6 +851,46 @@ export default function FacultyDashboard() {
       }
 
       setInfoMessage('Approval email resent to participant successfully.')
+    } catch (error) {
+      setErrorMessage(error.message || 'Resend failed')
+    } finally {
+      setResendingId('')
+    }
+  }
+
+  const handleResendVolunteerMail = async (recordId) => {
+    setResendingId(recordId)
+    setErrorMessage('')
+    setInfoMessage('')
+
+    try {
+      const result = await resendVolunteerMailById(recordId)
+      if (!result.ok) {
+        if (!result.unauthorized) setErrorMessage(result.message || 'Resend failed')
+        return
+      }
+
+      setInfoMessage('Approval email resent to volunteer successfully.')
+    } catch (error) {
+      setErrorMessage(error.message || 'Resend failed')
+    } finally {
+      setResendingId('')
+    }
+  }
+
+  const handleResendGroupMail = async (recordId) => {
+    setResendingId(recordId)
+    setErrorMessage('')
+    setInfoMessage('')
+
+    try {
+      const result = await resendGroupMailById(recordId)
+      if (!result.ok) {
+        if (!result.unauthorized) setErrorMessage(result.message || 'Resend failed')
+        return
+      }
+
+      setInfoMessage('Approval email resent to group leader successfully.')
     } catch (error) {
       setErrorMessage(error.message || 'Resend failed')
     } finally {
@@ -682,8 +960,12 @@ export default function FacultyDashboard() {
       setErrorMessage(`Approved ${successCount}. Failed for ${failedIds.length} record(s).`)
     } else if (activeTab === 'students') {
       setInfoMessage(`Approved ${successCount} student(s). Emails sent: ${mailCount}.`)
-    } else {
+    } else if (activeTab === 'participants') {
       setInfoMessage(`Approved ${successCount} participant(s).`)
+    } else if (activeTab === 'volunteers') {
+      setInfoMessage(`Approved ${successCount} volunteer(s).`)
+    } else {
+      setInfoMessage(`Approved ${successCount} group record(s).`)
     }
 
     setRefreshKey((previous) => previous + 1)
@@ -695,10 +977,13 @@ export default function FacultyDashboard() {
       return
     }
 
-    const confirmationText =
-      activeTab === 'students'
-        ? `Delete ${selectedIds.length} selected student record(s)?`
-        : `Delete ${selectedIds.length} selected participant record(s) and linked events?`
+    const confirmationByTab = {
+      students: `Delete ${selectedIds.length} selected student record(s)?`,
+      participants: `Delete ${selectedIds.length} selected participant record(s) and linked events?`,
+      volunteers: `Delete ${selectedIds.length} selected volunteer record(s)?`,
+      groups: `Delete ${selectedIds.length} selected group record(s) and linked group members?`,
+    }
+    const confirmationText = confirmationByTab[activeTab] || `Delete ${selectedIds.length} selected record(s)?`
 
     if (!window.confirm(confirmationText)) return
 
@@ -737,6 +1022,7 @@ export default function FacultyDashboard() {
     setSelectedCourse('all')
     setSelectedYear('all')
     setSelectedEvent('all')
+    setSelectedTeamLabel('all')
     setNameSearch('')
     setSortKey('registered_desc')
   }
@@ -773,12 +1059,27 @@ export default function FacultyDashboard() {
     if (column === 'course') return 80
     if (column === 'year') return 70
     if (column === 'email') return 200
+    if (column === 'team_label') return 140
+    if (column === 'motivation') return 240
+    if (column === 'phone') return 130
+    if (column === 'team_name') return 170
+    if (column === 'event_name') return 170
+    if (column === 'leader_name') return 150
+    if (column === 'leader_roll_no') return 150
+    if (column === 'leader_course') return 130
+    if (column === 'leader_year') return 110
+    if (column === 'leader_email') return 220
+    if (column === 'leader_phone') return 140
     if (column === 'event_1') return 130
     if (column === 'event_2') return 130
     if (column === 'qr_code') return 100
     if (column === 'registered_at') return 160
     return 110
   }
+
+  const activeSummary =
+    summaryByTab[activeTab] || { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 }
+  const isStudentOrParticipantTab = activeTab === 'students' || activeTab === 'participants'
 
   return (
     <div className="min-h-screen bg-[#080910] text-[#EEE6D8]">
@@ -891,11 +1192,24 @@ export default function FacultyDashboard() {
                       <circle cx="12" cy="8" r="3" stroke="currentColor" strokeWidth="1.7" />
                       <path d="M5.5 19a6.5 6.5 0 0 1 13 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
                     </svg>
-                  ) : (
+                  ) : item.id === 'participants' ? (
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
                       <path d="M7 6h10v2a5 5 0 0 1-10 0V6Z" stroke="currentColor" strokeWidth="1.7" />
                       <path d="M9 17h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
                       <path d="M12 13v4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                    </svg>
+                  ) : item.id === 'volunteers' ? (
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+                      <circle cx="9" cy="8" r="2.6" stroke="currentColor" strokeWidth="1.7" />
+                      <path d="M3.8 18a5.2 5.2 0 0 1 10.4 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                      <path d="M15.5 7.5h4.7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                      <path d="M17.85 5.15V9.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+                      <path d="M4 8h16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                      <path d="M4 12h16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                      <path d="M4 16h9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
                     </svg>
                   )}
                   <span>{item.label}</span>
@@ -953,7 +1267,7 @@ export default function FacultyDashboard() {
           <div className="h-[52px] border-b px-5 sm:px-6 lg:px-7" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.012)' }}>
             <div className="flex h-full items-center justify-between">
               <div>
-                <p className="text-[14px] font-medium text-[#EEE6D8]">{activeTab === 'students' ? 'Students' : 'Participants'}</p>
+                <p className="text-[14px] font-medium text-[#EEE6D8]">{getTabTitle(activeTab)}</p>
                 <p className="text-[11px] text-[rgba(238,230,216,0.35)]">Showing {sortedRecords.length} records</p>
               </div>
               <div className="flex items-center gap-2">
@@ -968,7 +1282,14 @@ export default function FacultyDashboard() {
           </div>
 
           <div className="px-5 pb-6 pt-4 sm:px-6 lg:px-7">
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+              >
               <section
                 className="mb-4 flex h-16 overflow-hidden"
                 style={{
@@ -977,29 +1298,54 @@ export default function FacultyDashboard() {
                   borderRadius: '10px',
                 }}
               >
-                <div className="flex flex-1 flex-col items-center justify-center">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Total Students</p>
-                  <p className="text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalStudents}</p>
-                </div>
-                <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                <div className="flex flex-1 flex-col items-center justify-center">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Total Participants</p>
-                  <p className="text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalParticipants}</p>
-                </div>
-                <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                <div className="flex flex-1 flex-col items-center justify-center">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Pending Approvals</p>
-                  <p className="text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: stats.pendingApprovals > 0 ? '#B22234' : '#EEE6D8' }}>
-                    {stats.pendingApprovals}
-                  </p>
-                </div>
-                <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                <div className="flex flex-1 flex-col items-center justify-center">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Approved Today</p>
-                  <p className="text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: stats.approvedToday > 0 ? '#C9A84C' : '#EEE6D8' }}>
-                    {stats.approvedToday}
-                  </p>
-                </div>
+                  {isStudentOrParticipantTab ? (
+                    <>
+                      <div className="flex flex-1 flex-col items-center justify-center">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Total Students</p>
+                        <p className="text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalStudents}</p>
+                      </div>
+                      <div className="w-px bg-[rgba(255,255,255,0.06)]" />
+                      <div className="flex flex-1 flex-col items-center justify-center">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Total Participants</p>
+                        <p className="text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalParticipants}</p>
+                      </div>
+                      <div className="w-px bg-[rgba(255,255,255,0.06)]" />
+                      <div className="flex flex-1 flex-col items-center justify-center">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Pending Approvals</p>
+                        <p className="text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: stats.pendingApprovals > 0 ? '#B22234' : '#EEE6D8' }}>
+                          {stats.pendingApprovals}
+                        </p>
+                      </div>
+                      <div className="w-px bg-[rgba(255,255,255,0.06)]" />
+                      <div className="flex flex-1 flex-col items-center justify-center">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Approved Today</p>
+                        <p className="text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: stats.approvedToday > 0 ? '#C9A84C' : '#EEE6D8' }}>
+                          {stats.approvedToday}
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex flex-1 flex-col items-center justify-center">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Total</p>
+                        <p className="text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{activeSummary.total}</p>
+                      </div>
+                      <div className="w-px bg-[rgba(255,255,255,0.06)]" />
+                      <div className="flex flex-1 flex-col items-center justify-center">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Approved</p>
+                        <p className="text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: '#C9A84C' }}>
+                          {activeSummary.approved_count}
+                        </p>
+                      </div>
+                      <div className="w-px bg-[rgba(255,255,255,0.06)]" />
+                      <div className="flex flex-1 flex-col items-center justify-center">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Pending</p>
+                        <p className="text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: activeSummary.pending_count > 0 ? '#B22234' : '#EEE6D8' }}>
+                          {activeSummary.pending_count}
+                        </p>
+                      </div>
+                    </>
+                  )}
               </section>
 
               <section className="mb-3 flex flex-wrap items-center gap-3">
@@ -1007,7 +1353,7 @@ export default function FacultyDashboard() {
                   type="text"
                   value={nameSearch}
                   onChange={(event) => setNameSearch(event.target.value)}
-                  placeholder="Search name, roll, or email"
+                  placeholder={activeTab === 'groups' ? 'Search leader name, roll, or email' : 'Search name, roll, or email'}
                   className="w-[220px]"
                   style={{
                     ...selectStyle,
@@ -1024,7 +1370,7 @@ export default function FacultyDashboard() {
                   className="dash-select w-[190px]"
                   style={selectStyle}
                 >
-                  <option value="all">All Courses</option>
+                  <option value="all">{activeTab === 'groups' ? 'All Leader Courses' : 'All Courses'}</option>
                   {courseOptions.map((course) => (
                     <option key={course} value={course}>
                       {course}
@@ -1038,7 +1384,7 @@ export default function FacultyDashboard() {
                   className="dash-select w-[150px]"
                   style={selectStyle}
                 >
-                  <option value="all">All Years</option>
+                  <option value="all">{activeTab === 'groups' ? 'All Leader Years' : 'All Years'}</option>
                   {yearOptions.map((year) => (
                     <option key={year} value={year}>
                       {year}
@@ -1059,17 +1405,33 @@ export default function FacultyDashboard() {
                   <option value="course_asc">Course A-Z</option>
                 </select>
 
-                {activeTab === 'participants' && (
+                {activeTab === 'volunteers' && (
+                  <select
+                    value={selectedTeamLabel}
+                    onChange={(event) => setSelectedTeamLabel(event.target.value)}
+                    className="dash-select w-[190px]"
+                    style={selectStyle}
+                  >
+                    <option value="all">All Team Labels</option>
+                    {teamLabelOptions.map((teamLabel) => (
+                      <option key={teamLabel} value={teamLabel}>
+                        {teamLabel}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {(activeTab === 'participants' || activeTab === 'groups') && (
                   <select
                     value={selectedEvent}
                     onChange={(event) => setSelectedEvent(event.target.value)}
                     className="dash-select w-[190px]"
                     style={selectStyle}
                   >
-                    <option value="all">All Events</option>
+                    <option value="all">{activeTab === 'participants' ? 'All Events' : 'All Event IDs'}</option>
                     {eventOptions.map((eventId) => (
                       <option key={eventId} value={eventId}>
-                        {EVENT_NAME_BY_ID[eventId] || eventId}
+                        {activeTab === 'participants' ? (EVENT_NAME_BY_ID[eventId] || eventId) : eventId}
                       </option>
                     ))}
                   </select>
@@ -1298,7 +1660,7 @@ export default function FacultyDashboard() {
 
                             {columns.map((column) => {
                               if (column === 'qr_code') {
-                                const isApproved = Boolean(record.qr_code)
+                                const isApproved = isRecordApproved(record)
                                 return (
                                   <td key={column} className="overflow-hidden px-[14px] align-middle text-[13px] text-[#EEE6D8]">
                                     {isApproved ? (
@@ -1351,7 +1713,7 @@ export default function FacultyDashboard() {
                                 )
                               }
 
-                              if (column === 'name') {
+                              if (column === 'name' || column === 'leader_name') {
                                 return (
                                   <td key={column} className="overflow-hidden px-[14px] align-middle text-[13px] font-medium text-[#EEE6D8]" style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                                     {record[column] || '-'}
@@ -1359,7 +1721,7 @@ export default function FacultyDashboard() {
                                 )
                               }
 
-                              if (column === 'roll_no') {
+                              if (column === 'roll_no' || column === 'leader_roll_no') {
                                 return (
                                   <td key={column} className="overflow-hidden px-[14px] align-middle font-mono text-[12px] text-[rgba(238,230,216,0.65)]" style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                                     {record[column] || '-'}
@@ -1367,7 +1729,7 @@ export default function FacultyDashboard() {
                                 )
                               }
 
-                              if (column === 'email') {
+                              if (column === 'email' || column === 'leader_email') {
                                 return (
                                   <td key={column} className="overflow-hidden px-[14px] align-middle text-[12px] text-[rgba(238,230,216,0.65)]" style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                                     {record[column] || '-'}
@@ -1384,7 +1746,7 @@ export default function FacultyDashboard() {
 
                             <td className="overflow-hidden px-[14px] align-middle" style={{ width: '160px', minWidth: '160px' }}>
                               <div className="flex flex-nowrap items-center gap-2">
-                                {!record.qr_code ? (
+                                {!isRecordApproved(record) ? (
                                   <button
                                     type="button"
                                     onClick={() => handleApproveOne(record.id)}
@@ -1416,7 +1778,11 @@ export default function FacultyDashboard() {
                                     onClick={() =>
                                       activeTab === 'students'
                                         ? handleResendStudentMail(record.id)
-                                        : handleResendParticipantMail(record.id)
+                                        : activeTab === 'participants'
+                                          ? handleResendParticipantMail(record.id)
+                                          : activeTab === 'volunteers'
+                                            ? handleResendVolunteerMail(record.id)
+                                            : handleResendGroupMail(record.id)
                                     }
                                     disabled={resendingId === record.id || isBusy}
                                     className="h-[26px] rounded-[5px] px-3 text-[11px]"
@@ -1475,7 +1841,8 @@ export default function FacultyDashboard() {
                   </tbody>
                 </table>
               </section>
-            </motion.div>
+              </motion.div>
+            </AnimatePresence>
           </div>
         </main>
       </div>

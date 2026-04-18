@@ -15,43 +15,36 @@ TEMPLATES = {
 }
 
 LOGO_PATH_DEFAULT = 'assets/logo.png'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Prefer bundled Nevara for the display name; fallback to system fonts when unavailable.
+NAME_FONT_PATHS = [
+    os.path.join(BASE_DIR, 'assets', 'fonts', 'Nevarademo-6YXEY.otf'),
+    os.path.join(BASE_DIR, '..', 'frontend', 'public', 'fonts', 'Nevarademo-6YXEY.otf'),
+]
 
 # ━━━ COORDINATE CONSTANTS ━━━
 TW = 1536  # template width
 TH = 1024  # template height
-
-# Header
-HEADER_BOTTOM = 119
-
-# Logo placement
-LOGO_X = 52
-LOGO_Y = 28
-LOGO_SIZE = 72
-
-# College name
-COLLEGE_NAME_X = 140
-COLLEGE_NAME_Y = 52
-
-# Event title
-EVENT_TITLE_RIGHT_X = 830
 
 # Separator
 SEPARATOR_X = 857
 
 # Badge box
 BADGE_X = 89
-BADGE_Y = 200  # Moved slightly down
+BADGE_Y = 186
 BADGE_W = 390
 BADGE_H = 85
 
 # Main content zone
 CONTENT_X = 89
-NAME_Y = 300  # Adjusted for new spacing
+NAME_Y = 332
 NAME_FONT_MAX_SIZE = 72  # Max font size for name (refined luxury theme)
 NAME_FONT_MIN_SIZE = 48  # Min font size for name
-DETAILS_Y_OFFSET = 40  # Increased spacing between name and details
-SECTION_LABEL_OFFSET = 60  # Increased spacing between details and events
-EVENT_LIST_OFFSET = 24  # Slightly increased spacing between event rows
+DETAILS_Y_OFFSET = 46
+SECTION_LABEL_OFFSET = 70
+EVENT_LIST_OFFSET = 26
+EVENT_ROW_GAP = 24
 
 # QR zone
 QR_BOX_X1 = 953
@@ -59,6 +52,7 @@ QR_BOX_Y1 = 273
 QR_BOX_X2 = 1373
 QR_BOX_Y2 = 653
 QR_SIZE = 340
+QR_BG_PADDING = 14
 
 QR_CENTER_X = (QR_BOX_X1 + QR_BOX_X2) // 2
 QR_LABEL_Y = QR_BOX_Y2 + 20
@@ -66,11 +60,6 @@ QR_ID_Y = QR_BOX_Y2 + 50
 
 # Footer
 FOOTER_Y = 967
-
-# Watermark
-WATERMARK_CENTER_X = 236
-WATERMARK_CENTER_Y = 649
-
 
 def get_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     """
@@ -112,6 +101,48 @@ def get_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
                 continue
 
     return ImageFont.load_default()
+
+
+def get_name_font(size: int) -> ImageFont.FreeTypeFont:
+    """Load Nevara for the primary display name; fallback to bold system font."""
+    for path in NAME_FONT_PATHS:
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                continue
+    return get_font(size, bold=True)
+
+
+def fit_name_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    max_width: int,
+    start_size: int,
+    min_size: int,
+) -> tuple[str, ImageFont.FreeTypeFont, int, int]:
+    """Fit display name width while preserving Nevara-first typography."""
+    font = get_name_font(start_size)
+    w, h = text_size(draw, text, font)
+
+    if w > max_width and start_size > min_size:
+        font = get_name_font(min_size)
+        w, h = text_size(draw, text, font)
+
+    if w <= max_width:
+        return text, font, w, h
+
+    trimmed = text
+    while len(trimmed) > 1:
+        candidate = trimmed.rstrip() + "..."
+        cw, ch = text_size(draw, candidate, font)
+        if cw <= max_width:
+            return candidate, font, cw, ch
+        trimmed = trimmed[:-1]
+
+    fallback = "..."
+    fw, fh = text_size(draw, fallback, font)
+    return fallback, font, fw, fh
 
 
 def hex_to_rgba(hex_color: str, alpha: int = 255) -> tuple[int, int, int, int]:
@@ -313,38 +344,7 @@ def generate_admit_pass(
 
     draw = ImageDraw.Draw(img, 'RGBA')
 
-    # ── STEP 2: OVERLAY LOGO ──
-    actual_logo = logo_path or LOGO_PATH_DEFAULT
-    
-    if actual_logo and os.path.exists(actual_logo):
-        try:
-            logo = Image.open(actual_logo).convert('RGBA')
-            logo = logo.resize((LOGO_SIZE, LOGO_SIZE), Image.Resampling.LANCZOS)
-            img.alpha_composite(logo, (LOGO_X, LOGO_Y))
-        except Exception:
-            pass
-
-    # ── STEP 3: COLLEGE NAME ──
-    college_font = get_font(22, bold=False)
-    draw.text(
-        (COLLEGE_NAME_X, COLLEGE_NAME_Y),
-        "IZee Business School",
-        font=college_font,
-        fill=colors['text_secondary']
-    )
-
-    # ── STEP 4: EVENT TITLE ──
-    event_title = "IZEE CULTURALS 2026"
-    event_font = get_font(28, bold=True)
-    etw, eth = text_size(draw, event_title, event_font)
-    draw.text(
-        (EVENT_TITLE_RIGHT_X - etw, 48),
-        event_title,
-        font=event_font,
-        fill=(*accent_rgb, 255)
-    )
-
-    # ── STEP 5: ROLE BADGE ──
+    # ── STEP 2: ROLE BADGE ──
     badge_label = colors['badge_label']
     badge_font = get_font(28, bold=True)
     
@@ -363,19 +363,18 @@ def generate_admit_pass(
         fill=colors['badge_text']
     )
 
-    # ── STEP 6: MAIN NAME ──
+    # ── STEP 3: MAIN NAME ──
     if role == 'group':
         raw_name = str(data.get('team_name') or 'N/A')
     else:
         raw_name = str(data.get('name') or 'N/A')
 
-    display_name, name_font, name_w, name_h = fit_text(
+    display_name, name_font, _, name_h = fit_name_text(
         draw,
         raw_name,
         max_width=700,
         start_size=NAME_FONT_MAX_SIZE,
         min_size=NAME_FONT_MIN_SIZE,
-        bold=True,
     )
 
     draw.text(
@@ -386,7 +385,7 @@ def generate_admit_pass(
     )
     name_bottom = NAME_Y + name_h
 
-    # ── STEP 7: DETAILS ROW ──
+    # ── STEP 4: DETAILS ROW ──
     details_y = name_bottom + DETAILS_Y_OFFSET
 
     bold_font = get_font(30, bold=True)
@@ -436,7 +435,7 @@ def generate_admit_pass(
 
     details_bottom = details_y + rh
 
-    # ── STEP 8: ROLE-SPECIFIC CONTENT ──
+    # ── STEP 5: ROLE-SPECIFIC CONTENT ──
     label_font = get_font(22, bold=True)
     event_name_font = get_font(32, bold=False)
     cat_font = get_font(22, bold=False)
@@ -473,14 +472,11 @@ def generate_admit_pass(
             ename = str(ev.get('event_name') or ev.get('name') or 'Event')
             category = str(ev.get('category_label') or '').strip()
 
-            # Small filled square bullet
-            sq_y = row_y + 10
             draw.rectangle(
-                [CONTENT_X, sq_y, CONTENT_X + 12, sq_y + 12],
+                [CONTENT_X, row_y + 10, CONTENT_X + 12, row_y + 22],
                 fill=(*accent_rgb, 200)
             )
 
-            # Event name
             draw.text(
                 (CONTENT_X + 24, row_y),
                 ename,
@@ -489,7 +485,6 @@ def generate_admit_pass(
             )
             enw, enh = text_size(draw, ename, event_name_font)
 
-            # Category label
             if category and category.lower() != 'others':
                 draw.text(
                     (CONTENT_X + 24 + enw + 20, row_y + 5),
@@ -498,7 +493,7 @@ def generate_admit_pass(
                     fill=colors['text_dim']
                 )
 
-            row_y += enh + 16
+            row_y += enh + EVENT_ROW_GAP
 
         if others_event:
             desc = str(others_event.get('others_description') or '').strip()
@@ -598,27 +593,7 @@ def generate_admit_pass(
             fill=colors['text_dim']
         )
 
-    # ── STEP 9: WATERMARK LOGO ──
-    actual_logo = logo_path or LOGO_PATH_DEFAULT
-    if actual_logo and os.path.exists(actual_logo):
-        try:
-            wm = Image.open(actual_logo).convert('RGBA')
-            wm_size = 280
-            wm = wm.resize((wm_size, wm_size), Image.Resampling.LANCZOS)
-
-            # Make very faint
-            wm_pixels = list(wm.getdata())
-            faint = [(r, g, b, int(a * 0.07)) for r, g, b, a in wm_pixels]
-            wm.putdata(faint)
-
-            # Position: centered on watermark coordinates
-            wm_x = WATERMARK_CENTER_X - wm_size // 2
-            wm_y = WATERMARK_CENTER_Y - wm_size // 2
-            img.alpha_composite(wm, (max(0, wm_x), max(0, wm_y)))
-        except Exception:
-            pass
-
-    # ── STEP 10: QR CODE ──
+    # ── STEP 6: QR CODE ──
     qr_data = {
         'type': role,
         'id': str(data.get('id') or ''),
@@ -626,31 +601,32 @@ def generate_admit_pass(
         'verified': True
     }
 
-    qr_img = generate_qr_code(qr_data, size=QR_SIZE)
-
-    # Center QR in the box
+    # Center QR using template anchors (not constrained to a black box).
     qr_center_x = (QR_BOX_X1 + QR_BOX_X2) // 2
     qr_center_y = (QR_BOX_Y1 + QR_BOX_Y2) // 2
 
-    qr_paste_x = qr_center_x - QR_SIZE // 2
-    qr_paste_y = qr_center_y - QR_SIZE // 2
+    plate_size = QR_SIZE + (2 * QR_BG_PADDING)
+
+    plate_x1 = qr_center_x - (plate_size // 2)
+    plate_y1 = qr_center_y - (plate_size // 2)
+    plate_x2 = plate_x1 + plate_size
+    plate_y2 = plate_y1 + plate_size
+
+    qr_img = generate_qr_code(qr_data, size=QR_SIZE)
+
+    qr_paste_x = qr_center_x - (QR_SIZE // 2)
+    qr_paste_y = qr_center_y - (QR_SIZE // 2)
 
     # White background behind QR
-    padding = 20
     draw.rectangle(
-        [
-            qr_paste_x - padding,
-            qr_paste_y - padding,
-            qr_paste_x + QR_SIZE + padding,
-            qr_paste_y + QR_SIZE + padding
-        ],
+        [plate_x1, plate_y1, plate_x2, plate_y2],
         fill=(255, 255, 255, 255)
     )
 
     # Paste QR
     img.alpha_composite(qr_img, (qr_paste_x, qr_paste_y))
 
-    # ── STEP 11: QR LABELS ──
+    # ── STEP 7: QR LABELS ──
     scan_font = get_font(20, bold=False)
     id_font = get_font(22, bold=True)
 
@@ -673,7 +649,7 @@ def generate_admit_pass(
         fill=(*accent_rgb, 160)
     )
 
-    # ── STEP 12: SAVE AND RETURN ──
+    # ── STEP 8: SAVE AND RETURN ──
     final = img.convert('RGB')
     buffer = io.BytesIO()
     final.save(buffer, format='PNG', optimize=False, compress_level=1)

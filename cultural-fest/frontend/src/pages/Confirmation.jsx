@@ -10,7 +10,7 @@ export default function Confirmation() {
   const navigate = useNavigate()
 
   const [qrCode, setQrCode] = useState(location.state?.qr_code || null)
-  const [userName, setUserName] = useState(location.state?.name || '')
+  const [userName, setUserName] = useState(location.state?.name || location.state?.leaderName || location.state?.leader_name || '')
   const [selectedEvents, setSelectedEvents] = useState(location.state?.events || [])
   const [othersSelected, setOthersSelected] = useState(Boolean(location.state?.othersSelected))
   const [othersText, setOthersText] = useState(location.state?.othersText || '')
@@ -54,6 +54,7 @@ export default function Confirmation() {
 
       const data = payload.data || {}
       if (data.name) setUserName(data.name)
+      if (type === 'group' && data.leader_name) setUserName(data.leader_name)
 
       // Group specific
       if (data.team_name) setTeamName(data.team_name)
@@ -140,10 +141,10 @@ export default function Confirmation() {
       accentColor: '#14B8A6',
       accentBorder: 'rgba(20,184,166,0.3)',
       accentBg: 'rgba(20,184,166,0.06)',
-      pendingTitle: 'Application Submitted',
-      pendingSubtext: 'Your volunteer application is under review. Faculty will assign you to a team and approve your pass.',
-      approvedTitle: 'Welcome to the Team!',
-      approvedSubtext: 'Your volunteer pass is ready.',
+      pendingTitle: 'Registration Submitted',
+      pendingSubtext: 'Your volunteer registration is pending approval by the faculty coordinator.',
+      approvedTitle: 'You\'re Confirmed!',
+      approvedSubtext: 'Show this pass at the volunteer desk.',
       badge: 'VOLUNTEER',
       badgeColor: '#14B8A6',
     },
@@ -151,16 +152,17 @@ export default function Confirmation() {
       accentColor: '#C9A84C',
       accentBorder: 'rgba(201,168,76,0.3)',
       accentBg: 'rgba(201,168,76,0.06)',
-      pendingTitle: 'Group Registration Submitted',
-      pendingSubtext: 'Your group registration is pending faculty approval. The team leader will receive the group pass once approved.',
-      approvedTitle: 'Group is Ready!',
-      approvedSubtext: 'Your group competition pass is ready.',
+      pendingTitle: 'Registration Submitted',
+      pendingSubtext: 'Your group registration is pending approval by the faculty coordinator.',
+      approvedTitle: 'Your Group Entry is Confirmed!',
+      approvedSubtext: 'Show this pass at the event desk.',
       badge: 'GROUP EVENT',
       badgeColor: '#C9A84C',
     },
   }
 
   const config = roleConfig[type] || roleConfig.student
+  const groupSubtitle = [teamName, eventName].filter(Boolean).join(' • ')
 
   if (isPending && !qrCode) {
     return (
@@ -528,6 +530,11 @@ export default function Confirmation() {
               {userName}
             </p>
           )}
+          {isGroup && groupSubtitle && (
+            <p className="mt-1 text-sm text-[#F5F0E8]/70">
+              {groupSubtitle}
+            </p>
+          )}
           <p className="mt-1 text-xs text-[#F5F0E8]/60">
             Registration ID: {id}
           </p>
@@ -616,7 +623,7 @@ export default function Confirmation() {
                 fontFamily: 'system-ui, sans-serif',
                 fontWeight: '500'
               }}>
-                {teamName} · {teamMembers.length} member(s)
+                {teamName}{teamMembers.length > 0 ? ` · ${teamMembers.length} member(s)` : ''}
               </p>
               {eventName && (
                 <p style={{

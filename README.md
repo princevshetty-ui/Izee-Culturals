@@ -383,3 +383,83 @@ If faculty API returns Unauthorized:
 2. Log out and login again on faculty page.
 3. Verify Authorization header format is exactly `Bearer <password>`.
 
+## 15) Arena.ai Handoff Context (Resume After Rate Limit)
+
+Use this section when starting a new Arena.ai chat so it can continue from the exact current state.
+
+### What Was Completed Recently
+
+1. Pass generation was moved to template-based digital passes in `backend/pass_generator.py`.
+2. Name rendering uses Nevara-first loading with fallback fonts.
+3. Header branding placement (logo + college text) was tuned for the luxury template.
+4. QR rendering was updated so the white QR plate and QR code fit inside the black QR box.
+5. Faculty approval flow for student/participant is stable:
+	- generates pass on approval
+	- stores base64 pass in DB
+	- sends approval email with QR
+
+### What Is Still Pending
+
+1. Faculty-side approval actions for volunteer and group registrations are not yet implemented.
+	- Current volunteer/group routes support registration + status only.
+2. Faculty dashboard currently focuses on student/participant lists.
+	- volunteer/group management views and actions are pending.
+3. CSV export for volunteer/group datasets is pending (if required by ops workflow).
+4. Optional deployment hardening:
+	- copy Nevara font into backend assets and load from backend-local path only.
+	- this avoids dependency on frontend font path during deployment packaging.
+5. Final micro-tuning of template text placements can still be done visually (pixel-level refinement).
+
+### Exactly Where To Resume
+
+1. `cultural-fest/backend/routes/volunteers.py`
+	- has `/register/volunteer`, `/register/volunteer/{id}/status`,
+	- has `/register/group-participant`, `/register/group/{id}/status`.
+	- does not have faculty approve/resend/delete endpoints yet.
+2. `cultural-fest/backend/routes/faculty.py`
+	- currently has full student + participant approve/resend/delete/list/export flow.
+	- add volunteer/group approve + resend + list + export flow here (or dedicated faculty-volunteer router).
+3. `cultural-fest/backend/pass_generator.py`
+	- `generate_volunteer_pass()` and `generate_group_pass()` already exist and can be wired into approval endpoints.
+4. `cultural-fest/frontend/src/pages/FacultyDashboard.jsx`
+	- add volunteer/group tabs, filters, approve actions, and optional export actions.
+5. `cultural-fest/frontend/src/pages/Confirmation.jsx`
+	- already supports pending messaging for volunteer/group; verify approved-state rendering after backend endpoints are added.
+
+### Suggested Next Implementation Order
+
+1. Add backend faculty list endpoints for volunteers/groups (paginated + summary).
+2. Add backend faculty approve endpoints for volunteers/groups using existing pass generator functions.
+3. Add resend email endpoints for volunteers/groups.
+4. Add dashboard UI sections for volunteers/groups and wire approve/resend buttons.
+5. Add CSV export endpoints for volunteers/groups (if needed by organizing committee).
+6. Run end-to-end checks for all four user types: student, participant, volunteer, group.
+
+### Quick Copy-Paste Prompt For New Arena.ai Chat
+
+```text
+Continue implementation for Izee-Culturals from current state.
+
+Already done:
+- Student/participant faculty approval flow works (approve + resend + CSV exports).
+- Pass generator is template-based in cultural-fest/backend/pass_generator.py.
+- Name uses Nevara-first font loading.
+- Header placement and QR box fitting were tuned.
+
+Pending:
+1) Add faculty list + approve + resend (+ optional delete/export) endpoints for volunteers and group registrations.
+2) Wire those APIs into FacultyDashboard UI with pagination/filter/search/sort parity.
+3) Verify confirmation page approved-state for volunteer/group after approval endpoints are live.
+
+Resume files:
+- cultural-fest/backend/routes/volunteers.py
+- cultural-fest/backend/routes/faculty.py
+- cultural-fest/backend/pass_generator.py
+- cultural-fest/frontend/src/pages/FacultyDashboard.jsx
+- cultural-fest/frontend/src/pages/Confirmation.jsx
+
+Do not change existing student/participant behavior.
+Keep pending-then-approve model.
+Keep API response shape: { success, data, message }.
+```
+
