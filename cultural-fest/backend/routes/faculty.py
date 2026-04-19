@@ -16,6 +16,7 @@ import time
 import csv
 from datetime import datetime, timezone
 from io import StringIO
+from uuid import UUID
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -303,6 +304,141 @@ async def faculty_login(req: FacultyLoginRequest):
         "data": {"token": "ok"},
         "message": "Login successful"
     }
+
+
+@router.get("/validate/{qr_id}")
+async def validate_entry(qr_id: str):
+    """Public endpoint used at entry gate to validate a registration id."""
+    try:
+        lookup_id = (qr_id or "").strip()
+        if not lookup_id:
+            return {
+                "success": True,
+                "valid": False,
+                "message": "Invalid ID. Not registered.",
+            }
+
+        try:
+            UUID(lookup_id)
+        except ValueError:
+            return {
+                "success": True,
+                "valid": False,
+                "message": "Invalid ID. Not registered.",
+            }
+
+        # Search students
+        r = supabase.table("students").select("*").eq("id", lookup_id).limit(1).execute()
+        if r.data:
+            rec = r.data[0]
+            if not rec.get("qr_code"):
+                return {
+                    "success": True,
+                    "valid": False,
+                    "message": "Registration pending approval.",
+                }
+            return {
+                "success": True,
+                "valid": True,
+                "data": {
+                    "name": rec.get("name"),
+                    "role": "Student",
+                    "course": rec.get("course"),
+                    "year": rec.get("year"),
+                    "roll_no": rec.get("roll_no"),
+                },
+            }
+
+        # Search participants
+        r = supabase.table("participants").select("*").eq("id", lookup_id).limit(1).execute()
+        if r.data:
+            rec = r.data[0]
+            if not rec.get("qr_code"):
+                return {
+                    "success": True,
+                    "valid": False,
+                    "message": "Registration pending approval.",
+                }
+            events = supabase.table("participant_events").select(
+                "event_name, event_id"
+            ).eq("participant_id", lookup_id).execute()
+            event_names = []
+            for event in (events.data or []):
+                event_name = event.get("event_name") or event_id_to_label(event.get("event_id"))
+                if event_name:
+                    event_names.append(event_name)
+            return {
+                "success": True,
+                "valid": True,
+                "data": {
+                    "name": rec.get("name"),
+                    "role": "Participant",
+                    "course": rec.get("course"),
+                    "year": rec.get("year"),
+                    "roll_no": rec.get("roll_no"),
+                    "events": event_names,
+                },
+            }
+
+        # Search volunteers
+        r = supabase.table("volunteers").select("*").eq("id", lookup_id).limit(1).execute()
+        if r.data:
+            rec = r.data[0]
+            if not rec.get("qr_code"):
+                return {
+                    "success": True,
+                    "valid": False,
+                    "message": "Registration pending approval.",
+                }
+            return {
+                "success": True,
+                "valid": True,
+                "data": {
+                    "name": rec.get("name"),
+                    "role": "Volunteer",
+                    "course": rec.get("course"),
+                    "year": rec.get("year"),
+                    "roll_no": rec.get("roll_no"),
+                    "team_label": rec.get("team_label") or rec.get("volunteer_role") or "",
+                },
+            }
+
+        # Search groups
+        r = supabase.table("group_registrations").select("*").eq("id", lookup_id).limit(1).execute()
+        if r.data:
+            rec = r.data[0]
+            if not rec.get("qr_code"):
+                return {
+                    "success": True,
+                    "valid": False,
+                    "message": "Registration pending approval.",
+                }
+            return {
+                "success": True,
+                "valid": True,
+                "data": {
+                    "name": rec.get("leader_name"),
+                    "role": "Group Leader",
+                    "course": rec.get("leader_course"),
+                    "year": rec.get("leader_year"),
+                    "roll_no": rec.get("leader_roll_no"),
+                    "team_label": rec.get("team_name", ""),
+                    "group_name": rec.get("team_name", ""),
+                },
+            }
+
+        return {
+            "success": True,
+            "valid": False,
+            "message": "Invalid ID. Not registered.",
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "valid": False,
+            "message": f"Validation error: {str(e)}",
+        }
 
 
 @router.get("/faculty/students")

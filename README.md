@@ -188,6 +188,7 @@ Base prefix: `/api`
 2. `GET /api/register/student/{student_id}/status`
 3. `POST /api/register/participant`
 4. `GET /api/register/participant/{participant_id}/status`
+5. `GET /api/validate/{qr_id}` (public entry-gate validation for scanned/manual ID)
 
 ### Faculty endpoints
 
@@ -241,12 +242,13 @@ Payload includes important identity and registration info.
 Routes configured in `frontend/src/App.jsx`:
 
 1. `/` -> Home
-2. `/participant/events` -> Event selection with rules modal
-3. `/participant/register` -> Participant form
-4. `/student/register` -> Student form
-5. `/confirmation/:type/:id` -> Pending or QR display page
-6. `/faculty/login` -> Faculty login page
-7. `/faculty/dashboard` -> Faculty dashboard
+2. `/validate` -> Entry gate validator (camera scan + manual fallback)
+3. `/participant/events` -> Event selection with rules modal
+4. `/participant/register` -> Participant form
+5. `/student/register` -> Student form
+6. `/confirmation/:type/:id` -> Pending or QR display page
+7. `/faculty/login` -> Faculty login page
+8. `/faculty/dashboard` -> Faculty dashboard
 
 Notable UI logic:
 
@@ -255,6 +257,8 @@ Notable UI logic:
 3. Faculty dashboard truncates QR text in table but stores full value in DB.
 4. Faculty dashboard supports search by name, roll number, and email, plus quick sorting.
 5. Faculty dashboard uses backend pagination for student and participant lists.
+6. Entry validator supports camera scanning and manual ID entry fallback.
+7. Scanner accepts JSON QR payloads (extracts `id`) and plain UUID text.
 
 ## 9) Environment Variables
 
@@ -300,6 +304,9 @@ cd cultural-fest/frontend
 npm install
 npm run dev
 ```
+
+## Codespace port 
+cd /workspaces/Izee-Culturals/cultural-fest/frontend && npm run dev -- --host 0.0.0.0 --port 5173
 
 Frontend starts on: `http://localhost:5173`
 
@@ -350,10 +357,10 @@ Use this short explanation during planning meetings:
 ### Event Day (operations desk)
 
 1. Keep one laptop open on faculty dashboard.
-2. Keep one laptop/mobile open for public registration flow.
+2. Keep one laptop/mobile open on `/validate` for gate checks.
 3. Ask registrants to keep their confirmation URL or registration ID safe.
 4. Faculty approves records in batches every few minutes.
-5. Entry desk checks QR before allowing access.
+5. Entry desk scans QR first; if camera permission fails, use manual ID fallback.
 6. Use CSV export periodically as backup attendance/report data.
 
 ### After Event

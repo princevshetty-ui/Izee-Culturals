@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
+import QRValidator from './pages/QRValidator'
 
 const Home = lazy(() => import('./pages/Home'))
 const ParticipantEvents = lazy(() => import('./pages/ParticipantEvents'))
@@ -65,6 +66,14 @@ function AppRoutes() {
             element={
               <PageTransition>
                 <Home />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/validate"
+            element={
+              <PageTransition>
+                <QRValidator />
               </PageTransition>
             }
           />
