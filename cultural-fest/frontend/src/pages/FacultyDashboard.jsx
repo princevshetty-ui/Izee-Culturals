@@ -1196,7 +1196,7 @@ export default function FacultyDashboard() {
               </span>
               <span className="mx-2 h-4 w-px bg-[rgba(238,230,216,0.35)]" />
               <span className="text-[13px] tracking-[0.16em] text-[#C9A84C]" style={{ fontFamily: 'Montage, serif' }}>
-                CULTURALS
+                IZEE GOT TALENT
               </span>
             </div>
             <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[rgba(238,230,216,0.35)]">

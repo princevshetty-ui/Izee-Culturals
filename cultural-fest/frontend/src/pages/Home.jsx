@@ -288,7 +288,7 @@ export default function Home() {
               className="bg-clip-text font-display text-[20px] font-semibold uppercase tracking-[0.12em] text-transparent"
               style={{ backgroundImage: 'linear-gradient(120deg, #D6BF81 0%, #C9A84C 52%, #A9832D 100%)' }}
             >
-              CULTURALS
+              IZEE GOT TALENT
             </span>
           </div>
 

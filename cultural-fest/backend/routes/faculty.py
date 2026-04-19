@@ -226,7 +226,7 @@ def send_approval_email(
                             <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;background:#111111;border:1px solid rgba(201,168,76,0.32);border-radius:14px;overflow:hidden;">
                                 <tr>
                                     <td style="padding:22px 24px;background:linear-gradient(90deg,#0A0A0A,#181818);border-bottom:1px solid rgba(201,168,76,0.22)">
-                                        <p style="margin:0;font-size:12px;letter-spacing:2px;color:#C9A84C">IZEE CULTURALS</p>
+                                        <p style="margin:0;font-size:12px;letter-spacing:2px;color:#C9A84C">IZEE GOT TALENT</p>
                                         <h1 style="margin:8px 0 0 0;font-size:24px;line-height:1.3;color:#F5F0E8">Registration Approved</h1>
                                     </td>
                                 </tr>
@@ -260,7 +260,7 @@ def send_approval_email(
 
         try:
                 message = MIMEMultipart("related")
-                message["Subject"] = "Izee Culturals - Registration Approved"
+                message["Subject"] = "Izee Got Talent - Registration Approved"
                 message["From"] = smtp_from
                 message["To"] = to_email
 
@@ -275,7 +275,7 @@ def send_approval_email(
                 pass_image.add_header(
                     "Content-Disposition",
                     "attachment",
-                    filename="izee_culturals_pass.png"
+                    filename="izee_gta_pass.png"
                 )
                 message.attach(pass_image)
 
