@@ -44,12 +44,9 @@ const CATEGORIES = [
     label: 'Wildcard Category',
     icon: '⚡',
     events: [
-      {
-        id: 'anything-talent',
-        name: 'Anything Talent',
-        type: 'magic · mimicry · freestyle',
-        isGroup: false,
-      },
+      { id: 'magic', name: 'Magic', type: 'Solo', isGroup: false },
+      { id: 'mimicry', name: 'Mimicry', type: 'Solo', isGroup: false },
+      { id: 'freestyle', name: 'Freestyle', type: 'Solo', isGroup: false },
     ],
   },
 ]
@@ -142,11 +139,11 @@ export default function ParticipantEvents() {
     <div style={{
       minHeight: '100vh',
       background: `
-        radial-gradient(900px 600px at 15% 85%, 
-          rgba(158,38,54,0.10) 0%, transparent 60%),
-        radial-gradient(700px 500px at 80% 15%, 
-          rgba(190,163,93,0.07) 0%, transparent 60%),
-        #080910
+        radial-gradient(ellipse at top,
+          rgba(184,134,11,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at bottom,
+          rgba(74,0,128,0.08) 0%, transparent 60%),
+        #0a0a0a
       `,
       color: '#EEE6D8',
       paddingBottom: '100px'
@@ -162,7 +159,7 @@ export default function ParticipantEvents() {
 
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/')}
           className="mt-3 inline-flex items-center text-sm text-[#EEE6D8]/72 transition hover:text-[#EEE6D8]"
         >
           ← Back
@@ -205,10 +202,10 @@ export default function ParticipantEvents() {
             overflow: 'hidden'
           }}>
             <div
+              className="bg-gradient-to-r from-amber-600 to-amber-400"
               style={{
                 height: '100%',
                 width: `${(totalSelected / 2) * 100}%`,
-                background: 'linear-gradient(to right, #C9A84C, #E8C96A)',
                 borderRadius: '999px',
                 transition: 'width 0.35s ease'
               }}
@@ -238,15 +235,14 @@ export default function ParticipantEvents() {
                 }} aria-hidden="true">
                   {category.icon}
                 </span>
-                <span style={{
-                  fontFamily: "'Montage', serif",
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  letterSpacing: '0.14em',
-                  textTransform: 'uppercase',
-                  color: 'rgba(238,230,216,0.75)',
-                  flexShrink: 0
-                }}>
+                <span className="mr-2 text-amber-500" aria-hidden="true">●</span>
+                <span
+                  className="tracking-widest uppercase text-xs font-semibold text-[#EEE6D8]/75"
+                  style={{
+                    fontFamily: "'Montage', serif",
+                    flexShrink: 0,
+                  }}
+                >
                   {category.label}
                 </span>
                 <div style={{
@@ -268,37 +264,18 @@ export default function ParticipantEvents() {
                   const isDisabled = totalSelected >= 2 && !isSelected
 
                   const basePillStyle = {
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    height: '36px',
-                    padding: '0 18px',
-                    borderRadius: '999px',
-                    fontSize: '13px',
                     fontFamily: 'system-ui, -apple-system, sans-serif',
-                    fontWeight: '400',
-                    cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    border: '0.5px solid rgba(255,255,255,0.15)',
-                    background: 'rgba(255,255,255,0.05)',
-                    color: 'rgba(238,230,216,0.72)',
                     transition: 'all 0.18s ease',
-                    userSelect: 'none',
-                    whiteSpace: 'nowrap',
-                    opacity: isDisabled ? 0.28 : 1,
                     pointerEvents: isDisabled ? 'none' : 'auto'
                   }
 
-                  let pillStyle = { ...basePillStyle }
-
-                  if (isSelected) {
-                    pillStyle.background = 'rgba(201,168,76,0.13)'
-                    pillStyle.border = '1px solid rgba(201,168,76,0.55)'
-                    pillStyle.color = '#C9A84C'
-                    pillStyle.fontWeight = '500'
-                    pillStyle.boxShadow = '0 0 12px rgba(201,168,76,0.08)'
-                  } else if (isGroup) {
-                    pillStyle.border = '0.5px solid rgba(201,168,76,0.18)'
-                  }
+                  const pillClassName = [
+                    'inline-flex items-center gap-1.5 h-9 px-[18px] rounded-full text-[13px] select-none whitespace-nowrap transition-all duration-200',
+                    isSelected
+                      ? 'bg-gradient-to-r from-amber-700 to-amber-900 border border-amber-600 text-white font-semibold shadow-lg shadow-amber-900/30'
+                      : 'border border-white/10 bg-white/5 hover:border-amber-600/50 hover:shadow-amber-900/20',
+                    isDisabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer',
+                  ].join(' ')
 
                   return (
                     <motion.button
@@ -307,7 +284,8 @@ export default function ParticipantEvents() {
                       onClick={() => handleEventClick(event)}
                       whileTap={{ scale: 0.96 }}
                       layout
-                      style={pillStyle}
+                      className={pillClassName}
+                      style={basePillStyle}
                     >
                       {isSelected ? <span aria-hidden="true">✓</span> : null}
                       <span>{getEventPillLabel(event)}</span>
@@ -441,29 +419,25 @@ export default function ParticipantEvents() {
           type="button"
           onClick={handleContinue}
           disabled={!canContinue}
+          className={canContinue
+            ? 'bg-gradient-to-r from-amber-600 to-amber-800 text-white font-semibold hover:shadow-lg hover:shadow-amber-900/40 transition-all'
+            : 'bg-amber-900/20 text-amber-500/50 font-semibold cursor-not-allowed'}
           style={canContinue
             ? {
                 height: '42px',
                 padding: '0 32px',
                 borderRadius: '999px',
-                background: 'linear-gradient(135deg, #C9A84C 0%, #A8893C 100%)',
-                color: '#0A0800',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
-                fontWeight: '600',
                 fontSize: '14px',
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 4px 20px rgba(201,168,76,0.28)',
                 letterSpacing: '0.03em'
               }
             : {
                 height: '42px',
                 padding: '0 32px',
                 borderRadius: '999px',
-                background: 'rgba(201,168,76,0.15)',
-                color: 'rgba(201,168,76,0.4)',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
-                fontWeight: '600',
                 fontSize: '14px',
                 border: '0.5px solid rgba(201,168,76,0.15)',
                 cursor: 'not-allowed'
