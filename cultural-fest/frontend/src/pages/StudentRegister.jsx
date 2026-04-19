@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
-const COURSES = ['BCA', 'BBA', 'B.Com']
+const COURSES = ['BCA', 'BBA', 'BBA - Aviation']
 const YEARS = ['1st', '2nd', '3rd']
 
 const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#C9A84C]'

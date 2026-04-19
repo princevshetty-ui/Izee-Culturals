@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from datetime import datetime
 from db import supabase
+from utils.duplicate_check import check_duplicate_roll
 import uuid
 
 router = APIRouter()
@@ -31,6 +33,14 @@ class ParticipantRegisterRequest(BaseModel):
 async def register_participant(req: ParticipantRegisterRequest):
     """Register a participant and mark as pending until faculty approval."""
     try:
+        # Check for duplicate roll number
+        duplicate = await check_duplicate_roll(supabase, req.roll_no)
+        if duplicate["is_duplicate"]:
+            return JSONResponse(status_code=400, content={
+                "success": False,
+                "message": "This roll number is already registered."
+            })
+        
         # Count total slots used
         total_slots = len(req.events)
         if req.others_selected:

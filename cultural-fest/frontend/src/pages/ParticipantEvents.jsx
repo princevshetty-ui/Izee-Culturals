@@ -264,8 +264,8 @@ export default function ParticipantEvents() {
               }}>
                 {category.events.map((event) => {
                   const isGroup = event.isGroup
-                  const isSelected = !isGroup && selectedIds.includes(event.id)
-                  const isDisabled = !isGroup && totalSelected >= 2 && !isSelected
+                  const isSelected = selectedIds.includes(event.id)
+                  const isDisabled = totalSelected >= 2 && !isSelected
 
                   const basePillStyle = {
                     display: 'inline-flex',

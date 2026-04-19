@@ -250,6 +250,12 @@ export default function FacultyDashboard() {
     volunteers: { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 },
     groups: { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 },
   })
+  const [tabCache, setTabCache] = useState({
+    students: null,
+    participants: null,
+    volunteers: null,
+    groups: null
+  })
   const [selectedIds, setSelectedIds] = useState([])
 
   const activePage = pageByTab[activeTab] || 1
@@ -358,6 +364,23 @@ export default function FacultyDashboard() {
     if (!facultyPassword) return
 
     const fetchDashboardData = async () => {
+      // Check if tab cache exists and use it instead of fetching
+      if (tabCache[activeTab] !== null && activePage === 1) {
+        setIsLoading(false)
+        const cachedData = tabCache[activeTab]
+        setRecords(cachedData.records)
+        setSelectedIds([])
+        setSummaryByTab((previous) => ({
+          ...previous,
+          [activeTab]: cachedData.summary,
+        }))
+        setPaginationByTab((previous) => ({
+          ...previous,
+          [activeTab]: cachedData.pagination,
+        }))
+        return
+      }
+
       setIsLoading(true)
       setErrorMessage('')
 
@@ -373,6 +396,18 @@ export default function FacultyDashboard() {
         const currentResult = await fetchFacultyList(currentEndpoint)
         const currentRecords = normalizeDashboardRecords(activeTab, currentResult.records || [])
         const currentSummary = normalizeSummaryPayload(currentResult.summary || {}, currentRecords)
+        
+        // Cache the fetched data for this tab
+        if (activePage === 1) {
+          setTabCache((previous) => ({
+            ...previous,
+            [activeTab]: {
+              records: currentRecords,
+              summary: currentSummary,
+              pagination: currentResult.pagination || null,
+            },
+          }))
+        }
 
         const nextPage = currentResult.pagination?.page || activePage
 
@@ -438,7 +473,12 @@ export default function FacultyDashboard() {
     }
 
     fetchDashboardData()
-  }, [activeTab, activePage, facultyPassword, refreshKey])
+  }, [activeTab, activePage, facultyPassword, refreshKey, tabCache])
+
+  const handleRefreshTab = () => {
+    setTabCache((previous) => ({ ...previous, [activeTab]: null }))
+    setPageByTab((previous) => ({ ...previous, [activeTab]: 1 }))
+  }
 
   const courseOptions = useMemo(() => {
     return [...new Set(records.map((record) => getCourseByTab(record, activeTab)).filter(Boolean))]
