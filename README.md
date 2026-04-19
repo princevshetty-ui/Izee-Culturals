@@ -189,6 +189,7 @@ Base prefix: `/api`
 3. `POST /api/register/participant`
 4. `GET /api/register/participant/{participant_id}/status`
 5. `GET /api/validate/{qr_id}` (public entry-gate validation for scanned/manual ID)
+6. `GET /api/validate/short/{short_id}` (public short pass ID lookup, 8 hex chars)
 
 ### Faculty endpoints
 
@@ -259,6 +260,7 @@ Notable UI logic:
 5. Faculty dashboard uses backend pagination for student and participant lists.
 6. Entry validator supports camera scanning and manual ID entry fallback.
 7. Scanner accepts JSON QR payloads (extracts `id`) and plain UUID text.
+8. Manual entry accepts short pass ID (first 8 chars shown on pass) and resolves to full registration safely.
 
 ## 9) Environment Variables
 
