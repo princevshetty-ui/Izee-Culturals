@@ -274,7 +274,7 @@ export default function Home() {
             <img 
               src="/college-logo.png" 
               alt="IZee Got Talent"
-              className="h-14 w-auto object-contain"
+              style={{ height: '72px', width: 'auto', objectFit: 'contain' }}
               onError={(e) => {
                 e.target.style.display = 'none'
                 e.target.nextSibling.style.display = 'block'

@@ -177,7 +177,18 @@ export default function Confirmation() {
         `,
         color: '#EEE6D8',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
+      }}>
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors mb-4 self-start ml-4 mt-4"
+        >
+          ← Home
+        </button>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
         justifyContent: 'center',
         padding: '24px'
       }}>
@@ -473,6 +484,7 @@ export default function Confirmation() {
             </div>
           </div>
         </motion.div>
+        </div>
       </div>
     )
   }
@@ -491,6 +503,12 @@ export default function Confirmation() {
         color: '#F5F0E8'
       }}
     >
+      <button
+        onClick={() => navigate('/')}
+        className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors mb-4 ml-4 mt-4"
+      >
+        ← Home
+      </button>
       <div className="mx-auto flex max-w-2xl flex-col items-center justify-center px-4 py-8 sm:px-6 lg:px-8 lg:py-16">
         <motion.div
           initial={{ scale: 0, opacity: 0 }}

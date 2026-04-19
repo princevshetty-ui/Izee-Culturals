@@ -21,12 +21,19 @@ from routes import students, participants, faculty, volunteers
 app = FastAPI(title="Cultural Fest API")
 
 frontend_url = os.getenv("FRONTEND_URL")
-allowed_origins = ["http://localhost:5173"]
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 if frontend_url:
     allowed_origins.append(frontend_url)
 
+# Allow all *.app.github.dev domains (Codespaces)
 app.add_middleware(
     CORSMiddleware,
+    allow_origin_regex=r"https://.*\.app\.github\.dev",
     allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],

@@ -224,41 +224,47 @@ export default function ParticipantGroupRegister() {
           Home → Participant Registration → Group Registration
         </p>
 
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          style={{
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            fontSize: '14px',
-            background: 'none',
-            border: 'none',
-            color: 'rgba(238,230,216,0.72)',
-            cursor: 'pointer',
-            padding: 0,
-            marginBottom: '16px',
-            transition: 'color 0.18s ease',
-          }}
-          onMouseEnter={(e) => (e.target.style.color = '#EEE6D8')}
-          onMouseLeave={(e) => (e.target.style.color = 'rgba(238,230,216,0.72)')}
-        >
-          ← Back
-        </button>
-
         <div
           style={{
-            display: 'inline-flex',
-            padding: '4px 14px',
-            borderRadius: '999px',
-            background: 'rgba(201,168,76,0.08)',
-            border: '0.5px solid rgba(201,168,76,0.25)',
-            color: '#C9A84C',
-            fontSize: '12px',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            marginTop: '16px',
-            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            marginBottom: '24px',
           }}
         >
-          {groupEvent.name} · {groupEvent.type} · Group Event 👥
+          <button
+            type="button"
+            onClick={() => navigate('/participant/register')}
+            style={{
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+              fontSize: '14px',
+              background: 'none',
+              border: 'none',
+              color: 'rgba(238,230,216,0.72)',
+              cursor: 'pointer',
+              padding: 0,
+              transition: 'color 0.18s ease',
+            }}
+            onMouseEnter={(e) => (e.target.style.color = '#EEE6D8')}
+            onMouseLeave={(e) => (e.target.style.color = 'rgba(238,230,216,0.72)')}
+          >
+            ← Back
+          </button>
+
+          <div
+            style={{
+              display: 'inline-flex',
+              padding: '4px 14px',
+              borderRadius: '999px',
+              background: 'rgba(201,168,76,0.08)',
+              border: '0.5px solid rgba(201,168,76,0.25)',
+              color: '#C9A84C',
+              fontSize: '12px',
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+            }}
+          >
+            {groupEvent.name} · {groupEvent.type} · Group Event 👥
+          </div>
         </div>
 
         <h1
