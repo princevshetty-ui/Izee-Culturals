@@ -271,22 +271,18 @@ export default function Home() {
       >
         <nav className="mx-auto flex h-[72px] w-full max-w-[1440px] items-center justify-between px-4 sm:px-8 lg:px-[60px]">
           <div className="flex items-center">
-            <span
-              className="bg-clip-text font-display text-[20px] font-semibold uppercase tracking-[0.12em] text-transparent"
-              style={{ backgroundImage: 'linear-gradient(120deg, #D6BF81 0%, #C9A84C 52%, #A9832D 100%)' }}
-            >
-              IZEE
-            </span>
-            <span
-              className="mx-3 block w-px"
-              style={{
-                height: '16px',
-                background: 'linear-gradient(to bottom, #B22234, #C9A84C)',
+            <img 
+              src="/college-logo.png" 
+              alt="IZee Got Talent"
+              className="h-14 w-auto object-contain"
+              onError={(e) => {
+                e.target.style.display = 'none'
+                e.target.nextSibling.style.display = 'block'
               }}
             />
-            <span
-              className="bg-clip-text font-display text-[20px] font-semibold uppercase tracking-[0.12em] text-transparent"
-              style={{ backgroundImage: 'linear-gradient(120deg, #D6BF81 0%, #C9A84C 52%, #A9832D 100%)' }}
+            <span 
+              style={{display: 'none'}}
+              className="text-xl font-bold tracking-widest text-amber-400"
             >
               IZEE GOT TALENT
             </span>
@@ -334,7 +330,7 @@ export default function Home() {
                     MozOsxFontSmoothing: 'grayscale',
                   }}
                 >
-                  ANNUAL COLLEGE CULTURAL FEST 2026
+                  IZEE GOT TALENT 2026
                 </p>
                 <motion.span
                   initial={{ scaleX: 0, opacity: 0.7 }}
