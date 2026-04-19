@@ -282,7 +282,7 @@ export default function Home() {
             />
             <span 
               style={{display: 'none'}}
-              className="text-xl font-bold tracking-widest text-amber-400"
+              className="text-xl font-bold tracking-widest text-[#C9A84C]"
             >
               IZEE GOT TALENT
             </span>

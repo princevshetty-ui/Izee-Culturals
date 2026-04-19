@@ -660,9 +660,13 @@ export default function Confirmation() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.65 }}
-            className="mt-6 rounded-lg border border-amber-500/35 bg-amber-500/12 p-4"
+            className="mt-6 rounded-lg border p-4"
+            style={{
+              borderColor: 'rgba(201,168,76,0.35)',
+              background: 'rgba(201,168,76,0.12)'
+            }}
           >
-            <p className="text-center text-sm font-semibold text-amber-400">
+            <p className="text-center text-sm font-semibold" style={{ color: '#C9A84C' }}>
               📸 Save or screenshot your admit pass — present it at the entry gate
             </p>
           </motion.div>

@@ -363,7 +363,7 @@ export default function ParticipantRegister() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="mt-8 w-full rounded-lg px-4 py-3 font-semibold text-[#0C0D10] transition hover:brightness-105 disabled:opacity-70"
+                className="mt-8 w-full rounded-lg px-4 py-3 font-semibold text-[#0C0D10] transition hover:brightness-105 active:scale-[0.985] disabled:opacity-70"
                 style={{
                   background: 'linear-gradient(135deg, #C9A84C, #A8893C)',
                   boxShadow: '0 4px 24px rgba(201,168,76,0.25)',

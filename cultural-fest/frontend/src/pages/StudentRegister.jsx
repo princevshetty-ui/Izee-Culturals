@@ -7,7 +7,7 @@ const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 const COURSES = ['BCA', 'BBA', 'BBA - Aviation']
 const YEARS = ['1st', '2nd', '3rd']
 
-const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#C9A84C]'
+const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#DC4B5D]'
 const inputBase =
   'mt-2 w-full rounded-lg border px-4 py-3 text-[#EEE6D8] placeholder:text-[rgba(238,230,216,0.3)] transition focus:outline-none'
 
@@ -128,7 +128,7 @@ export default function StudentRegister() {
             <h1 className="text-3xl sm:text-4xl" style={DISPLAY_FONT}>
               Audience Registration
             </h1>
-            <p className="mt-2 text-[#C9A84C]">Get your entry pass to the fest</p>
+            <p className="mt-2 text-[#DC4B5D]">Get your entry pass to the fest</p>
 
             {apiError && (
               <motion.div
@@ -155,7 +155,7 @@ export default function StudentRegister() {
                   className={`${inputBase} ${
                     errors.name
                       ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(220,75,93,0.55)] focus:shadow-[0_0_0_3px_rgba(220,75,93,0.12)]'
                   }`}
                 />
                 {errors.name && <p className="mt-1.5 text-xs text-red-400">{errors.name}</p>}
@@ -175,7 +175,7 @@ export default function StudentRegister() {
                   className={`${inputBase} ${
                     errors.roll_no
                       ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(220,75,93,0.55)] focus:shadow-[0_0_0_3px_rgba(220,75,93,0.12)]'
                   }`}
                 />
                 {errors.roll_no && <p className="mt-1.5 text-xs text-red-400">{errors.roll_no}</p>}
@@ -194,7 +194,7 @@ export default function StudentRegister() {
                     className={`${inputBase} ${
                       errors.course
                         ? 'border-red-500/60 focus:border-red-500'
-                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(220,75,93,0.55)] focus:shadow-[0_0_0_3px_rgba(220,75,93,0.12)]'
                     }`}
                   >
                     <option value="">Select Course</option>
@@ -219,7 +219,7 @@ export default function StudentRegister() {
                     className={`${inputBase} ${
                       errors.year
                         ? 'border-red-500/60 focus:border-red-500'
-                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(220,75,93,0.55)] focus:shadow-[0_0_0_3px_rgba(220,75,93,0.12)]'
                     }`}
                   >
                     <option value="">Select Year</option>
@@ -247,7 +247,7 @@ export default function StudentRegister() {
                   className={`${inputBase} ${
                     errors.email
                       ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(220,75,93,0.55)] focus:shadow-[0_0_0_3px_rgba(220,75,93,0.12)]'
                   }`}
                 />
                 {errors.email && <p className="mt-1.5 text-xs text-red-400">{errors.email}</p>}
@@ -256,10 +256,10 @@ export default function StudentRegister() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="mt-8 w-full rounded-lg px-4 py-3 font-semibold text-[#0C0D10] transition hover:brightness-105 disabled:opacity-70"
+                className="mt-8 w-full rounded-lg px-4 py-3 font-semibold text-white transition hover:brightness-105 active:scale-[0.985] disabled:opacity-70"
                 style={{
-                  background: 'linear-gradient(135deg, #C9A84C, #A8893C)',
-                  boxShadow: '0 4px 24px rgba(201,168,76,0.25)',
+                  background: 'linear-gradient(135deg, #B22234, #7D1F2A)',
+                  boxShadow: '0 4px 24px rgba(178,34,52,0.32)',
                 }}
               >
                 {isLoading ? (
@@ -285,7 +285,7 @@ export default function StudentRegister() {
             className="card-glass hidden rounded-2xl border border-[#EEE6D8]/12 p-6 lg:flex lg:flex-col lg:justify-between"
           >
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A84C]">Festival Note</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#DC4B5D]">Festival Note</p>
               <h2 className="mt-3 text-2xl" style={DISPLAY_FONT}>
                 "Your pass.
                 Your moment."

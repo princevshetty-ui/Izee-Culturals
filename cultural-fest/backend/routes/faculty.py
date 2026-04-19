@@ -48,6 +48,11 @@ class FacultyLoginRequest(BaseModel):
     password: str
 
 
+class GateAccessLoginRequest(BaseModel):
+    roll_no: str
+    email: str
+
+
 def verify_faculty_token(authorization: str = Header(None)):
     """Verify faculty token from Authorization header."""
     if not authorization:
@@ -312,6 +317,59 @@ async def faculty_login(req: FacultyLoginRequest):
         "data": {"token": "ok"},
         "message": "Login successful"
     }
+
+
+@router.post("/validate/access/login")
+async def validate_gate_access_login(req: GateAccessLoginRequest):
+    """Public gate access login for registered volunteers only."""
+    try:
+        roll_no = (req.roll_no or "").strip()
+        email = (req.email or "").strip().lower()
+
+        if not roll_no or not email:
+            return {
+                "success": False,
+                "data": None,
+                "message": "Roll number and email are required.",
+            }
+
+        response = (
+            supabase.table("volunteers")
+            .select("id, name, roll_no, email, team_label, registered_at")
+            .ilike("roll_no", roll_no)
+            .ilike("email", email)
+            .limit(1)
+            .execute()
+        )
+
+        if not response.data:
+            return {
+                "success": False,
+                "data": None,
+                "message": "Access denied. Volunteer not found.",
+            }
+
+        volunteer = response.data[0]
+        return {
+            "success": True,
+            "data": {
+                "authorized": True,
+                "volunteer": {
+                    "id": volunteer.get("id"),
+                    "name": volunteer.get("name"),
+                    "roll_no": volunteer.get("roll_no"),
+                    "email": volunteer.get("email"),
+                    "team_label": volunteer.get("team_label") or "",
+                },
+            },
+            "message": "Gate access granted.",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "data": None,
+            "message": f"Access login error: {str(e)}",
+        }
 
 
 def resolve_validation_by_uuid(lookup_id: str):

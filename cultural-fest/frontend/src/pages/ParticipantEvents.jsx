@@ -202,7 +202,7 @@ export default function ParticipantEvents() {
             overflow: 'hidden'
           }}>
             <div
-              className="bg-gradient-to-r from-amber-600 to-amber-400"
+              className="bg-[linear-gradient(90deg,#B8912F,#E0BF66)]"
               style={{
                 height: '100%',
                 width: `${(totalSelected / 2) * 100}%`,
@@ -235,7 +235,7 @@ export default function ParticipantEvents() {
                 }} aria-hidden="true">
                   {category.icon}
                 </span>
-                <span className="mr-2 text-amber-500" aria-hidden="true">●</span>
+                <span className="mr-2 text-[#C9A84C]" aria-hidden="true">●</span>
                 <span
                   className="tracking-widest uppercase text-xs font-semibold text-[#EEE6D8]/75"
                   style={{
@@ -272,8 +272,8 @@ export default function ParticipantEvents() {
                   const pillClassName = [
                     'inline-flex items-center gap-1.5 h-9 px-[18px] rounded-full text-[13px] select-none whitespace-nowrap transition-all duration-200',
                     isSelected
-                      ? 'bg-gradient-to-r from-amber-700 to-amber-900 border border-amber-600 text-white font-semibold shadow-lg shadow-amber-900/30'
-                      : 'border border-white/10 bg-white/5 hover:border-amber-600/50 hover:shadow-amber-900/20',
+                      ? 'bg-[linear-gradient(135deg,#C9A84C,#8A6B2C)] border border-[#C9A84C]/70 text-white font-semibold shadow-lg shadow-[#C9A84C]/25'
+                      : 'border border-white/10 bg-white/5 hover:border-[#C9A84C]/50 hover:shadow-[#C9A84C]/20',
                     isDisabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer',
                   ].join(' ')
 
@@ -420,8 +420,8 @@ export default function ParticipantEvents() {
           onClick={handleContinue}
           disabled={!canContinue}
           className={canContinue
-            ? 'bg-gradient-to-r from-amber-600 to-amber-800 text-white font-semibold hover:shadow-lg hover:shadow-amber-900/40 transition-all'
-            : 'bg-amber-900/20 text-amber-500/50 font-semibold cursor-not-allowed'}
+            ? 'bg-[linear-gradient(135deg,#C9A84C,#8A6B2C)] text-white font-semibold hover:shadow-lg hover:shadow-[#C9A84C]/35 transition-all active:scale-[0.98]'
+            : 'bg-[#C9A84C]/18 text-[#C9A84C]/50 font-semibold cursor-not-allowed'}
           style={canContinue
             ? {
                 height: '42px',

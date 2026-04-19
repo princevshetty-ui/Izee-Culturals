@@ -125,7 +125,7 @@ export default function VolunteerRegister() {
           <div className="mt-2 flex items-center justify-between">
             <button
               type="button"
-              onClick={() => navigate(-1)}
+              onClick={() => navigate('/')}
               className="text-sm text-[#EEE6D8]/78 transition hover:text-[#EEE6D8]"
             >
               ← Back
@@ -333,7 +333,7 @@ export default function VolunteerRegister() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="mt-8 w-full rounded-lg px-4 py-3 font-semibold text-[#0C0D10] transition hover:brightness-105 disabled:opacity-70"
+                className="mt-8 w-full rounded-lg px-4 py-3 font-semibold text-[#0C0D10] transition hover:brightness-105 active:scale-[0.985] disabled:opacity-70"
                 style={{
                   background: 'linear-gradient(135deg, #14B8A6, #0D9488)',
                   boxShadow: '0 4px 24px rgba(20,184,166,0.22)',

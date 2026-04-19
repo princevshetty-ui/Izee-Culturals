@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom'
 const SCANNER_REGION_ID = 'entry-gate-qr-scanner'
 const SCAN_THROTTLE_MS = 1400
 const VALIDATION_TIMEOUT_MS = 8000
+const ACCESS_TIMEOUT_MS = 7000
+const GATE_ACCESS_SESSION_KEY = 'gate-access-session-v1'
 const UUID_REGEX =
   /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i
 const SHORT_ID_REGEX = /^[0-9a-fA-F]{8}$/
@@ -18,6 +20,71 @@ const preferredCameraScore = (label = '') => {
     return 2
   }
   return 1
+}
+
+const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms))
+
+function withNoCache(url) {
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}_ts=${Date.now()}`
+}
+
+async function fetchJsonWithRetry(url, options = {}, config = {}) {
+  const {
+    timeoutMs = VALIDATION_TIMEOUT_MS,
+    retries = 2,
+    retryDelayMs = 350,
+  } = config
+
+  let lastError
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      const response = await fetch(withNoCache(url), {
+        ...options,
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          ...(options.headers || {}),
+        },
+      })
+
+      const retryableStatus = response.status >= 500 || response.status === 429 || response.status === 408
+
+      if (!response.ok) {
+        const bodyText = await response.text().catch(() => '')
+        const error = new Error(bodyText || `Request failed (${response.status})`)
+        error.retryable = retryableStatus
+        throw error
+      }
+
+      const data = await response.json()
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid server response')
+      }
+
+      return data
+    } catch (error) {
+      lastError = error
+      const aborted = error?.name === 'AbortError'
+      const retryable = aborted || error?.retryable || error instanceof TypeError
+
+      if (attempt < retries && retryable) {
+        await sleep(retryDelayMs * (attempt + 1))
+        continue
+      }
+
+      throw error
+    } finally {
+      window.clearTimeout(timeoutId)
+    }
+  }
+
+  throw lastError || new Error('Request failed')
 }
 
 function extractRegistrationId(rawValue) {
@@ -53,7 +120,7 @@ function getCameraBadgeStyle(cameraState) {
     return 'border-emerald-500/45 bg-emerald-900/25 text-emerald-200'
   }
   if (cameraState === 'starting') {
-    return 'border-amber-500/45 bg-amber-900/25 text-amber-200'
+    return 'border-teal-500/45 bg-teal-900/25 text-teal-200'
   }
   if (cameraState === 'denied' || cameraState === 'error' || cameraState === 'unsupported') {
     return 'border-red-500/45 bg-red-900/25 text-red-200'
@@ -61,8 +128,26 @@ function getCameraBadgeStyle(cameraState) {
   return 'border-white/15 bg-[#1A1D24] text-[#EEE6D8]/75'
 }
 
+function readGateSession() {
+  try {
+    const raw = sessionStorage.getItem(GATE_ACCESS_SESSION_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || !parsed.id) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
 export default function QRValidator() {
   const navigate = useNavigate()
+  const [gateUser, setGateUser] = useState(() => readGateSession())
+  const [accessRollNo, setAccessRollNo] = useState('')
+  const [accessEmail, setAccessEmail] = useState('')
+  const [accessLoading, setAccessLoading] = useState(false)
+  const [accessError, setAccessError] = useState('')
+
   const [regId, setRegId] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -85,8 +170,7 @@ export default function QRValidator() {
       return
     }
 
-    if (scanInFlightRef.current) return
-    scanInFlightRef.current = true
+    if (source === 'manual' && loading) return
 
     if (source === 'scan') {
       setRegId(normalizedId)
@@ -94,35 +178,19 @@ export default function QRValidator() {
     }
 
     setLoading(true)
-    const controller = new AbortController()
-    const timeoutId = window.setTimeout(() => controller.abort(), VALIDATION_TIMEOUT_MS)
 
     try {
       const endpoint = resolveValidationEndpoint(normalizedId)
-      const res = await fetch(endpoint, {
-        signal: controller.signal,
-        headers: { Accept: 'application/json' },
-      })
-
-      if (!res.ok) {
-        throw new Error(`Validation request failed (${res.status})`)
-      }
-
-      const data = await res.json()
-      if (!data || typeof data !== 'object') {
-        throw new Error('Invalid server response')
-      }
-
+      const data = await fetchJsonWithRetry(endpoint, {}, { timeoutMs: VALIDATION_TIMEOUT_MS, retries: 2 })
       setResult(data)
 
       if (source === 'manual') {
-        // Auto clear input after 5 seconds for manual checks.
-        setTimeout(() => setRegId(''), 5000)
+        window.setTimeout(() => setRegId(''), 5000)
       } else {
         setScanStatus(data.valid ? 'Entry allowed. Scanner resumed.' : 'Entry denied. Scanner resumed.')
       }
-    } catch (err) {
-      const aborted = err?.name === 'AbortError'
+    } catch (error) {
+      const aborted = error?.name === 'AbortError'
       setResult({
         valid: false,
         message: aborted
@@ -133,11 +201,9 @@ export default function QRValidator() {
         setScanStatus('Validation request failed. Scanner resumed.')
       }
     } finally {
-      window.clearTimeout(timeoutId)
-      scanInFlightRef.current = false
       setLoading(false)
     }
-  }, [])
+  }, [loading])
 
   const releaseScannerResources = useCallback(async (scanner) => {
     if (!scanner) return
@@ -196,8 +262,8 @@ export default function QRValidator() {
 
       const now = Date.now()
       if (
-        normalizedId.toLowerCase() === lastScanRef.current.value &&
-        now - lastScanRef.current.ts < SCAN_THROTTLE_MS
+        normalizedId.toLowerCase() === lastScanRef.current.value
+        && now - lastScanRef.current.ts < SCAN_THROTTLE_MS
       ) {
         return
       }
@@ -348,6 +414,144 @@ export default function QRValidator() {
     }
   }
 
+  const handleAccessLogin = async (event) => {
+    event.preventDefault()
+    if (accessLoading) return
+
+    const rollNo = accessRollNo.trim()
+    const email = accessEmail.trim().toLowerCase()
+
+    if (!rollNo || !email) {
+      setAccessError('Enter volunteer roll number and email.')
+      return
+    }
+
+    setAccessLoading(true)
+    setAccessError('')
+
+    try {
+      const data = await fetchJsonWithRetry(
+        '/api/validate/access/login',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ roll_no: rollNo, email }),
+        },
+        {
+          timeoutMs: ACCESS_TIMEOUT_MS,
+          retries: 1,
+          retryDelayMs: 300,
+        },
+      )
+
+      if (!data.success || !data.data?.authorized || !data.data?.volunteer) {
+        setAccessError(data.message || 'Access denied.')
+        return
+      }
+
+      const volunteer = data.data.volunteer
+      setGateUser(volunteer)
+      setAccessRollNo('')
+      setAccessEmail('')
+      setResult(null)
+      sessionStorage.setItem(GATE_ACCESS_SESSION_KEY, JSON.stringify(volunteer))
+    } catch {
+      setAccessError('Unable to sign in now. Check network and retry.')
+    } finally {
+      setAccessLoading(false)
+    }
+  }
+
+  const handleGateLogout = () => {
+    sessionStorage.removeItem(GATE_ACCESS_SESSION_KEY)
+    setGateUser(null)
+    setResult(null)
+    switchToManualMode()
+  }
+
+  if (!gateUser) {
+    return (
+      <div className="relative min-h-screen overflow-x-hidden bg-[#0C0D10] text-[#EEE6D8] font-body">
+        <div
+          className="pointer-events-none fixed inset-0 z-0"
+          style={{
+            background:
+              'radial-gradient(ellipse at 50% 20%, rgba(190,163,93,0.08) 0%, transparent 68%)',
+          }}
+        />
+        <div
+          className="pointer-events-none fixed inset-0 z-0"
+          style={{
+            background:
+              'radial-gradient(ellipse at 15% 80%, rgba(158,38,54,0.06) 0%, transparent 52%)',
+          }}
+        />
+
+        <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center px-5 py-8">
+          <button
+            onClick={() => navigate('/')}
+            className="mb-6 inline-flex w-fit items-center rounded-full border border-[#14B8A6]/30 bg-[#131419]/70 px-4 py-2 text-sm text-[#EEE6D8]/80 transition hover:border-[#14B8A6]/70 hover:text-[#EEE6D8]"
+          >
+            {'<- Home'}
+          </button>
+
+          <section className="rounded-2xl border border-[#14B8A6]/30 bg-[#121318]/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+            <p className="text-xs uppercase tracking-[0.24em] text-[#14B8A6]/85">IZee Got Talent</p>
+            <h1 className="mt-1 font-display text-3xl leading-tight text-[#EEE6D8]">
+              Gate Access Login
+            </h1>
+            <p className="mt-2 text-sm text-[#EEE6D8]/70">
+              Only registered volunteers can access entry validation.
+            </p>
+
+            <form onSubmit={handleAccessLogin} className="mt-5 space-y-3">
+              <div>
+                <label className="mb-1 block text-xs uppercase tracking-[0.16em] text-[#EEE6D8]/55">
+                  Volunteer Roll Number
+                </label>
+                <input
+                  value={accessRollNo}
+                  onChange={(e) => setAccessRollNo(e.target.value)}
+                  placeholder="Enter roll number"
+                  className="w-full rounded-lg border border-white/10 bg-[#1A1D24] px-4 py-3 text-[#EEE6D8] placeholder:text-[#EEE6D8]/35 focus:border-[#14B8A6]/65 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs uppercase tracking-[0.16em] text-[#EEE6D8]/55">
+                  Volunteer Email
+                </label>
+                <input
+                  type="email"
+                  value={accessEmail}
+                  onChange={(e) => setAccessEmail(e.target.value)}
+                  placeholder="Enter registered email"
+                  className="w-full rounded-lg border border-white/10 bg-[#1A1D24] px-4 py-3 text-[#EEE6D8] placeholder:text-[#EEE6D8]/35 focus:border-[#14B8A6]/65 focus:outline-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={accessLoading}
+                className="w-full rounded-lg bg-gradient-to-r from-teal-700 to-teal-500 px-4 py-3 text-base font-semibold text-white shadow-[0_12px_28px_rgba(20,184,166,0.3)] transition hover:brightness-110 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                {accessLoading ? 'Verifying...' : 'Unlock Validator'}
+              </button>
+            </form>
+
+            {accessError && (
+              <p className="mt-3 rounded-lg border border-red-500/40 bg-red-900/20 px-3 py-2 text-sm text-red-200">
+                {accessError}
+              </p>
+            )}
+          </section>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#0C0D10] text-[#EEE6D8] font-body">
       <div
@@ -369,37 +573,38 @@ export default function QRValidator() {
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <button
             onClick={() => navigate('/')}
-            className="inline-flex w-fit items-center rounded-full border border-[#C9A84C]/30 bg-[#131419]/70 px-4 py-2 text-sm text-[#EEE6D8]/80 transition hover:border-[#C9A84C]/70 hover:text-[#EEE6D8]"
+            className="inline-flex w-fit items-center rounded-full border border-[#14B8A6]/30 bg-[#131419]/70 px-4 py-2 text-sm text-[#EEE6D8]/80 transition hover:border-[#14B8A6]/70 hover:text-[#EEE6D8]"
           >
             {'<- Home'}
           </button>
 
           <div className="text-right">
-            <p className="text-xs uppercase tracking-[0.24em] text-[#C9A84C]/80">IZee Got Talent</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-[#14B8A6]/85">IZee Got Talent</p>
             <h1 className="font-display text-3xl leading-tight text-[#EEE6D8] sm:text-4xl">
               Entry Gate Validation
             </h1>
-            <p className="text-sm text-[#EEE6D8]/60">Fast scan with resilient manual fallback</p>
-            <div className="mt-2 flex flex-wrap justify-end gap-2">
-              <span className="rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-[#EAD79B]">
-                Gate Desk Mode
-              </span>
-              <span className="rounded-full border border-white/15 bg-[#191c23] px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-[#EEE6D8]/70">
-                No Page Reload Needed
-              </span>
-            </div>
+            <p className="mt-2 text-sm text-[#EEE6D8]/65">
+              Signed in: {gateUser.name || gateUser.roll_no || gateUser.email}
+            </p>
           </div>
+
+          <button
+            onClick={handleGateLogout}
+            className="inline-flex w-fit items-center rounded-full border border-white/20 bg-[#191c23] px-4 py-2 text-sm text-[#EEE6D8]/80 transition hover:border-white/40 hover:text-[#EEE6D8]"
+          >
+            Logout
+          </button>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-[1.12fr_0.88fr]">
-          <article className="rounded-2xl border border-[#C9A84C]/30 bg-[linear-gradient(180deg,rgba(18,19,24,0.96)_0%,rgba(14,15,20,0.88)_100%)] p-5 shadow-[0_0_0_1px_rgba(201,168,76,0.06),0_20px_60px_rgba(0,0,0,0.45)]">
+          <article className="rounded-2xl border border-[#14B8A6]/30 bg-[linear-gradient(180deg,rgba(18,19,24,0.96)_0%,rgba(14,15,20,0.88)_100%)] p-5 shadow-[0_0_0_1px_rgba(20,184,166,0.08),0_20px_60px_rgba(0,0,0,0.45)]">
             <div className="mb-4 grid grid-cols-2 gap-2">
               <button
                 onClick={switchToManualMode}
                 className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
                   scanMode === 'manual'
-                    ? 'border-[#C9A84C] bg-[#C9A84C]/15 text-[#E8D7A1]'
-                    : 'border-white/10 bg-[#1A1C22] text-[#EEE6D8]/70 hover:border-[#C9A84C]/45'
+                    ? 'border-[#14B8A6] bg-[#14B8A6]/15 text-[#9EF4EA]'
+                    : 'border-white/10 bg-[#1A1C22] text-[#EEE6D8]/70 hover:border-[#14B8A6]/45'
                 }`}
               >
                 Manual Mode
@@ -408,8 +613,8 @@ export default function QRValidator() {
                 onClick={switchToScanMode}
                 className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
                   scanMode === 'scan'
-                    ? 'border-[#C9A84C] bg-[#C9A84C]/15 text-[#E8D7A1]'
-                    : 'border-white/10 bg-[#1A1C22] text-[#EEE6D8]/70 hover:border-[#C9A84C]/45'
+                    ? 'border-[#14B8A6] bg-[#14B8A6]/15 text-[#9EF4EA]'
+                    : 'border-white/10 bg-[#1A1C22] text-[#EEE6D8]/70 hover:border-[#14B8A6]/45'
                 }`}
               >
                 Scan Mode
@@ -420,14 +625,14 @@ export default function QRValidator() {
               <>
                 <div className="relative">
                   <div
-                    className="pointer-events-none absolute inset-0 z-10 rounded-xl border border-[#C9A84C]/25"
+                    className="pointer-events-none absolute inset-0 z-10 rounded-xl border border-[#14B8A6]/25"
                     aria-hidden="true"
                   />
                   <div
                     className="pointer-events-none absolute inset-0 z-10 rounded-xl"
                     style={{
                       background:
-                        'linear-gradient(120deg, rgba(201,168,76,0.1) 0%, rgba(201,168,76,0.02) 45%, rgba(201,168,76,0.08) 100%)',
+                        'linear-gradient(120deg, rgba(20,184,166,0.12) 0%, rgba(20,184,166,0.03) 45%, rgba(20,184,166,0.1) 100%)',
                     }}
                     aria-hidden="true"
                   />
@@ -435,7 +640,7 @@ export default function QRValidator() {
                     id={SCANNER_REGION_ID}
                     className="relative z-0 min-h-[320px] overflow-hidden rounded-xl border border-white/10 bg-black"
                   />
-                  <span className="pointer-events-none absolute left-3 top-3 z-20 rounded border border-[#C9A84C]/55 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#EAD79B]">
+                  <span className="pointer-events-none absolute left-3 top-3 z-20 rounded border border-[#14B8A6]/55 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9EF4EA]">
                     Scan Zone
                   </span>
                 </div>
@@ -469,7 +674,7 @@ export default function QRValidator() {
                     <select
                       value={selectedCameraId}
                       onChange={(e) => onCameraChange(e.target.value)}
-                      className="w-full rounded-lg border border-white/10 bg-[#181A20] px-3 py-2 text-sm text-[#EEE6D8] outline-none focus:border-[#C9A84C]/60"
+                      className="w-full rounded-lg border border-white/10 bg-[#181A20] px-3 py-2 text-sm text-[#EEE6D8] outline-none focus:border-[#14B8A6]/60"
                     >
                       {cameras.map((camera, index) => (
                         <option key={camera.id} value={camera.id}>
@@ -484,7 +689,7 @@ export default function QRValidator() {
                   <button
                     onClick={() => void startScanner()}
                     disabled={scanActive || loading}
-                    className="rounded-lg border border-[#C9A84C]/35 bg-[#22262f] px-3 py-2 text-sm font-semibold text-[#EEE6D8] transition-colors hover:border-[#C9A84C]/70 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg border border-[#14B8A6]/35 bg-[#22262f] px-3 py-2 text-sm font-semibold text-[#EEE6D8] transition-colors hover:border-[#14B8A6]/70 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Start Camera
                   </button>
@@ -500,7 +705,7 @@ export default function QRValidator() {
             ) : (
               <div className="rounded-xl border border-white/10 bg-[#16181f] p-4">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-[#C9A84C]/35 bg-[#C9A84C]/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-[#EAD79B]">
+                  <span className="rounded-full border border-[#14B8A6]/35 bg-[#14B8A6]/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-[#9EF4EA]">
                     Mode: Manual
                   </span>
                   <span className="rounded-full border border-white/15 bg-[#1A1D24] px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-[#EEE6D8]/70">
@@ -514,7 +719,7 @@ export default function QRValidator() {
                   <li>- Full registration ID (UUID)</li>
                   <li>- Short Pass ID (first 8 characters shown near QR)</li>
                 </ul>
-                <p className="mt-3 text-xs uppercase tracking-[0.16em] text-[#C9A84C]/80">
+                <p className="mt-3 text-xs uppercase tracking-[0.16em] text-[#14B8A6]/80">
                   Example short ID: 36F6D3AE
                 </p>
               </div>
@@ -531,7 +736,7 @@ export default function QRValidator() {
               onChange={(e) => onManualInputChange(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && validate()}
               placeholder="Paste full ID or enter 8-char Pass ID"
-              className="w-full rounded-lg border border-white/10 bg-[#1A1D24] px-4 py-4 text-lg text-[#EEE6D8] placeholder:text-[#EEE6D8]/35 focus:border-[#C9A84C]/65 focus:outline-none"
+              className="w-full rounded-lg border border-white/10 bg-[#1A1D24] px-4 py-4 text-lg text-[#EEE6D8] placeholder:text-[#EEE6D8]/35 focus:border-[#14B8A6]/65 focus:outline-none"
             />
             <p className="mt-2 text-xs text-[#EEE6D8]/55">
               Tip: Enter the 8-character ID printed under QR for fastest manual verification.
@@ -540,7 +745,7 @@ export default function QRValidator() {
             <button
               onClick={validate}
               disabled={loading}
-              className="mt-3 w-full rounded-lg bg-gradient-to-r from-amber-700 to-amber-500 px-4 py-4 text-lg font-semibold text-white shadow-[0_12px_28px_rgba(180,120,20,0.35)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
+              className="mt-3 w-full rounded-lg bg-gradient-to-r from-teal-700 to-teal-500 px-4 py-4 text-lg font-semibold text-white shadow-[0_12px_28px_rgba(20,184,166,0.3)] transition hover:brightness-110 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-55"
             >
               {loading ? 'Validating...' : 'Validate Entry'}
             </button>
@@ -560,19 +765,19 @@ export default function QRValidator() {
                 {result.valid && result.data && (
                   <div className="space-y-1.5 text-[15px]">
                     <p>
-                      <span className="text-[#EEE6D8]/60">Name:</span> {result.data.name}
+                      <span className="text-[#EEE6D8]/60">Name:</span> {result.data.name || '—'}
                     </p>
                     <p>
-                      <span className="text-[#EEE6D8]/60">Role:</span> {result.data.role}
+                      <span className="text-[#EEE6D8]/60">Role:</span> {result.data.role || '—'}
                     </p>
                     <p>
-                      <span className="text-[#EEE6D8]/60">Course:</span> {result.data.course}
+                      <span className="text-[#EEE6D8]/60">Course:</span> {result.data.course || '—'}
                     </p>
                     <p>
-                      <span className="text-[#EEE6D8]/60">Year:</span> {result.data.year}
+                      <span className="text-[#EEE6D8]/60">Year:</span> {result.data.year || '—'}
                     </p>
                     <p>
-                      <span className="text-[#EEE6D8]/60">Roll No:</span> {result.data.roll_no}
+                      <span className="text-[#EEE6D8]/60">Roll No:</span> {result.data.roll_no || '—'}
                     </p>
                     {result.data.registration_id && (
                       <p>
