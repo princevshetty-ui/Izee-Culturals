@@ -7,12 +7,12 @@ const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 const COURSES = ['BCA', 'BBA', 'B.Com']
 const YEARS = ['1st', '2nd', '3rd']
 
-const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#C9A84C]'
 const volunteerLabelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#14B8A6]'
-const inputBase =
-  'mt-2 w-full rounded-lg border px-4 py-3 text-[#EEE6D8] placeholder:text-[rgba(238,230,216,0.3)] transition focus:outline-none'
 const inputVolunteer =
   'mt-2 w-full rounded-lg border px-4 py-3 text-[#EEE6D8] placeholder:text-[rgba(238,230,216,0.3)] transition focus:outline-none'
+const MotionDiv = motion.div
+const MotionSpan = motion.span
+const MotionAside = motion.aside
 
 const VOLUNTEER_TEAMS = [
   'Registration & Reception Team',
@@ -102,7 +102,7 @@ export default function VolunteerRegister() {
       } else {
         setApiError(data.message || 'Registration failed. Please try again.')
       }
-    } catch (error) {
+    } catch {
       setApiError('Network error. Please check your connection and try again.')
     } finally {
       setIsLoading(false)
@@ -136,7 +136,7 @@ export default function VolunteerRegister() {
 
       <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr]">
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
@@ -147,7 +147,7 @@ export default function VolunteerRegister() {
             </h1>
             <p className="mt-2 text-[#14B8A6]">Join the team behind the fest</p>
 
-            <motion.div
+            <MotionDiv
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               className="mt-4 flex gap-3 rounded-lg border border-[rgba(20,184,166,0.25)] bg-[rgba(20,184,166,0.07)] p-3"
@@ -169,16 +169,16 @@ export default function VolunteerRegister() {
                   You will be assigned to a team after approval.
                 </p>
               </div>
-            </motion.div>
+            </MotionDiv>
 
             {apiError && (
-              <motion.div
+              <MotionDiv
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-6 rounded-xl border border-red-500/35 bg-red-500/12 p-4 text-sm text-red-400"
               >
                 {apiError}
-              </motion.div>
+              </MotionDiv>
             )}
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -341,7 +341,7 @@ export default function VolunteerRegister() {
               >
                 {isLoading ? (
                   <span className="inline-flex items-center gap-2">
-                    <motion.span
+                    <MotionSpan
                       animate={{ rotate: 360 }}
                       transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
                       className="inline-block h-4 w-4 rounded-full border-2 border-[#0C0D10]/40 border-t-[#0C0D10]"
@@ -353,9 +353,9 @@ export default function VolunteerRegister() {
                 )}
               </button>
             </form>
-          </motion.div>
+          </MotionDiv>
 
-          <motion.aside
+          <MotionAside
             initial={{ opacity: 0, x: 28 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.08, ease: 'easeOut' }}
@@ -400,7 +400,7 @@ export default function VolunteerRegister() {
             <p style={{ fontSize: '12px', color: 'rgba(238,230,216,0.4)', lineHeight: '1.65' }}>
               Team assignment is done by faculty after your application is reviewed and approved.
             </p>
-          </motion.aside>
+          </MotionAside>
         </div>
       </main>
     </div>

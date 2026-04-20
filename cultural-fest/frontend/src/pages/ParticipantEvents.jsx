@@ -52,6 +52,9 @@ const CATEGORIES = [
 ]
 
 const OTHERS_EVENT_ID = 'others'
+const MotionSection = motion.section
+const MotionButton = motion.button
+const MotionDiv = motion.div
 
 const getEventPillLabel = (event) => {
   const hasMeaningfulType = event.type && event.type.toLowerCase() !== 'solo'
@@ -215,7 +218,7 @@ export default function ParticipantEvents() {
 
         <div className="mt-8">
           {CATEGORIES.map((category, index) => (
-            <motion.section
+            <MotionSection
               key={category.id}
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
@@ -278,7 +281,7 @@ export default function ParticipantEvents() {
                   ].join(' ')
 
                   return (
-                    <motion.button
+                    <MotionButton
                       key={event.id}
                       type="button"
                       onClick={() => handleEventClick(event)}
@@ -290,14 +293,14 @@ export default function ParticipantEvents() {
                       {isSelected ? <span aria-hidden="true">✓</span> : null}
                       <span>{getEventPillLabel(event)}</span>
                       {isGroup ? <span aria-hidden="true" style={{ fontSize: '12px', opacity: 0.7 }}>👥</span> : null}
-                    </motion.button>
+                    </MotionButton>
                   )
                 })}
               </div>
-            </motion.section>
+            </MotionSection>
           ))}
 
-          <motion.section
+          <MotionSection
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: CATEGORIES.length * 0.08 }}
@@ -343,7 +346,7 @@ export default function ParticipantEvents() {
 
             <AnimatePresence initial={false}>
               {othersSelected && (
-                <motion.div
+                <MotionDiv
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
@@ -379,10 +382,10 @@ export default function ParticipantEvents() {
                       color: 'rgba(178,34,52,0.8)'
                     }}>Please describe your talent to continue</p>
                   )}
-                </motion.div>
+                </MotionDiv>
               )}
             </AnimatePresence>
-          </motion.section>
+          </MotionSection>
         </div>
       </div>
 
@@ -449,7 +452,7 @@ export default function ParticipantEvents() {
 
       <AnimatePresence>
         {groupModalEvent && (
-          <motion.div
+          <MotionDiv
             style={{
               position: 'fixed',
               inset: 0,
@@ -467,7 +470,7 @@ export default function ParticipantEvents() {
             exit={{ opacity: 0 }}
             onClick={() => setGroupModalEvent(null)}
           >
-            <motion.div
+            <MotionDiv
               style={{
                 width: '100%',
                 maxWidth: '460px',
@@ -568,8 +571,8 @@ export default function ParticipantEvents() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </MotionDiv>
+          </MotionDiv>
         )}
       </AnimatePresence>
     </div>

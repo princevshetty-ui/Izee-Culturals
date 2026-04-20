@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 
@@ -10,21 +10,25 @@ const YEARS = ['1st', '2nd', '3rd']
 const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#C9A84C]'
 const inputBase =
   'mt-2 w-full rounded-lg border px-4 py-3 text-[#EEE6D8] placeholder:text-[rgba(238,230,216,0.3)] transition focus:outline-none'
+const MotionDiv = motion.div
+const MotionSpan = motion.span
+const MotionAside = motion.aside
 
 export default function ParticipantRegister() {
   const navigate = useNavigate()
   const location = useLocation()
   const locationState = location.state
 
-  const selectedEvents = locationState?.events || []
+  const selectedEvents = useMemo(() => locationState?.events || [], [locationState])
   const othersSelected = locationState?.othersSelected || false
   const othersText = locationState?.othersText || ''
+  const selectedEventCount = selectedEvents.length
 
   useEffect(() => {
-    if (!locationState || (selectedEvents.length === 0 && !othersSelected)) {
+    if (!locationState || (selectedEventCount === 0 && !othersSelected)) {
       navigate('/participant/events', { replace: true })
     }
-  }, [locationState, selectedEvents, othersSelected, navigate])
+  }, [locationState, selectedEventCount, othersSelected, navigate])
 
   const [formData, setFormData] = useState({
     name: '',
@@ -120,7 +124,7 @@ export default function ParticipantRegister() {
       } else {
         setApiError(data.message || 'Registration failed. Please try again.')
       }
-    } catch (error) {
+    } catch {
       setApiError('Network error. Please check your connection and try again.')
     } finally {
       setIsLoading(false)
@@ -154,7 +158,7 @@ export default function ParticipantRegister() {
 
       <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr]">
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
@@ -238,13 +242,13 @@ export default function ParticipantRegister() {
             )}
 
             {apiError && (
-              <motion.div
+              <MotionDiv
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-6 rounded-xl border border-red-500/35 bg-red-500/12 p-4 text-sm text-red-400"
               >
                 {apiError}
-              </motion.div>
+              </MotionDiv>
             )}
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -371,7 +375,7 @@ export default function ParticipantRegister() {
               >
                 {isLoading ? (
                   <span className="inline-flex items-center gap-2">
-                    <motion.span
+                    <MotionSpan
                       animate={{ rotate: 360 }}
                       transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
                       className="inline-block h-4 w-4 rounded-full border-2 border-[#0C0D10]/40 border-t-[#0C0D10]"
@@ -383,9 +387,9 @@ export default function ParticipantRegister() {
                 )}
               </button>
             </form>
-          </motion.div>
+          </MotionDiv>
 
-          <motion.aside
+          <MotionAside
             initial={{ opacity: 0, x: 28 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.08, ease: 'easeOut' }}
@@ -401,7 +405,7 @@ export default function ParticipantRegister() {
             <p className="mt-6 text-sm leading-relaxed text-[#EEE6D8]/62">
               Check your details once and submit with confidence.
             </p>
-          </motion.aside>
+          </MotionAside>
         </div>
       </main>
     </div>

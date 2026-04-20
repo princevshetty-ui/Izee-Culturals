@@ -3,6 +3,9 @@ import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
+const MotionDiv = motion.div
+const MotionH1 = motion.h1
+const MotionButton = motion.button
 
 export default function Confirmation() {
   const { type, id } = useParams()
@@ -38,7 +41,6 @@ export default function Confirmation() {
   const isParticipant = type === 'participant'
   const isVolunteer = type === 'volunteer'
   const isGroup = type === 'group'
-  const isStudent = type === 'student'
 
   const checkStatus = async () => {
     setIsLoadingStatus(true)
@@ -192,7 +194,7 @@ export default function Confirmation() {
         justifyContent: 'center',
         padding: '24px'
       }}>
-        <motion.div
+        <MotionDiv
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           style={{
@@ -423,7 +425,7 @@ export default function Confirmation() {
             )}
 
             {statusError && (
-              <motion.div
+              <MotionDiv
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 style={{
@@ -438,7 +440,7 @@ export default function Confirmation() {
                 }}
               >
                 {statusError}
-              </motion.div>
+              </MotionDiv>
             )}
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -483,7 +485,7 @@ export default function Confirmation() {
               </button>
             </div>
           </div>
-        </motion.div>
+        </MotionDiv>
         </div>
       </div>
     )
@@ -510,7 +512,7 @@ export default function Confirmation() {
         ← Home
       </button>
       <div className="mx-auto flex max-w-2xl flex-col items-center justify-center px-4 py-8 sm:px-6 lg:px-8 lg:py-16">
-        <motion.div
+        <MotionDiv
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', damping: 12, stiffness: 100, delay: 0.2 }}
@@ -522,9 +524,9 @@ export default function Confirmation() {
           }}
         >
           ✓
-        </motion.div>
+        </MotionDiv>
 
-        <motion.h1
+        <MotionH1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
@@ -532,9 +534,9 @@ export default function Confirmation() {
           style={DISPLAY_FONT}
         >
           {config.approvedTitle}
-        </motion.h1>
+        </MotionH1>
 
-        <motion.div
+        <MotionDiv
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
@@ -556,9 +558,9 @@ export default function Confirmation() {
           <p className="mt-1 text-xs text-[#F5F0E8]/60">
             Registration ID: {id}
           </p>
-        </motion.div>
+        </MotionDiv>
 
-        <motion.div
+        <MotionDiv
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.5 }}
@@ -656,7 +658,7 @@ export default function Confirmation() {
             </div>
           )}
 
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.65 }}
@@ -669,8 +671,8 @@ export default function Confirmation() {
             <p className="text-center text-sm font-semibold" style={{ color: '#C9A84C' }}>
               📸 Save or screenshot your admit pass — present it at the entry gate
             </p>
-          </motion.div>
-        </motion.div>
+          </MotionDiv>
+        </MotionDiv>
 
         {isParticipant && (selectedEvents.length > 0 || othersSelected) && (
           <div
@@ -744,7 +746,7 @@ export default function Confirmation() {
           </div>
         )}
 
-        <motion.button
+        <MotionButton
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.75 }}
@@ -754,7 +756,7 @@ export default function Confirmation() {
           style={{ background: config.accentColor, color: '#0A0A0A' }}
         >
           Back to Home
-        </motion.button>
+        </MotionButton>
       </div>
     </div>
   )
