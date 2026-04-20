@@ -469,7 +469,7 @@ async def submit_audience_vote(req: AudienceVoteRequest, authorization: str | No
 
 @router.get("/voting/results")
 async def get_voting_results(authorization: str | None = Header(None)):
-    _authorize_voter_or_faculty(authorization)
+    # Public endpoint - no auth required for reveal display
 
     config = _fetch_voting_config()
     judge_weight = float(config.get("judge_weight") or 0.8)

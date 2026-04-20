@@ -17,6 +17,7 @@ const FacultyDashboard = lazy(() => import('./pages/FacultyDashboard'))
 const VoterLogin = lazy(() => import('./pages/VoterLogin'))
 const JudgePortal = lazy(() => import('./pages/JudgePortal'))
 const AudienceVoting = lazy(() => import('./pages/AudienceVoting'))
+const WinnerReveal = lazy(() => import('./pages/WinnerReveal'))
 
 function PageLoader() {
   return (
@@ -167,6 +168,14 @@ function AppRoutes() {
             element={
               <PageTransition>
                 <AudienceVoting />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/reveal"
+            element={
+              <PageTransition>
+                <WinnerReveal />
               </PageTransition>
             }
           />
