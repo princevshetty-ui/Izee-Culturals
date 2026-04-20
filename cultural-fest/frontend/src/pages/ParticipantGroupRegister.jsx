@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
+const _MOTION = motion
 
 export default function ParticipantGroupRegister() {
   const navigate = useNavigate()
@@ -130,7 +131,11 @@ export default function ParticipantGroupRegister() {
           event_type: groupEvent.type,
           category_id: groupEvent.categoryId || '',
           leader,
-          members: members.map(({ id, ...rest }) => rest),
+          members: members.map((member) => {
+            const rest = { ...member }
+            delete rest.id
+            return rest
+          }),
         }),
       })
 
@@ -183,11 +188,6 @@ export default function ParticipantGroupRegister() {
     color: 'rgba(238,230,216,0.4)',
     marginBottom: '20px',
     lineHeight: '1.6',
-  }
-
-  const addMemberButtonHoverStyle = {
-    borderColor: 'rgba(201,168,76,0.3)',
-    color: 'rgba(201,168,76,0.8)',
   }
 
   return (

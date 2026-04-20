@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
+const _MOTION = motion
 
 export default function FacultyLogin() {
   const navigate = useNavigate()

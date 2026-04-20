@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { EVENTS } from '../data/events.js'
 
+const _MOTION = motion
+
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 
 const STUDENT_COLUMNS = ['name', 'roll_no', 'course', 'year', 'email', 'qr_code', 'registered_at']
@@ -473,12 +475,8 @@ export default function FacultyDashboard() {
     }
 
     fetchDashboardData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, activePage, facultyPassword, refreshKey, tabCache])
-
-  const handleRefreshTab = () => {
-    setTabCache((previous) => ({ ...previous, [activeTab]: null }))
-    setPageByTab((previous) => ({ ...previous, [activeTab]: 1 }))
-  }
 
   const courseOptions = useMemo(() => {
     return [...new Set(records.map((record) => getCourseByTab(record, activeTab)).filter(Boolean))]
@@ -989,7 +987,7 @@ export default function FacultyDashboard() {
         } else if (!result.unauthorized) {
           failedIds.push(recordId)
         }
-      } catch (error) {
+      } catch {
         failedIds.push(recordId)
       }
     }
@@ -1042,7 +1040,7 @@ export default function FacultyDashboard() {
         } else if (!result.unauthorized) {
           failedIds.push(recordId)
         }
-      } catch (error) {
+      } catch {
         failedIds.push(recordId)
       }
     }
@@ -1310,7 +1308,13 @@ export default function FacultyDashboard() {
                 <p className="text-[14px] font-medium text-[#EEE6D8]">{getTabTitle(activeTab)}</p>
                 <p className="text-[11px] text-[rgba(238,230,216,0.35)]">Showing {sortedRecords.length} records</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => navigate('/')}
+                  className="text-[12px] text-[rgba(238,230,216,0.6)] hover:text-[#C9A84C] transition-colors"
+                >
+                  ← Home
+                </button>
                 <div
                   className="hidden h-8 items-center rounded-[6px] border px-3 text-[11px] text-[rgba(238,230,216,0.5)] sm:inline-flex"
                   style={{ border: '0.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}

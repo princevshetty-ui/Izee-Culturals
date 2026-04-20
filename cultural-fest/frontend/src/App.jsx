@@ -3,6 +3,8 @@ import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import QRValidator from './pages/QRValidator'
 
+const _MOTION = motion
+
 const Home = lazy(() => import('./pages/Home'))
 const ParticipantEvents = lazy(() => import('./pages/ParticipantEvents'))
 const ParticipantRegister = lazy(() => import('./pages/ParticipantRegister'))

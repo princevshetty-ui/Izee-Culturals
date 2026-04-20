@@ -3,6 +3,8 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { EVENTS } from '../data/events.js'
 
+const _MOTION = motion
+
 // Color system
 // - Crimson: #B22234 (IZee uniform/logo accent, use sparingly)
 // - Crimson border: rgba(178,34,52,0.2)
