@@ -61,6 +61,18 @@ export default function WinnerReveal() {
     }
   }, [currentStage])
 
+  // Auto-reveal categories with staggered timing (0.5s between each)
+  useEffect(() => {
+    if (currentStage === 2 && results && results.categories) {
+      const timers = results.categories.map((category, index) => {
+        return setTimeout(() => {
+          setRevealedCategories((prev) => new Set(prev).add(category.category_id))
+        }, index * 500) // 0.5s stagger between categories
+      })
+      return () => timers.forEach(clearTimeout)
+    }
+  }, [currentStage, results])
+
   // Handle category reveal timing (2 second pause between categories)
   const getIsRevealed = (categoryId) => revealedCategories.has(categoryId)
 
