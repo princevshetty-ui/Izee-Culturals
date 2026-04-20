@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { isValidRollNo, normalizeFullNameInput, normalizeRollNoInput } from '../utils/formValidation'
+import PageTopBar from '../components/PageTopBar'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 const _MOTION = motion
@@ -228,6 +229,12 @@ export default function ParticipantGroupRegister() {
         paddingBottom: '100px',
       }}
     >
+      <PageTopBar
+        breadcrumb="Home → Participant Registration → Group Registration"
+        onBack={() => navigate('/participant/register')}
+        maxWidthClass="max-w-[680px]"
+      />
+
       <div
         style={{
           maxWidth: '680px',
@@ -235,45 +242,14 @@ export default function ParticipantGroupRegister() {
           padding: '32px 24px',
         }}
       >
-        <p
-          style={{
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            fontSize: '11px',
-            letterSpacing: '0.05em',
-            color: 'rgba(238,230,216,0.3)',
-            marginBottom: '16px',
-          }}
-        >
-          Home → Participant Registration → Group Registration
-        </p>
-
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '20px',
-            marginBottom: '24px',
+            justifyContent: 'flex-end',
+            marginBottom: '16px',
           }}
         >
-          <button
-            type="button"
-            onClick={() => navigate('/participant/register')}
-            style={{
-              fontFamily: 'system-ui, -apple-system, sans-serif',
-              fontSize: '14px',
-              background: 'none',
-              border: 'none',
-              color: 'rgba(238,230,216,0.72)',
-              cursor: 'pointer',
-              padding: 0,
-              transition: 'color 0.18s ease',
-            }}
-            onMouseEnter={(e) => (e.target.style.color = '#EEE6D8')}
-            onMouseLeave={(e) => (e.target.style.color = 'rgba(238,230,216,0.72)')}
-          >
-            ← Back
-          </button>
-
           <div
             style={{
               display: 'inline-flex',
@@ -307,10 +283,22 @@ export default function ParticipantGroupRegister() {
             fontSize: '14px',
             color: 'rgba(238,230,216,0.55)',
             lineHeight: '1.65',
-            marginBottom: '32px',
+            marginBottom: '14px',
           }}
         >
           All members must be students of our college. The team leader's details will appear on the group pass.
+        </p>
+
+        <p
+          style={{
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontSize: '12px',
+            color: 'rgba(201,168,76,0.7)',
+            letterSpacing: '0.04em',
+            marginBottom: '32px',
+          }}
+        >
+          Step 1: Team Name · Step 2: Leader Details · Step 3: Member Details
         </p>
 
         <form onSubmit={handleSubmit}>

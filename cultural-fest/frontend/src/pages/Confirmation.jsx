@@ -386,7 +386,10 @@ export default function Confirmation() {
                   fontSize: '14px',
                   color: '#EEE6D8',
                   fontFamily: 'system-ui, sans-serif',
-                  fontWeight: '500'
+                  fontWeight: '500',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                  lineHeight: '1.5',
                 }}>
                   {teamName}
                 </p>
@@ -395,7 +398,10 @@ export default function Confirmation() {
                     fontSize: '12px',
                     color: 'rgba(238,230,216,0.5)',
                     fontFamily: 'system-ui, sans-serif',
-                    marginTop: '2px'
+                    marginTop: '2px',
+                    overflowWrap: 'anywhere',
+                    wordBreak: 'break-word',
+                    lineHeight: '1.5',
                   }}>
                     {eventName}
                   </p>
@@ -551,7 +557,10 @@ export default function Confirmation() {
             </p>
           )}
           {isGroup && groupSubtitle && (
-            <p className="mt-1 text-sm text-[#F5F0E8]/70">
+            <p
+              className="mt-1 text-sm text-[#F5F0E8]/70"
+              style={{ overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: '1.5' }}
+            >
               {groupSubtitle}
             </p>
           )}
@@ -641,7 +650,10 @@ export default function Confirmation() {
                 fontSize: '14px',
                 color: '#C9A84C',
                 fontFamily: 'system-ui, sans-serif',
-                fontWeight: '500'
+                fontWeight: '500',
+                overflowWrap: 'anywhere',
+                wordBreak: 'break-word',
+                lineHeight: '1.5',
               }}>
                 {teamName}{teamMembers.length > 0 ? ` · ${teamMembers.length} member(s)` : ''}
               </p>
@@ -650,7 +662,10 @@ export default function Confirmation() {
                   fontSize: '12px',
                   color: 'rgba(238,230,216,0.5)',
                   fontFamily: 'system-ui, sans-serif',
-                  marginTop: '2px'
+                  marginTop: '2px',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                  lineHeight: '1.5',
                 }}>
                   {eventName}
                 </p>
