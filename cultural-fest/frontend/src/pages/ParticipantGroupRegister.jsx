@@ -5,6 +5,7 @@ import { isValidRollNo, normalizeFullNameInput, normalizeRollNoInput } from '../
 import PageTopBar from '../components/PageTopBar'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
+const COURSES = ['BCA', 'BBA', 'BBA - Aviation']
 const _MOTION = motion
 
 export default function ParticipantGroupRegister() {
@@ -414,15 +415,26 @@ export default function ParticipantGroupRegister() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
               <div>
                 <label style={getLabelStyle()}>Course *</label>
-                <input
-                  type="text"
+                <select
                   value={leader.course}
                   onChange={(e) => updateLeader('course', e.target.value)}
                   onFocus={() => setFocusedField('leader-course')}
                   onBlur={() => setFocusedField(null)}
-                  placeholder="Your course"
-                  style={getInputStyle('leader-course')}
-                />
+                  style={{
+                    ...getInputStyle('leader-course'),
+                    appearance: 'none',
+                    backgroundImage:
+                      'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22%3E%3Cpath fill=%22%23C9A84C%22 d=%22M1 1l5 5 5-5%22/%3E%3C/svg%3E")',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 12px center',
+                    paddingRight: '36px',
+                  }}
+                >
+                  <option value="">Select course</option>
+                  {COURSES.map((course) => (
+                    <option key={course} value={course}>{course}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label style={getLabelStyle()}>Year *</label>
@@ -578,15 +590,26 @@ export default function ParticipantGroupRegister() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                     <div>
                       <label style={getLabelStyle()}>Course *</label>
-                      <input
-                        type="text"
+                      <select
                         value={member.course}
                         onChange={(e) => updateMember(member.id, 'course', e.target.value)}
                         onFocus={() => setFocusedField(`member-${idx}-course`)}
                         onBlur={() => setFocusedField(null)}
-                        placeholder="Member's course"
-                        style={getInputStyle(`member-${idx}-course`)}
-                      />
+                        style={{
+                          ...getInputStyle(`member-${idx}-course`),
+                          appearance: 'none',
+                          backgroundImage:
+                            'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22%3E%3Cpath fill=%22%23C9A84C%22 d=%22M1 1l5 5 5-5%22/%3E%3C/svg%3E")',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 12px center',
+                          paddingRight: '36px',
+                        }}
+                      >
+                        <option value="">Select course</option>
+                        {COURSES.map((course) => (
+                          <option key={course} value={course}>{course}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label style={getLabelStyle()}>Year *</label>

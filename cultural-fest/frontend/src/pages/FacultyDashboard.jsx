@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { EVENTS } from '../data/events.js'
@@ -241,6 +241,7 @@ export default function FacultyDashboard() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [assigningTeamId, setAssigningTeamId] = useState('')
   const [teamDraftById, setTeamDraftById] = useState({})
+  const [bulkTeamLabel, setBulkTeamLabel] = useState('')
 
   const [selectedCourse, setSelectedCourse] = useState('all')
   const [selectedYear, setSelectedYear] = useState('all')
@@ -268,6 +269,8 @@ export default function FacultyDashboard() {
     groups: null
   })
   const [selectedIds, setSelectedIds] = useState([])
+  const tabCacheRef = useRef(tabCache)
+  const fetchRequestRef = useRef(0)
 
   const activePage = pageByTab[activeTab] || 1
   const currentPagination =
@@ -280,9 +283,14 @@ export default function FacultyDashboard() {
     navigate('/faculty/login', { replace: true })
   }
 
-  const fetchFacultyList = async (endpoint) => {
+  useEffect(() => {
+    tabCacheRef.current = tabCache
+  }, [tabCache])
+
+  const fetchFacultyList = async (endpoint, signal) => {
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       const response = await fetch(endpoint, {
+        signal,
         headers: {
           Authorization: `Bearer ${facultyPassword}`,
         },
@@ -367,6 +375,7 @@ export default function FacultyDashboard() {
     setSelectedTeamLabel('all')
     setNameSearch('')
     setSelectedIds([])
+    setBulkTeamLabel('')
     setInfoMessage('')
     setErrorMessage('')
   }, [activeTab])
@@ -388,11 +397,18 @@ export default function FacultyDashboard() {
   useEffect(() => {
     if (!facultyPassword) return
 
+    const abortController = new AbortController()
+    const requestId = fetchRequestRef.current + 1
+    fetchRequestRef.current = requestId
+
+    const isStaleRequest = () => abortController.signal.aborted || fetchRequestRef.current !== requestId
+
     const fetchDashboardData = async () => {
       // Check if tab cache exists and use it instead of fetching
-      if (tabCache[activeTab] !== null && activePage === 1) {
+      if (tabCacheRef.current[activeTab] !== null && activePage === 1) {
+        if (isStaleRequest()) return
         setIsLoading(false)
-        const cachedData = tabCache[activeTab]
+        const cachedData = tabCacheRef.current[activeTab]
         setRecords(cachedData.records)
         setSelectedIds([])
         setSummaryByTab((previous) => ({
@@ -406,6 +422,7 @@ export default function FacultyDashboard() {
         return
       }
 
+      if (isStaleRequest()) return
       setIsLoading(true)
       setErrorMessage('')
 
@@ -418,14 +435,20 @@ export default function FacultyDashboard() {
         }
 
         const currentEndpoint = `${endpointByTab[activeTab]}?page=${activePage}&page_size=${DEFAULT_PAGE_SIZE}`
-        const shouldFetchAlternateSummary = activeTab === 'students' || activeTab === 'participants'
+        const shouldFetchAlternateSummary =
+          (activeTab === 'students' || activeTab === 'participants') &&
+          (activePage === 1 || refreshKey > 0)
         const alternateTab = activeTab === 'students' ? 'participants' : 'students'
         const alternateEndpoint = `${endpointByTab[alternateTab]}?page=1&page_size=5`
 
         const [currentResult, alternateResult] = await Promise.all([
-          fetchFacultyList(currentEndpoint),
-          shouldFetchAlternateSummary ? fetchFacultyList(alternateEndpoint) : Promise.resolve(null),
+          fetchFacultyList(currentEndpoint, abortController.signal),
+          shouldFetchAlternateSummary
+            ? fetchFacultyList(alternateEndpoint, abortController.signal)
+            : Promise.resolve(null),
         ])
+
+        if (isStaleRequest()) return
 
         const currentRecords = normalizeDashboardRecords(activeTab, currentResult.records || [])
         const currentSummary = normalizeSummaryPayload(currentResult.summary || {}, currentRecords)
@@ -490,6 +513,8 @@ export default function FacultyDashboard() {
           setPageByTab((previous) => ({ ...previous, [activeTab]: nextPage }))
         }
       } catch (error) {
+        if (error?.name === 'AbortError' || isStaleRequest()) return
+
         if (error?.message === 'AUTH_UNAUTHORIZED') {
           updateAuthFailure()
           return
@@ -498,11 +523,16 @@ export default function FacultyDashboard() {
         setErrorMessage(error.message || 'Unable to fetch data')
         setRecords([])
       } finally {
-        setIsLoading(false)
+        if (!isStaleRequest()) {
+          setIsLoading(false)
+        }
       }
     }
 
     fetchDashboardData()
+    return () => {
+      abortController.abort()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, activePage, facultyPassword, refreshKey])
 
@@ -630,6 +660,26 @@ export default function FacultyDashboard() {
     Boolean(deletingId) ||
     Boolean(resendingId) ||
     Boolean(bulkAction)
+
+  const runWithConcurrency = async (ids, limit, worker) => {
+    const queue = [...ids]
+    const outcomes = []
+    const workers = Array.from({ length: Math.max(1, Math.min(limit, queue.length || 1)) }, async () => {
+      while (queue.length > 0) {
+        const id = queue.shift()
+        if (!id) continue
+        try {
+          const value = await worker(id)
+          outcomes.push({ id, ok: true, value })
+        } catch (error) {
+          outcomes.push({ id, ok: false, error })
+        }
+      }
+    })
+
+    await Promise.all(workers)
+    return outcomes
+  }
 
   const approveRecordById = async (recordId) => {
     const approveEndpointByTab = {
@@ -1094,19 +1144,25 @@ export default function FacultyDashboard() {
     let mailCount = 0
     const failedIds = []
 
-    for (const recordId of selectedPendingIds) {
-      try {
-        const result = await approveRecordById(recordId)
-        if (result.ok) {
-          successCount += 1
-          if (activeTab === 'students' && result.emailSent) mailCount += 1
-        } else if (!result.unauthorized) {
-          failedIds.push(recordId)
-        }
-      } catch {
-        failedIds.push(recordId)
+    const outcomes = await runWithConcurrency(selectedPendingIds, 6, async (recordId) => {
+      const result = await approveRecordById(recordId)
+      return { result }
+    })
+
+    outcomes.forEach((outcome) => {
+      if (!outcome.ok) {
+        failedIds.push(outcome.id)
+        return
       }
-    }
+
+      const result = outcome.value.result
+      if (result.ok) {
+        successCount += 1
+        if (activeTab === 'students' && result.emailSent) mailCount += 1
+      } else if (!result.unauthorized) {
+        failedIds.push(outcome.id)
+      }
+    })
 
     setBulkAction('')
 
@@ -1149,18 +1205,24 @@ export default function FacultyDashboard() {
     const removedIds = []
     const failedIds = []
 
-    for (const recordId of selectedIds) {
-      try {
-        const result = await deleteRecordById(recordId)
-        if (result.ok) {
-          removedIds.push(recordId)
-        } else if (!result.unauthorized) {
-          failedIds.push(recordId)
-        }
-      } catch {
-        failedIds.push(recordId)
+    const outcomes = await runWithConcurrency(selectedIds, 6, async (recordId) => {
+      const result = await deleteRecordById(recordId)
+      return { result }
+    })
+
+    outcomes.forEach((outcome) => {
+      if (!outcome.ok) {
+        failedIds.push(outcome.id)
+        return
       }
-    }
+
+      const result = outcome.value.result
+      if (result.ok) {
+        removedIds.push(outcome.id)
+      } else if (!result.unauthorized) {
+        failedIds.push(outcome.id)
+      }
+    })
 
     setBulkAction('')
 
@@ -1181,6 +1243,91 @@ export default function FacultyDashboard() {
     setSelectedTeamLabel('all')
     setNameSearch('')
     setSortKey('registered_desc')
+  }
+
+  const selectedVolunteerIds = useMemo(() => {
+    if (activeTab !== 'volunteers') return []
+    return sortedRecords.filter((record) => selectedSet.has(record.id)).map((record) => record.id)
+  }, [activeTab, sortedRecords, selectedSet])
+
+  const handleAssignSelectedVolunteers = async () => {
+    if (activeTab !== 'volunteers') return
+
+    const selectedTeam = bulkTeamLabel.trim()
+    if (!selectedTeam) {
+      setErrorMessage('Pick a team label before bulk assignment.')
+      return
+    }
+    if (selectedVolunteerIds.length === 0) {
+      setInfoMessage('No selected volunteers to assign.')
+      return
+    }
+
+    setBulkAction('assigning_teams')
+    setErrorMessage('')
+    setInfoMessage('')
+
+    const outcomes = await runWithConcurrency(selectedVolunteerIds, 6, async (recordId) => {
+      const result = await assignVolunteerTeamById(recordId, selectedTeam)
+      return { result }
+    })
+
+    const succeededIds = []
+    const failedIds = []
+
+    outcomes.forEach((outcome) => {
+      if (!outcome.ok) {
+        failedIds.push(outcome.id)
+        return
+      }
+
+      const result = outcome.value.result
+      if (result.ok) {
+        succeededIds.push(outcome.id)
+      } else if (!result.unauthorized) {
+        failedIds.push(outcome.id)
+      }
+    })
+
+    if (succeededIds.length > 0) {
+      const successSet = new Set(succeededIds)
+      setRecords((previous) =>
+        previous.map((entry) =>
+          successSet.has(entry.id) ? { ...entry, team_label: selectedTeam } : entry
+        )
+      )
+
+      setTabCache((previous) => {
+        const volunteerCache = previous.volunteers
+        if (!volunteerCache) return previous
+
+        return {
+          ...previous,
+          volunteers: {
+            ...volunteerCache,
+            records: (volunteerCache.records || []).map((entry) =>
+              successSet.has(entry.id) ? { ...entry, team_label: selectedTeam } : entry
+            ),
+          },
+        }
+      })
+
+      setTeamDraftById((previous) => {
+        const next = { ...previous }
+        succeededIds.forEach((id) => {
+          next[id] = selectedTeam
+        })
+        return next
+      })
+    }
+
+    if (failedIds.length > 0) {
+      setErrorMessage(`Assigned ${succeededIds.length} volunteer(s). Failed for ${failedIds.length} record(s).`)
+    } else {
+      setInfoMessage(`Assigned ${succeededIds.length} volunteer(s) to ${selectedTeam}.`)
+    }
+
+    setBulkAction('')
   }
 
   const handlePrevPage = () => {
@@ -1708,6 +1855,41 @@ export default function FacultyDashboard() {
                   >
                     {bulkAction === 'approving' ? 'Approving...' : `Approve Selected (${selectedPendingIds.length})`}
                   </button>
+
+                  {activeTab === 'volunteers' && (
+                    <>
+                      <select
+                        value={bulkTeamLabel}
+                        onChange={(event) => setBulkTeamLabel(event.target.value)}
+                        disabled={isBusy}
+                        className="dash-select h-[30px] w-[230px] rounded-[999px] px-3 text-[11px]"
+                        style={selectStyle}
+                      >
+                        <option value="">Assign Team (Selected)</option>
+                        {VOLUNTEER_TEAM_OPTIONS.map((teamOption) => (
+                          <option key={teamOption} value={teamOption}>
+                            {teamOption}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        type="button"
+                        onClick={handleAssignSelectedVolunteers}
+                        disabled={selectedVolunteerIds.length === 0 || !bulkTeamLabel.trim() || isBusy}
+                        className="h-[30px] px-4 text-[11px] disabled:cursor-not-allowed"
+                        style={{
+                          border: '0.5px solid rgba(20,184,166,0.45)',
+                          color: '#14B8A6',
+                          background: 'transparent',
+                          borderRadius: '999px',
+                          opacity: selectedVolunteerIds.length === 0 || !bulkTeamLabel.trim() || isBusy ? 0.3 : 1,
+                        }}
+                      >
+                        {bulkAction === 'assigning_teams' ? 'Assigning...' : `Assign Team (${selectedVolunteerIds.length})`}
+                      </button>
+                    </>
+                  )}
 
                   <button
                     type="button"

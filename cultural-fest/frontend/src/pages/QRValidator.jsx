@@ -794,6 +794,12 @@ export default function QRValidator() {
                         <span className="text-[#EEE6D8]/60">Team:</span> {result.data.team_label}
                       </p>
                     )}
+
+                    {result.data.already_scanned && (
+                      <p className="mt-2 rounded-lg border border-amber-400/35 bg-amber-900/20 px-3 py-2 text-sm text-amber-200">
+                        {result.message || 'Entry Valid. Already Scanned.'}
+                      </p>
+                    )}
                   </div>
                 )}
 

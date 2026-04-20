@@ -15,12 +15,15 @@ import smtplib
 import time
 import csv
 import re
-from datetime import datetime, timezone
-from io import StringIO
+from datetime import datetime, timezone, timedelta
+from io import StringIO, BytesIO
 from uuid import UUID
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
+from email.mime.application import MIMEApplication
+from zipfile import ZIP_DEFLATED, ZipFile
+from PIL import Image
 
 router = APIRouter()
 
@@ -41,7 +44,17 @@ VALIDATION_TABLES = [
     "participants",
     "volunteers",
     "group_registrations",
+    "group_members",
 ]
+
+VOLUNTEER_TEAM_OPTIONS = {
+    "Registration & Reception Team",
+    "Program Coordination Team",
+    "Discipline & Security Committee",
+    "Hospitality & Welfare Team",
+}
+
+ENTRY_SCAN_MEMORY: dict[str, str] = {}
 
 
 class FacultyLoginRequest(BaseModel):
@@ -87,6 +100,32 @@ def fetch_with_retry(fetch_fn, attempts: int = 2, delay_seconds: float = 0.25):
             if attempt < attempts - 1:
                 time.sleep(delay_seconds)
     raise last_error
+
+
+def fetch_count_with_retry(fetch_fn, attempts: int = 3) -> int:
+    response = fetch_with_retry(fetch_fn, attempts=attempts)
+    return int(getattr(response, "count", 0) or 0)
+
+
+def fetch_approved_ids_for_records(table_name: str, record_ids: list[str]) -> set[str]:
+    """Return a set of approved IDs without loading heavy qr_code payloads."""
+    if not record_ids:
+        return set()
+
+    response = fetch_with_retry(
+        lambda: supabase.table(table_name)
+        .select("id")
+        .in_("id", record_ids)
+        .not_.is_("qr_code", "null")
+        .execute(),
+        attempts=3,
+    )
+
+    return {
+        str(row.get("id"))
+        for row in (response.data or [])
+        if row.get("id") is not None
+    }
 
 
 def format_datetime_for_export(value: str | None) -> str:
@@ -191,6 +230,252 @@ def fetch_summary_records(table_name: str) -> list[dict]:
             attempts=3,
         )
         return response.data or []
+
+
+def fetch_table_summary(table_name: str, include_approved_today: bool = False) -> dict:
+    """Compute dashboard summary using lightweight count queries first, with fallback."""
+    try:
+        total = fetch_count_with_retry(
+            lambda: supabase.table(table_name).select("id", count="exact", head=True).execute(),
+            attempts=3,
+        )
+        approved_count = fetch_count_with_retry(
+            lambda: supabase.table(table_name)
+            .select("id", count="exact", head=True)
+            .not_.is_("qr_code", "null")
+            .execute(),
+            attempts=3,
+        )
+
+        summary = {
+            "total": total,
+            "approved_count": approved_count,
+            "pending_count": max(total - approved_count, 0),
+        }
+
+        if include_approved_today:
+            approved_today = 0
+            day_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end = day_start + timedelta(days=1)
+
+            try:
+                approved_today = fetch_count_with_retry(
+                    lambda: supabase.table(table_name)
+                    .select("id", count="exact", head=True)
+                    .gte("approved_at", day_start.isoformat())
+                    .lt("approved_at", day_end.isoformat())
+                    .execute(),
+                    attempts=3,
+                )
+            except Exception:
+                approved_today = 0
+
+            summary["pending"] = summary["pending_count"]
+            summary["approved_today"] = approved_today
+
+        return summary
+    except Exception:
+        summary_records = fetch_summary_records(table_name)
+        if include_approved_today:
+            legacy = compute_summary(summary_records)
+            return {
+                "total": legacy["total"],
+                "approved_count": max(legacy["total"] - legacy["pending"], 0),
+                "pending_count": legacy["pending"],
+                "pending": legacy["pending"],
+                "approved_today": legacy["approved_today"],
+            }
+
+        legacy = compute_approval_counts(summary_records)
+        return legacy
+
+
+def sanitize_filename(value: str, fallback: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_-]+", "_", str(value or "")).strip("_")
+    return cleaned or fallback
+
+
+def pass_png_base64_to_pdf_bytes(pass_base64: str) -> bytes:
+    raw_bytes = base64.b64decode(pass_base64)
+    with Image.open(BytesIO(raw_bytes)) as image:
+        rgb_image = image.convert("RGB")
+        output = BytesIO()
+        rgb_image.save(output, format="PDF", resolution=110.0)
+        return output.getvalue()
+
+
+def build_zip_bundle(files: list[tuple[str, bytes]]) -> bytes:
+    output = BytesIO()
+    with ZipFile(output, mode="w", compression=ZIP_DEFLATED) as zip_file:
+        for filename, payload in files:
+            zip_file.writestr(filename, payload)
+    output.seek(0)
+    return output.read()
+
+
+def send_group_bundle_email(
+    to_email: str,
+    leader_name: str,
+    registration_id: str,
+    team_name: str,
+    event_name: str,
+    bundle_bytes: bytes,
+    total_passes: int,
+):
+    """Send leader-only zip bundle containing all team member passes as PDFs."""
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    smtp_from = os.getenv("SMTP_FROM_EMAIL", smtp_user)
+    smtp_use_tls = os.getenv("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes"}
+
+    if not smtp_host or not smtp_user or not smtp_password or not smtp_from:
+        return False, "SMTP configuration missing"
+    if not to_email:
+        return False, "Recipient email missing"
+
+    short_id = str(registration_id or "")[:8].upper()
+    subject = "Izee Got Talent - Group Pass Bundle"
+    plain = (
+        f"Hello {leader_name},\n\n"
+        f"Your team '{team_name}' for {event_name} is approved.\n"
+        f"Attached is a ZIP bundle containing {total_passes} individual pass PDF files.\n"
+        f"Registration ID: {registration_id}\n"
+        f"Short ID: {short_id}\n\n"
+        "Share each PDF with the respective team member.\n"
+    )
+
+    html = f"""
+    <html>
+      <body style=\"margin:0;padding:0;background:#0A0A0A;font-family:Arial,Helvetica,sans-serif;color:#F5F0E8;\">
+        <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"padding:24px;background:#0A0A0A;\">
+          <tr>
+            <td align=\"center\">
+              <table role=\"presentation\" width=\"640\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;background:#111111;border:1px solid rgba(201,168,76,0.32);border-radius:14px;overflow:hidden;\">
+                <tr>
+                  <td style=\"padding:22px 24px;background:linear-gradient(90deg,#0A0A0A,#181818);border-bottom:1px solid rgba(201,168,76,0.22)\">
+                    <p style=\"margin:0;font-size:12px;letter-spacing:2px;color:#C9A84C\">IZEE GOT TALENT</p>
+                    <h1 style=\"margin:8px 0 0 0;font-size:24px;line-height:1.3;color:#F5F0E8\">Group Approved · Pass Bundle Ready</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style=\"padding:24px;\">
+                    <p style=\"margin:0 0 10px 0;font-size:15px;color:#F5F0E8\">Hello {leader_name},</p>
+                    <p style=\"margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#F5F0E8\">
+                      Team <strong>{team_name}</strong> has been approved for <strong>{event_name}</strong>.
+                    </p>
+                    <p style=\"margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#F5F0E8\">
+                      Attached ZIP contains <strong>{total_passes}</strong> individual pass PDFs for your entire team.
+                    </p>
+                    <p style=\"margin:0;font-size:13px;color:#C9A84C\">Registration ID: {registration_id}</p>
+                    <p style=\"margin:4px 0 0 0;font-size:13px;color:#C9A84C\">Short ID: {short_id}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+    """
+
+    try:
+        message = MIMEMultipart("mixed")
+        message["Subject"] = subject
+        message["From"] = smtp_from
+        message["To"] = to_email
+
+        alternative = MIMEMultipart("alternative")
+        alternative.attach(MIMEText(plain, "plain"))
+        alternative.attach(MIMEText(html, "html"))
+        message.attach(alternative)
+
+        zip_name = f"group_pass_bundle_{short_id or 'TEAM'}.zip"
+        bundle_attachment = MIMEApplication(bundle_bytes, _subtype="zip")
+        bundle_attachment.add_header("Content-Disposition", "attachment", filename=zip_name)
+        message.attach(bundle_attachment)
+
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=25)
+        if smtp_use_tls:
+            server.starttls()
+        server.login(smtp_user, smtp_password)
+        server.sendmail(smtp_from, [to_email], message.as_string())
+        server.quit()
+        return True, None
+    except Exception as exc:
+        return False, str(exc)
+
+
+def format_scan_timestamp(value: str | None) -> str:
+    parsed = parse_datetime(value)
+    if not parsed:
+        return "Unknown Time"
+    return parsed.astimezone(timezone.utc).strftime("%d %b %Y, %I:%M:%S %p UTC")
+
+
+def track_scan_timestamp(table_name: str, record_id: str) -> tuple[str | None, str]:
+    """Track entry scans with DB persistence when available, else in-memory fallback."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    cache_key = f"{table_name}:{record_id}"
+
+    try:
+        existing = (
+            supabase.table(table_name)
+            .select("last_scanned_at, scan_count")
+            .eq("id", record_id)
+            .limit(1)
+            .execute()
+        )
+
+        previous = None
+        previous_count = 0
+        if existing.data:
+            row = existing.data[0]
+            previous = row.get("last_scanned_at")
+            try:
+                previous_count = int(row.get("scan_count") or 0)
+            except Exception:
+                previous_count = 0
+
+            supabase.table(table_name).update(
+                {
+                    "last_scanned_at": now_iso,
+                    "scan_count": previous_count + 1,
+                }
+            ).eq("id", record_id).execute()
+
+            return previous, now_iso
+    except Exception:
+        # Schema may not contain scan columns yet; fallback to memory.
+        pass
+
+    previous = ENTRY_SCAN_MEMORY.get(cache_key)
+    ENTRY_SCAN_MEMORY[cache_key] = now_iso
+    return previous, now_iso
+
+
+def build_validation_success(data: dict, table_name: str, record_id: str) -> dict:
+    previous_scan, current_scan = track_scan_timestamp(table_name, record_id)
+
+    payload = {
+        **data,
+        "already_scanned": bool(previous_scan),
+        "scanned_at": current_scan,
+    }
+    if previous_scan:
+        payload["already_scanned_at"] = previous_scan
+
+    message = "Entry Valid."
+    if previous_scan:
+        message = f"Entry Valid. Already Scanned {format_scan_timestamp(previous_scan)}"
+
+    return {
+        "success": True,
+        "valid": True,
+        "data": payload,
+        "message": message,
+    }
 
 
 def fetch_participant_events_map(participant_ids: list[str]) -> dict[str, list[str]]:
@@ -408,10 +693,8 @@ def resolve_validation_by_uuid(lookup_id: str):
                 "valid": False,
                 "message": "Registration pending approval.",
             }
-        return {
-            "success": True,
-            "valid": True,
-            "data": {
+        return build_validation_success(
+            {
                 "name": rec.get("name"),
                 "role": "Student",
                 "course": rec.get("course"),
@@ -419,7 +702,9 @@ def resolve_validation_by_uuid(lookup_id: str):
                 "roll_no": rec.get("roll_no"),
                 "registration_id": rec.get("id"),
             },
-        }
+            "students",
+            str(rec.get("id")),
+        )
 
     # Search participants
     r = supabase.table("participants").select("*").eq("id", lookup_id).limit(1).execute()
@@ -439,10 +724,8 @@ def resolve_validation_by_uuid(lookup_id: str):
             event_name = event.get("event_name") or event_id_to_label(event.get("event_id"))
             if event_name:
                 event_names.append(event_name)
-        return {
-            "success": True,
-            "valid": True,
-            "data": {
+        return build_validation_success(
+            {
                 "name": rec.get("name"),
                 "role": "Participant",
                 "course": rec.get("course"),
@@ -451,7 +734,9 @@ def resolve_validation_by_uuid(lookup_id: str):
                 "events": event_names,
                 "registration_id": rec.get("id"),
             },
-        }
+            "participants",
+            str(rec.get("id")),
+        )
 
     # Search volunteers
     r = supabase.table("volunteers").select("*").eq("id", lookup_id).limit(1).execute()
@@ -463,10 +748,8 @@ def resolve_validation_by_uuid(lookup_id: str):
                 "valid": False,
                 "message": "Registration pending approval.",
             }
-        return {
-            "success": True,
-            "valid": True,
-            "data": {
+        return build_validation_success(
+            {
                 "name": rec.get("name"),
                 "role": "Volunteer",
                 "course": rec.get("course"),
@@ -475,7 +758,9 @@ def resolve_validation_by_uuid(lookup_id: str):
                 "team_label": rec.get("team_label") or rec.get("volunteer_role") or "",
                 "registration_id": rec.get("id"),
             },
-        }
+            "volunteers",
+            str(rec.get("id")),
+        )
 
     # Search groups
     r = supabase.table("group_registrations").select("*").eq("id", lookup_id).limit(1).execute()
@@ -487,10 +772,8 @@ def resolve_validation_by_uuid(lookup_id: str):
                 "valid": False,
                 "message": "Registration pending approval.",
             }
-        return {
-            "success": True,
-            "valid": True,
-            "data": {
+        return build_validation_success(
+            {
                 "name": rec.get("leader_name"),
                 "role": "Group Leader",
                 "course": rec.get("leader_course"),
@@ -500,7 +783,47 @@ def resolve_validation_by_uuid(lookup_id: str):
                 "group_name": rec.get("team_name", ""),
                 "registration_id": rec.get("id"),
             },
-        }
+            "group_registrations",
+            str(rec.get("id")),
+        )
+
+    # Search group members (inherits approval from parent group)
+    r = supabase.table("group_members").select("*").eq("id", lookup_id).limit(1).execute()
+    if r.data:
+        rec = r.data[0]
+        group_id = rec.get("group_id")
+        group_response = (
+            supabase.table("group_registrations")
+            .select("id, team_name, event_name, event_id, qr_code, approved_at")
+            .eq("id", group_id)
+            .limit(1)
+            .execute()
+        )
+        group_record = (group_response.data or [None])[0]
+
+        if not group_record or not (group_record.get("qr_code") or group_record.get("approved_at")):
+            return {
+                "success": True,
+                "valid": False,
+                "message": "Registration pending approval.",
+            }
+
+        return build_validation_success(
+            {
+                "name": rec.get("name"),
+                "role": "Group Participant",
+                "course": rec.get("course"),
+                "year": rec.get("year"),
+                "roll_no": rec.get("roll_no"),
+                "team_label": group_record.get("team_name", ""),
+                "group_name": group_record.get("team_name", ""),
+                "events": [group_record.get("event_name") or group_record.get("event_id") or ""],
+                "registration_id": rec.get("id"),
+                "group_id": group_id,
+            },
+            "group_members",
+            str(rec.get("id")),
+        )
 
     return {
         "success": True,
@@ -610,20 +933,38 @@ async def get_all_students(
     verify_faculty_token(authorization)
     
     try:
-        summary_records = fetch_summary_records("students")
-        summary = compute_summary(summary_records)
+        summary = fetch_table_summary("students", include_approved_today=True)
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
 
         students = []
         if summary["total"] > 0:
-            response = fetch_with_retry(
-                lambda: supabase.table("students").select("*").order("registered_at", desc=True).range(start, end).execute(),
-                attempts=3,
-            )
+            try:
+                response = fetch_with_retry(
+                    lambda: supabase.table("students")
+                    .select("id, name, roll_no, course, year, email, phone, registered_at, approved_at")
+                    .order("registered_at", desc=True)
+                    .range(start, end)
+                    .execute(),
+                    attempts=3,
+                )
+            except Exception:
+                response = fetch_with_retry(
+                    lambda: supabase.table("students")
+                    .select("id, name, roll_no, course, year, email, phone, registered_at")
+                    .order("registered_at", desc=True)
+                    .range(start, end)
+                    .execute(),
+                    attempts=3,
+                )
             students = response.data or []
 
+        student_ids = [str(student.get("id")) for student in students if student.get("id")]
+        approved_ids = fetch_approved_ids_for_records("students", student_ids)
+
         for student in students:
-            student["approved"] = bool(student.get("qr_code"))
+            student_id = str(student.get("id") or "")
+            student["is_approved"] = student_id in approved_ids
+            student["approved"] = student["is_approved"]
 
         return {
             "success": True,
@@ -651,26 +992,42 @@ async def get_all_participants(
     verify_faculty_token(authorization)
     
     try:
-        summary_records = fetch_summary_records("participants")
-        summary = compute_summary(summary_records)
+        summary = fetch_table_summary("participants", include_approved_today=True)
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
 
         participants = []
         if summary["total"] > 0:
-            participants_response = fetch_with_retry(
-                lambda: supabase.table("participants").select("*").order("registered_at", desc=True).range(start, end).execute(),
-                attempts=3,
-            )
+            try:
+                participants_response = fetch_with_retry(
+                    lambda: supabase.table("participants")
+                    .select("id, name, roll_no, course, year, email, phone, registered_at, approved_at")
+                    .order("registered_at", desc=True)
+                    .range(start, end)
+                    .execute(),
+                    attempts=3,
+                )
+            except Exception:
+                participants_response = fetch_with_retry(
+                    lambda: supabase.table("participants")
+                    .select("id, name, roll_no, course, year, email, phone, registered_at")
+                    .order("registered_at", desc=True)
+                    .range(start, end)
+                    .execute(),
+                    attempts=3,
+                )
             participants = participants_response.data or []
         
         participant_ids = [participant.get("id") for participant in participants if participant.get("id")]
+        approved_ids = fetch_approved_ids_for_records("participants", [str(pid) for pid in participant_ids])
         events_map = fetch_participant_events_map(participant_ids)
 
         # Attach events to each participant using batched lookup map.
         for participant in participants:
             participant_id = participant.get("id")
             participant["events"] = events_map.get(participant_id, [])
-            participant["approved"] = bool(participant.get("qr_code"))
+            participant_id_str = str(participant_id or "")
+            participant["is_approved"] = participant_id_str in approved_ids
+            participant["approved"] = participant["is_approved"]
         
         return {
             "success": True,
@@ -776,8 +1133,15 @@ async def send_pass_email_background(record: dict, record_type: str):
             )
         elif record_type == "group":
             table_name = "group_registrations"
-            members_response = supabase.table("group_members").select("id").eq("group_id", record.get("id")).execute()
-            member_count = len(members_response.data or [])
+            members_response = (
+                supabase.table("group_members")
+                .select("id, name, roll_no, course, year")
+                .eq("group_id", record.get("id"))
+                .execute()
+            )
+            members = members_response.data or []
+            member_count = len(members)
+
             pass_base64 = generate_group_pass(
                 {
                     "id": str(record.get("id")),
@@ -789,14 +1153,60 @@ async def send_pass_email_background(record: dict, record_type: str):
                 logo_path=LOGO_PATH,
             )
             supabase.table(table_name).update({"qr_code": pass_base64}).eq("id", record.get("id")).execute()
-            event_name = str(record.get("event_name") or "").strip()
-            send_approval_email(
+
+            group_event_name = str(record.get("event_name") or "").strip()
+            group_event_id = str(record.get("event_id") or "").strip()
+
+            bundle_files: list[tuple[str, bytes]] = []
+
+            leader_pdf = pass_png_base64_to_pdf_bytes(pass_base64)
+            leader_filename = f"00_leader_{sanitize_filename(record.get('leader_name'), 'leader')}.pdf"
+            bundle_files.append((leader_filename, leader_pdf))
+
+            for idx, member in enumerate(members, start=1):
+                member_pass_base64 = generate_participant_pass(
+                    {
+                        "id": str(member.get("id")),
+                        "name": member.get("name"),
+                        "roll_no": member.get("roll_no"),
+                        "course": member.get("course"),
+                        "year": member.get("year"),
+                        "events": [
+                            {
+                                "event_id": group_event_id,
+                                "event_name": group_event_name,
+                            }
+                        ],
+                    },
+                    logo_path=LOGO_PATH,
+                )
+
+                try:
+                    supabase.table("group_members").update(
+                        {
+                            "qr_code": member_pass_base64,
+                            "approved_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                    ).eq("id", member.get("id")).execute()
+                except Exception:
+                    # Backward compatibility when group_members does not have qr_code/approved_at columns.
+                    pass
+
+                member_pdf = pass_png_base64_to_pdf_bytes(member_pass_base64)
+                safe_name = sanitize_filename(member.get("name"), f"member_{idx}")
+                safe_roll = sanitize_filename(member.get("roll_no"), f"roll_{idx}")
+                member_filename = f"{idx:02d}_{safe_name}_{safe_roll}.pdf"
+                bundle_files.append((member_filename, member_pdf))
+
+            zip_bundle = build_zip_bundle(bundle_files)
+            send_group_bundle_email(
                 to_email=record.get("leader_email"),
-                name=record.get("leader_name", "Group Leader"),
-                qr_code_base64=pass_base64,
-                registration_id=record.get("id"),
-                user_type="group participant",
-                events=[event_name] if event_name else None,
+                leader_name=record.get("leader_name", "Group Leader"),
+                registration_id=str(record.get("id")),
+                team_name=str(record.get("team_name") or "Team"),
+                event_name=group_event_name or "Group Event",
+                bundle_bytes=zip_bundle,
+                total_passes=len(bundle_files),
             )
     except Exception as e:
         print(f"Background pass/email error ({record_type}): {e}")
@@ -1174,21 +1584,48 @@ async def get_all_volunteers(
     verify_faculty_token(authorization)
 
     try:
-        summary_records = fetch_summary_records("volunteers")
-        summary = compute_approval_counts(summary_records)
+        summary = fetch_table_summary("volunteers")
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
 
         volunteer_records = []
         if summary["total"] > 0:
-            response = fetch_with_retry(
-                lambda: supabase.table("volunteers").select("*").order("registered_at", desc=True).range(start, end).execute(),
-                attempts=3,
-            )
+            try:
+                response = fetch_with_retry(
+                    lambda: supabase.table("volunteers")
+                    .select("id, name, roll_no, course, year, email, phone, motivation, volunteer_role, role, team_label, registered_at, approved_at")
+                    .order("registered_at", desc=True)
+                    .range(start, end)
+                    .execute(),
+                    attempts=3,
+                )
+            except Exception:
+                try:
+                    response = fetch_with_retry(
+                        lambda: supabase.table("volunteers")
+                        .select("id, name, roll_no, course, year, email, phone, motivation, role, team_label, registered_at")
+                        .order("registered_at", desc=True)
+                        .range(start, end)
+                        .execute(),
+                        attempts=3,
+                    )
+                except Exception:
+                    response = fetch_with_retry(
+                        lambda: supabase.table("volunteers")
+                        .select("id, name, roll_no, course, year, email, phone, motivation, team_label, registered_at")
+                        .order("registered_at", desc=True)
+                        .range(start, end)
+                        .execute(),
+                        attempts=3,
+                    )
             volunteer_records = response.data or []
+
+        volunteer_ids = [str(volunteer.get("id")) for volunteer in volunteer_records if volunteer.get("id")]
+        approved_ids = fetch_approved_ids_for_records("volunteers", volunteer_ids)
 
         data = []
         for volunteer in volunteer_records:
             role_value = volunteer.get("volunteer_role") or volunteer.get("role") or ""
+            volunteer_id = str(volunteer.get("id") or "")
             data.append(
                 {
                     "id": volunteer.get("id"),
@@ -1201,7 +1638,7 @@ async def get_all_volunteers(
                     "volunteer_role": role_value,
                     "registered_at": volunteer.get("registered_at"),
                     "approved_at": volunteer.get("approved_at"),
-                    "is_approved": bool(volunteer.get("qr_code")),
+                    "is_approved": volunteer_id in approved_ids,
                 }
             )
 
@@ -1231,20 +1668,37 @@ async def get_all_groups(
     verify_faculty_token(authorization)
 
     try:
-        summary_records = fetch_summary_records("group_registrations")
-        summary = compute_approval_counts(summary_records)
+        summary = fetch_table_summary("group_registrations")
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
 
         group_records = []
         if summary["total"] > 0:
-            response = fetch_with_retry(
-                lambda: supabase.table("group_registrations").select("*").order("registered_at", desc=True).range(start, end).execute(),
-                attempts=3,
-            )
+            try:
+                response = fetch_with_retry(
+                    lambda: supabase.table("group_registrations")
+                    .select("id, team_name, event_id, event_name, leader_name, leader_roll_no, leader_course, leader_year, leader_email, leader_phone, registered_at, approved_at")
+                    .order("registered_at", desc=True)
+                    .range(start, end)
+                    .execute(),
+                    attempts=3,
+                )
+            except Exception:
+                response = fetch_with_retry(
+                    lambda: supabase.table("group_registrations")
+                    .select("id, team_name, event_id, leader_name, leader_roll_no, leader_course, leader_year, leader_email, leader_phone, registered_at")
+                    .order("registered_at", desc=True)
+                    .range(start, end)
+                    .execute(),
+                    attempts=3,
+                )
             group_records = response.data or []
+
+        group_ids = [str(group.get("id")) for group in group_records if group.get("id")]
+        approved_ids = fetch_approved_ids_for_records("group_registrations", group_ids)
 
         data = []
         for group in group_records:
+            group_id = str(group.get("id") or "")
             data.append(
                 {
                     "id": group.get("id"),
@@ -1256,9 +1710,10 @@ async def get_all_groups(
                     "phone": group.get("leader_phone") or group.get("phone"),
                     "group_name": group.get("team_name") or group.get("group_name"),
                     "event_id": group.get("event_id"),
+                    "event_name": group.get("event_name") or event_id_to_label(group.get("event_id")),
                     "registered_at": group.get("registered_at"),
                     "approved_at": group.get("approved_at"),
-                    "is_approved": bool(group.get("qr_code")),
+                    "is_approved": group_id in approved_ids,
                 }
             )
 
@@ -1367,6 +1822,14 @@ async def approve_group(group_id: str, authorization: str = Header(None), backgr
             # Backward compatibility for databases where approved_at is not added yet.
             pass
 
+        try:
+            supabase.table("group_members").update(
+                {"approved_at": approval_timestamp}
+            ).eq("group_id", group_id).execute()
+        except Exception:
+            # Backward compatibility for schemas where approved_at does not exist on group_members.
+            pass
+
         # Add background task for pass generation and email
         if background_tasks:
             background_tasks.add_task(send_pass_email_background, group, "group")
@@ -1400,15 +1863,20 @@ async def assign_volunteer_team(
         if not team_label:
             raise HTTPException(status_code=400, detail="Team label is required")
 
+        if team_label not in VOLUNTEER_TEAM_OPTIONS:
+            raise HTTPException(status_code=400, detail="Invalid team label selected")
+
         existing = (
             supabase.table("volunteers")
-            .select("id, name, team_label")
+            .select("id, name, roll_no, course, year, email, team_label, qr_code")
             .eq("id", volunteer_id)
             .limit(1)
             .execute()
         )
         if not existing.data:
             raise HTTPException(status_code=404, detail="Volunteer registration not found")
+
+        volunteer = existing.data[0]
 
         team_id = re.sub(r"[^a-z0-9]+", "-", team_label.lower()).strip("-")
 
@@ -1419,12 +1887,29 @@ async def assign_volunteer_team(
             # Backward compatibility for schemas without team_id.
             supabase.table("volunteers").update({"team_label": team_label}).eq("id", volunteer_id).execute()
 
+        pass_updated = False
+        if volunteer.get("qr_code"):
+            updated_pass = generate_volunteer_pass(
+                {
+                    "id": str(volunteer_id),
+                    "name": volunteer.get("name"),
+                    "roll_no": volunteer.get("roll_no"),
+                    "course": volunteer.get("course"),
+                    "year": volunteer.get("year"),
+                    "team_label": team_label,
+                },
+                logo_path=LOGO_PATH,
+            )
+            supabase.table("volunteers").update({"qr_code": updated_pass}).eq("id", volunteer_id).execute()
+            pass_updated = True
+
         return {
             "success": True,
             "data": {
                 "id": volunteer_id,
                 "team_label": team_label,
                 "team_id": team_id,
+                "pass_updated": pass_updated,
             },
             "message": "Volunteer team assigned successfully",
         }
@@ -1488,7 +1973,7 @@ async def resend_group_approval_email(group_id: str, authorization: str = Header
 
     try:
         group_response = supabase.table("group_registrations").select(
-            "id, leader_name, leader_email, event_name, qr_code"
+            "id, team_name, event_id, event_name, leader_name, leader_roll_no, leader_course, leader_year, leader_email, qr_code"
         ).eq("id", group_id).limit(1).execute()
 
         if not group_response.data:
@@ -1503,14 +1988,55 @@ async def resend_group_approval_email(group_id: str, authorization: str = Header
                 detail="Group participant is not approved yet. QR code not available.",
             )
 
+        members_response = (
+            supabase.table("group_members")
+            .select("id, name, roll_no, course, year")
+            .eq("group_id", group_id)
+            .execute()
+        )
+        members = members_response.data or []
+
         event_name = str(group.get("event_name") or "").strip()
-        email_sent, email_error = send_approval_email(
+        event_id = str(group.get("event_id") or "").strip()
+
+        bundle_files: list[tuple[str, bytes]] = []
+        leader_pdf = pass_png_base64_to_pdf_bytes(qr_code)
+        leader_filename = f"00_leader_{sanitize_filename(group.get('leader_name'), 'leader')}.pdf"
+        bundle_files.append((leader_filename, leader_pdf))
+
+        for idx, member in enumerate(members, start=1):
+            member_pass_base64 = generate_participant_pass(
+                {
+                    "id": str(member.get("id")),
+                    "name": member.get("name"),
+                    "roll_no": member.get("roll_no"),
+                    "course": member.get("course"),
+                    "year": member.get("year"),
+                    "events": [
+                        {
+                            "event_id": event_id,
+                            "event_name": event_name,
+                        }
+                    ],
+                },
+                logo_path=LOGO_PATH,
+            )
+
+            member_pdf = pass_png_base64_to_pdf_bytes(member_pass_base64)
+            safe_name = sanitize_filename(member.get("name"), f"member_{idx}")
+            safe_roll = sanitize_filename(member.get("roll_no"), f"roll_{idx}")
+            member_filename = f"{idx:02d}_{safe_name}_{safe_roll}.pdf"
+            bundle_files.append((member_filename, member_pdf))
+
+        zip_bundle = build_zip_bundle(bundle_files)
+        email_sent, email_error = send_group_bundle_email(
             to_email=group.get("leader_email"),
-            name=group.get("leader_name", "Group Leader"),
-            qr_code_base64=qr_code,
+            leader_name=group.get("leader_name", "Group Leader"),
             registration_id=group_id,
-            user_type="group participant",
-            events=[event_name] if event_name else None,
+            team_name=str(group.get("team_name") or "Team"),
+            event_name=event_name or "Group Event",
+            bundle_bytes=zip_bundle,
+            total_passes=len(bundle_files),
         )
 
         if not email_sent:
