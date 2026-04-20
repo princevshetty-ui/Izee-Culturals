@@ -1482,6 +1482,7 @@ async def export_students_csv(authorization: str = Header(None)):
         students = response.data or []
 
         headers = [
+            "Registration ID",
             "Name",
             "Roll No",
             "Course",
@@ -1494,6 +1495,7 @@ async def export_students_csv(authorization: str = Header(None)):
         rows = []
         for student in students:
             rows.append([
+                str(student.get("id") or ""),
                 str(student.get("name") or ""),
                 str(student.get("roll_no") or ""),
                 str(student.get("course") or ""),
@@ -1538,6 +1540,7 @@ async def export_participants_csv(authorization: str = Header(None)):
             participant["event_2"] = event_labels[1] if len(event_labels) > 1 else ""
 
         headers = [
+            "Registration ID",
             "Name",
             "Roll No",
             "Course",
@@ -1552,6 +1555,7 @@ async def export_participants_csv(authorization: str = Header(None)):
         rows = []
         for participant in participants:
             rows.append([
+                str(participant.get("id") or ""),
                 str(participant.get("name") or ""),
                 str(participant.get("roll_no") or ""),
                 str(participant.get("course") or ""),
@@ -2116,6 +2120,7 @@ async def export_volunteers_csv(authorization: str = Header(None)):
         volunteers = response.data or []
 
         headers = [
+            "Registration ID",
             "Name",
             "Roll No",
             "Course",
@@ -2131,6 +2136,7 @@ async def export_volunteers_csv(authorization: str = Header(None)):
         rows = []
         for volunteer in volunteers:
             rows.append([
+                str(volunteer.get("id") or ""),
                 str(volunteer.get("name") or ""),
                 str(volunteer.get("roll_no") or ""),
                 str(volunteer.get("course") or ""),
@@ -2167,6 +2173,7 @@ async def export_groups_csv(authorization: str = Header(None)):
         groups = response.data or []
 
         headers = [
+            "Registration ID",
             "Team Name",
             "Event Name",
             "Leader Name",
@@ -2182,6 +2189,7 @@ async def export_groups_csv(authorization: str = Header(None)):
         rows = []
         for group in groups:
             rows.append([
+                str(group.get("id") or ""),
                 str(group.get("team_name") or group.get("group_name") or ""),
                 str(group.get("event_name") or event_id_to_label(group.get("event_id") or "")),
                 str(group.get("leader_name") or group.get("name") or ""),
