@@ -3,6 +3,7 @@ cultural-fest/backend/venv/
 cultural-fest/backend/__pycache__/
 cultural-fest/backend/*.pyc
 cultural-fest/backend/.env
+__pycache__/
 
 # OS noise
 .DS_Store
