@@ -1,4 +1,10 @@
-export default function PageTopBar({ breadcrumb, onBack, maxWidthClass = 'max-w-6xl' }) {
+export default function PageTopBar({
+  breadcrumb,
+  onBack,
+  backLabel = '← Back',
+  rightSlot = null,
+  maxWidthClass = 'max-w-6xl',
+}) {
   return (
     <header className="border-b border-[#EEE6D8]/10 bg-[#080910]/88 backdrop-blur-md">
       <div className={`mx-auto w-full ${maxWidthClass} px-4 py-4 sm:px-6 lg:px-8`}>
@@ -15,13 +21,16 @@ export default function PageTopBar({ breadcrumb, onBack, maxWidthClass = 'max-w-
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onBack}
-            className="text-sm text-[#EEE6D8]/78 transition hover:text-[#EEE6D8]"
-          >
-            ← Back
-          </button>
+          <div className="inline-flex items-center gap-3">
+            {rightSlot}
+            <button
+              type="button"
+              onClick={onBack}
+              className="text-sm text-[#EEE6D8]/78 transition hover:text-[#EEE6D8]"
+            >
+              {backLabel}
+            </button>
+          </div>
         </div>
       </div>
     </header>

@@ -1,6 +1,7 @@
 import { Html5Qrcode } from 'html5-qrcode'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import PageTopBar from '../components/PageTopBar'
 
 const SCANNER_REGION_ID = 'entry-gate-qr-scanner'
 const SCAN_THROTTLE_MS = 1400
@@ -489,13 +490,14 @@ export default function QRValidator() {
           }}
         />
 
-        <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center px-5 py-8">
-          <button
-            onClick={() => navigate('/')}
-            className="mb-6 inline-flex w-fit items-center rounded-full border border-[#14B8A6]/30 bg-[#131419]/70 px-4 py-2 text-sm text-[#EEE6D8]/80 transition hover:border-[#14B8A6]/70 hover:text-[#EEE6D8]"
-          >
-            {'<- Home'}
-          </button>
+        <PageTopBar
+          breadcrumb="Home → Gate Validation → Access Login"
+          onBack={() => navigate('/')}
+          backLabel="← Home"
+          maxWidthClass="max-w-lg"
+        />
+
+        <main className="relative z-10 mx-auto flex w-full max-w-lg flex-col justify-center px-5 py-8">
 
           <section className="rounded-2xl border border-[#14B8A6]/30 bg-[#121318]/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
             <p className="text-xs uppercase tracking-[0.24em] text-[#14B8A6]/85">IZee Got Talent</p>
@@ -569,31 +571,29 @@ export default function QRValidator() {
         }}
       />
 
-      <main className="relative z-10 mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
-        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            onClick={() => navigate('/')}
-            className="inline-flex w-fit items-center rounded-full border border-[#14B8A6]/30 bg-[#131419]/70 px-4 py-2 text-sm text-[#EEE6D8]/80 transition hover:border-[#14B8A6]/70 hover:text-[#EEE6D8]"
-          >
-            {'<- Home'}
-          </button>
-
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-[0.24em] text-[#14B8A6]/85">IZee Got Talent</p>
-            <h1 className="font-display text-3xl leading-tight text-[#EEE6D8] sm:text-4xl">
-              Entry Gate Validation
-            </h1>
-            <p className="mt-2 text-sm text-[#EEE6D8]/65">
-              Signed in: {gateUser.name || gateUser.roll_no || gateUser.email}
-            </p>
-          </div>
-
+      <PageTopBar
+        breadcrumb="Home → Gate Validation → Entry Checkpoint"
+        onBack={() => navigate('/')}
+        backLabel="← Home"
+        maxWidthClass="max-w-6xl"
+        rightSlot={
           <button
             onClick={handleGateLogout}
             className="inline-flex w-fit items-center rounded-full border border-white/20 bg-[#191c23] px-4 py-2 text-sm text-[#EEE6D8]/80 transition hover:border-white/40 hover:text-[#EEE6D8]"
           >
             Logout
           </button>
+        }
+      />
+
+      <main className="relative z-10 mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
+        <header className="mb-8">
+          <h1 className="font-display text-3xl leading-tight text-[#EEE6D8] sm:text-4xl">
+            Entry Gate Validation
+          </h1>
+          <p className="mt-2 text-sm text-[#EEE6D8]/65">
+            Signed in: {gateUser.name || gateUser.roll_no || gateUser.email}
+          </p>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-[1.12fr_0.88fr]">
