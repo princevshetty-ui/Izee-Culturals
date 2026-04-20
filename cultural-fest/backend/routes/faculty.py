@@ -173,8 +173,7 @@ def fetch_summary_records(table_name: str) -> list[dict]:
     try:
         response = fetch_with_retry(
             lambda: supabase.table(table_name)
-            .select("id, qr_code, registered_at, approved_at")
-            .order("registered_at", desc=True)
+            .select("qr_code, registered_at, approved_at")
             .execute(),
             attempts=3,
         )
@@ -183,12 +182,34 @@ def fetch_summary_records(table_name: str) -> list[dict]:
         # Backward compatibility for databases that do not have approved_at yet.
         response = fetch_with_retry(
             lambda: supabase.table(table_name)
-            .select("id, qr_code, registered_at")
-            .order("registered_at", desc=True)
+            .select("qr_code, registered_at")
             .execute(),
             attempts=3,
         )
         return response.data or []
+
+
+def fetch_participant_events_map(participant_ids: list[str]) -> dict[str, list[str]]:
+    """Return participant_id -> [event_id] map in one batched query."""
+    if not participant_ids:
+        return {}
+
+    response = fetch_with_retry(
+        lambda: supabase.table("participant_events")
+        .select("participant_id, event_id")
+        .in_("participant_id", participant_ids)
+        .execute(),
+        attempts=3,
+    )
+
+    events_map: dict[str, list[str]] = {participant_id: [] for participant_id in participant_ids}
+    for row in response.data or []:
+        participant_id = row.get("participant_id")
+        event_id = row.get("event_id")
+        if participant_id and event_id:
+            events_map.setdefault(participant_id, []).append(event_id)
+
+    return events_map
 
 
 def get_pagination_bounds(total: int, page: int, page_size: int):
@@ -638,13 +659,13 @@ async def get_all_participants(
             )
             participants = participants_response.data or []
         
-        # For each participant, fetch their events
+        participant_ids = [participant.get("id") for participant in participants if participant.get("id")]
+        events_map = fetch_participant_events_map(participant_ids)
+
+        # Attach events to each participant using batched lookup map.
         for participant in participants:
-            events_response = supabase.table("participant_events").select(
-                "event_id"
-            ).eq("participant_id", participant["id"]).execute()
-            
-            participant["events"] = [e["event_id"] for e in (events_response.data or [])]
+            participant_id = participant.get("id")
+            participant["events"] = events_map.get(participant_id, [])
             participant["approved"] = bool(participant.get("qr_code"))
         
         return {
@@ -1094,13 +1115,12 @@ async def export_participants_csv(authorization: str = Header(None)):
         
         participants = participants_response.data or []
         
-        # For each participant, fetch their events
+        participant_ids = [participant.get("id") for participant in participants if participant.get("id")]
+        events_map = fetch_participant_events_map(participant_ids)
+
+        # Populate event labels using batched participant event map.
         for participant in participants:
-            events_response = supabase.table("participant_events").select(
-                "event_id"
-            ).eq("participant_id", participant["id"]).execute()
-            
-            event_ids = [e.get("event_id") for e in (events_response.data or [])]
+            event_ids = events_map.get(participant.get("id"), [])
             event_labels = [event_id_to_label(event_id) for event_id in event_ids if event_id]
             participant["event_1"] = event_labels[0] if len(event_labels) > 0 else ""
             participant["event_2"] = event_labels[1] if len(event_labels) > 1 else ""

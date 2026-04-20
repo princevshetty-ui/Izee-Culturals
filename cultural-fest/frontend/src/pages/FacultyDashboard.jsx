@@ -395,7 +395,15 @@ export default function FacultyDashboard() {
         }
 
         const currentEndpoint = `${endpointByTab[activeTab]}?page=${activePage}&page_size=${DEFAULT_PAGE_SIZE}`
-        const currentResult = await fetchFacultyList(currentEndpoint)
+        const shouldFetchAlternateSummary = activeTab === 'students' || activeTab === 'participants'
+        const alternateTab = activeTab === 'students' ? 'participants' : 'students'
+        const alternateEndpoint = `${endpointByTab[alternateTab]}?page=1&page_size=5`
+
+        const [currentResult, alternateResult] = await Promise.all([
+          fetchFacultyList(currentEndpoint),
+          shouldFetchAlternateSummary ? fetchFacultyList(alternateEndpoint) : Promise.resolve(null),
+        ])
+
         const currentRecords = normalizeDashboardRecords(activeTab, currentResult.records || [])
         const currentSummary = normalizeSummaryPayload(currentResult.summary || {}, currentRecords)
         
@@ -420,10 +428,7 @@ export default function FacultyDashboard() {
           [activeTab]: currentSummary,
         }))
 
-        if (activeTab === 'students' || activeTab === 'participants') {
-          const alternateTab = activeTab === 'students' ? 'participants' : 'students'
-          const alternateEndpoint = `${endpointByTab[alternateTab]}?page=1&page_size=5`
-          const alternateResult = await fetchFacultyList(alternateEndpoint)
+        if (shouldFetchAlternateSummary && alternateResult) {
           const alternateRecords = normalizeDashboardRecords(alternateTab, alternateResult.records || [])
           const alternateSummary = normalizeSummaryPayload(alternateResult.summary || {}, alternateRecords)
 
@@ -476,7 +481,11 @@ export default function FacultyDashboard() {
 
     fetchDashboardData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, activePage, facultyPassword, refreshKey, tabCache])
+  }, [activeTab, activePage, facultyPassword, refreshKey])
+
+  const invalidateActiveTabCache = () => {
+    setTabCache((previous) => ({ ...previous, [activeTab]: null }))
+  }
 
   const courseOptions = useMemo(() => {
     return [...new Set(records.map((record) => getCourseByTab(record, activeTab)).filter(Boolean))]
@@ -817,6 +826,7 @@ export default function FacultyDashboard() {
           setInfoMessage('Group approved successfully.')
       }
 
+      invalidateActiveTabCache()
       setRefreshKey((previous) => previous + 1)
     } catch (error) {
       setErrorMessage(error.message || 'Approval failed')
@@ -848,6 +858,7 @@ export default function FacultyDashboard() {
       }
 
       setInfoMessage('Record deleted successfully.')
+      invalidateActiveTabCache()
       setRefreshKey((previous) => previous + 1)
     } catch (error) {
       setErrorMessage(error.message || 'Delete failed')
@@ -1006,6 +1017,7 @@ export default function FacultyDashboard() {
       setInfoMessage(`Approved ${successCount} group record(s).`)
     }
 
+    invalidateActiveTabCache()
     setRefreshKey((previous) => previous + 1)
   }
 
@@ -1053,6 +1065,7 @@ export default function FacultyDashboard() {
       setInfoMessage(`Deleted ${removedIds.length} record(s) successfully.`)
     }
 
+    invalidateActiveTabCache()
     setRefreshKey((previous) => previous + 1)
   }
 
