@@ -1,6 +1,7 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
+import PageTopBar from '../components/PageTopBar'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 const MotionDiv = motion.div
@@ -165,6 +166,13 @@ export default function Confirmation() {
 
   const config = roleConfig[type] || roleConfig.student
   const groupSubtitle = [teamName, eventName].filter(Boolean).join(' • ')
+  const breadcrumbByType = {
+    student: 'Home → Student Registration → Confirmation',
+    participant: 'Home → Participant Registration → Confirmation',
+    volunteer: 'Home → Volunteer Registration → Confirmation',
+    group: 'Home → Group Registration → Confirmation',
+  }
+  const pageBreadcrumb = breadcrumbByType[type] || 'Home → Confirmation'
 
   if (isPending && !qrCode) {
     return (
@@ -182,12 +190,7 @@ export default function Confirmation() {
         flexDirection: 'column',
         alignItems: 'center',
       }}>
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors mb-4 self-start ml-4 mt-4"
-        >
-          ← Home
-        </button>
+        <PageTopBar breadcrumb={pageBreadcrumb} onBack={() => navigate('/')} maxWidthClass="max-w-2xl" />
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -511,12 +514,7 @@ export default function Confirmation() {
         color: '#F5F0E8'
       }}
     >
-      <button
-        onClick={() => navigate('/')}
-        className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors mb-4 ml-4 mt-4"
-      >
-        ← Home
-      </button>
+      <PageTopBar breadcrumb={pageBreadcrumb} onBack={() => navigate('/')} maxWidthClass="max-w-2xl" />
       <div className="mx-auto flex max-w-2xl flex-col items-center justify-center px-4 py-8 sm:px-6 lg:px-8 lg:py-16">
         <MotionDiv
           initial={{ scale: 0, opacity: 0 }}
