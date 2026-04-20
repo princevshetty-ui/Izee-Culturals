@@ -1068,9 +1068,8 @@ async def export_students_csv(authorization: str = Header(None)):
         students = response.data or []
 
         headers = [
-            "Registration ID",
             "Name",
-            "Roll Number",
+            "Roll No",
             "Course",
             "Year",
             "Email",
@@ -1081,7 +1080,6 @@ async def export_students_csv(authorization: str = Header(None)):
         rows = []
         for student in students:
             rows.append([
-                str(student.get("id") or ""),
                 str(student.get("name") or ""),
                 str(student.get("roll_no") or ""),
                 str(student.get("course") or ""),
@@ -1126,9 +1124,8 @@ async def export_participants_csv(authorization: str = Header(None)):
             participant["event_2"] = event_labels[1] if len(event_labels) > 1 else ""
 
         headers = [
-            "Registration ID",
             "Name",
-            "Roll Number",
+            "Roll No",
             "Course",
             "Year",
             "Email",
@@ -1141,7 +1138,6 @@ async def export_participants_csv(authorization: str = Header(None)):
         rows = []
         for participant in participants:
             rows.append([
-                str(participant.get("id") or ""),
                 str(participant.get("name") or ""),
                 str(participant.get("roll_no") or ""),
                 str(participant.get("course") or ""),
@@ -1542,33 +1538,30 @@ async def export_volunteers_csv(authorization: str = Header(None)):
         volunteers = response.data or []
 
         headers = [
-            "id",
-            "name",
-            "roll_no",
-            "course",
-            "year",
-            "email",
-            "phone",
-            "volunteer_role",
-            "registered_at",
-            "approved_at",
-            "status",
+            "Name",
+            "Roll No",
+            "Course",
+            "Year",
+            "Team Label",
+            "Motivation",
+            "Email",
+            "Phone",
+            "Registered At",
+            "Status",
         ]
 
         rows = []
         for volunteer in volunteers:
-            role_value = volunteer.get("volunteer_role") or volunteer.get("role") or ""
             rows.append([
-                str(volunteer.get("id") or ""),
                 str(volunteer.get("name") or ""),
                 str(volunteer.get("roll_no") or ""),
                 str(volunteer.get("course") or ""),
                 str(volunteer.get("year") or ""),
+                str(volunteer.get("team_label") or volunteer.get("volunteer_role") or volunteer.get("role") or ""),
+                str(volunteer.get("motivation") or ""),
                 str(volunteer.get("email") or ""),
                 str(volunteer.get("phone") or ""),
-                str(role_value),
                 format_datetime_for_export(volunteer.get("registered_at")),
-                format_datetime_for_export(volunteer.get("approved_at")),
                 "Approved" if volunteer.get("qr_code") else "Pending",
             ])
 
@@ -1596,34 +1589,30 @@ async def export_groups_csv(authorization: str = Header(None)):
         groups = response.data or []
 
         headers = [
-            "id",
-            "name",
-            "roll_no",
-            "course",
-            "year",
-            "email",
-            "phone",
-            "group_name",
-            "event_id",
-            "registered_at",
-            "approved_at",
-            "status",
+            "Team Name",
+            "Event Name",
+            "Leader Name",
+            "Leader Roll No",
+            "Leader Course",
+            "Leader Year",
+            "Leader Email",
+            "Leader Phone",
+            "Registered At",
+            "Status",
         ]
 
         rows = []
         for group in groups:
             rows.append([
-                str(group.get("id") or ""),
+                str(group.get("team_name") or group.get("group_name") or ""),
+                str(group.get("event_name") or event_id_to_label(group.get("event_id") or "")),
                 str(group.get("leader_name") or group.get("name") or ""),
                 str(group.get("leader_roll_no") or group.get("roll_no") or ""),
                 str(group.get("leader_course") or group.get("course") or ""),
                 str(group.get("leader_year") or group.get("year") or ""),
                 str(group.get("leader_email") or group.get("email") or ""),
                 str(group.get("leader_phone") or group.get("phone") or ""),
-                str(group.get("team_name") or group.get("group_name") or ""),
-                str(group.get("event_id") or ""),
                 format_datetime_for_export(group.get("registered_at")),
-                format_datetime_for_export(group.get("approved_at")),
                 "Approved" if group.get("qr_code") else "Pending",
             ])
 
