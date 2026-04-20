@@ -53,6 +53,10 @@ class GateAccessLoginRequest(BaseModel):
     email: str
 
 
+class VolunteerTeamAssignmentRequest(BaseModel):
+    team_label: str
+
+
 def verify_faculty_token(authorization: str = Header(None)):
     """Verify faculty token from Authorization header."""
     if not authorization:
@@ -1375,6 +1379,54 @@ async def approve_group(group_id: str, authorization: str = Header(None), backgr
                 "qr_code": None,
             },
             "message": "Group approved successfully. Pass will be generated and emailed shortly.",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/faculty/volunteer/{volunteer_id}/assign-team")
+async def assign_volunteer_team(
+    volunteer_id: str,
+    req: VolunteerTeamAssignmentRequest,
+    authorization: str = Header(None),
+):
+    """Assign or update a volunteer team label from faculty dashboard."""
+    verify_faculty_token(authorization)
+
+    try:
+        team_label = (req.team_label or "").strip()
+        if not team_label:
+            raise HTTPException(status_code=400, detail="Team label is required")
+
+        existing = (
+            supabase.table("volunteers")
+            .select("id, name, team_label")
+            .eq("id", volunteer_id)
+            .limit(1)
+            .execute()
+        )
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Volunteer registration not found")
+
+        team_id = re.sub(r"[^a-z0-9]+", "-", team_label.lower()).strip("-")
+
+        try:
+            update_payload = {"team_label": team_label, "team_id": team_id or None}
+            supabase.table("volunteers").update(update_payload).eq("id", volunteer_id).execute()
+        except Exception:
+            # Backward compatibility for schemas without team_id.
+            supabase.table("volunteers").update({"team_label": team_label}).eq("id", volunteer_id).execute()
+
+        return {
+            "success": True,
+            "data": {
+                "id": volunteer_id,
+                "team_label": team_label,
+                "team_id": team_id,
+            },
+            "message": "Volunteer team assigned successfully",
         }
     except HTTPException:
         raise

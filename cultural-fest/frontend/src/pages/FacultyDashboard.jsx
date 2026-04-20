@@ -41,6 +41,13 @@ const NAV_ITEMS = [
   { id: 'groups', label: 'Groups' },
 ]
 
+const VOLUNTEER_TEAM_OPTIONS = [
+  'Registration & Reception Team',
+  'Program Coordination Team',
+  'Discipline & Security Committee',
+  'Hospitality & Welfare Team',
+]
+
 const DEFAULT_PAGE_SIZE = 25
 
 function titleCaseFromSnakeCase(value) {
@@ -232,6 +239,8 @@ export default function FacultyDashboard() {
   const [resendingId, setResendingId] = useState('')
   const [bulkAction, setBulkAction] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
+  const [assigningTeamId, setAssigningTeamId] = useState('')
+  const [teamDraftById, setTeamDraftById] = useState({})
 
   const [selectedCourse, setSelectedCourse] = useState('all')
   const [selectedYear, setSelectedYear] = useState('all')
@@ -361,6 +370,20 @@ export default function FacultyDashboard() {
     setInfoMessage('')
     setErrorMessage('')
   }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab !== 'volunteers') {
+      setTeamDraftById({})
+      return
+    }
+
+    setTeamDraftById(
+      records.reduce((accumulator, record) => {
+        accumulator[record.id] = record.team_label || ''
+        return accumulator
+      }, {})
+    )
+  }, [activeTab, records])
 
   useEffect(() => {
     if (!facultyPassword) return
@@ -526,7 +549,12 @@ export default function FacultyDashboard() {
       if (selectedYear !== 'all' && yearValue !== selectedYear) return false
 
       if (activeTab === 'volunteers' && selectedTeamLabel !== 'all') {
-        if ((record.team_label || '') !== selectedTeamLabel) return false
+        const currentTeam = (record.team_label || '').trim()
+        if (selectedTeamLabel === 'unassigned') {
+          if (currentTeam) return false
+        } else if (currentTeam !== selectedTeamLabel) {
+          return false
+        }
       }
 
       if (normalizedSearch) {
@@ -743,6 +771,83 @@ export default function FacultyDashboard() {
     }
 
     return { ok: true }
+  }
+
+  const assignVolunteerTeamById = async (recordId, teamLabel) => {
+    const response = await fetch(`/api/faculty/volunteer/${recordId}/assign-team`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${facultyPassword}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ team_label: teamLabel }),
+    })
+
+    if (response.status === 401) {
+      updateAuthFailure()
+      return { ok: false, unauthorized: true }
+    }
+
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok || !payload.success) {
+      return { ok: false, message: getApiErrorMessage(payload, 'Unable to assign volunteer team') }
+    }
+
+    return { ok: true, data: payload.data || {} }
+  }
+
+  const handleAssignVolunteerTeam = async (record) => {
+    if (activeTab !== 'volunteers') return
+
+    const selectedTeam = (teamDraftById[record.id] || '').trim()
+    if (!selectedTeam) {
+      setErrorMessage('Pick a team label before assigning.')
+      return
+    }
+
+    if (selectedTeam === (record.team_label || '').trim()) {
+      setInfoMessage('Team label already up to date.')
+      return
+    }
+
+    setAssigningTeamId(record.id)
+    setErrorMessage('')
+    setInfoMessage('')
+
+    try {
+      const result = await assignVolunteerTeamById(record.id, selectedTeam)
+      if (!result.ok) {
+        if (!result.unauthorized) setErrorMessage(result.message || 'Unable to assign volunteer team')
+        return
+      }
+
+      const assignedLabel = result.data?.team_label || selectedTeam
+      setRecords((previous) =>
+        previous.map((entry) =>
+          entry.id === record.id ? { ...entry, team_label: assignedLabel } : entry
+        )
+      )
+      setTabCache((previous) => {
+        const volunteerCache = previous.volunteers
+        if (!volunteerCache) return previous
+
+        return {
+          ...previous,
+          volunteers: {
+            ...volunteerCache,
+            records: (volunteerCache.records || []).map((entry) =>
+              entry.id === record.id ? { ...entry, team_label: assignedLabel } : entry
+            ),
+          },
+        }
+      })
+      setTeamDraftById((previous) => ({ ...previous, [record.id]: assignedLabel }))
+      setInfoMessage('Volunteer team assigned successfully.')
+    } catch (error) {
+      setErrorMessage(error.message || 'Unable to assign volunteer team')
+    } finally {
+      setAssigningTeamId('')
+    }
   }
 
   const handleExport = async () => {
@@ -1131,6 +1236,7 @@ export default function FacultyDashboard() {
   const activeSummary =
     summaryByTab[activeTab] || { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 }
   const isStudentOrParticipantTab = activeTab === 'students' || activeTab === 'participants'
+  const actionColumnWidth = activeTab === 'volunteers' ? 380 : 160
 
   return (
     <div className="min-h-screen bg-[#080910] text-[#EEE6D8]">
@@ -1470,6 +1576,7 @@ export default function FacultyDashboard() {
                     style={selectStyle}
                   >
                     <option value="all">All Team Labels</option>
+                    <option value="unassigned">Unassigned</option>
                     {teamLabelOptions.map((teamLabel) => (
                       <option key={teamLabel} value={teamLabel}>
                         {teamLabel}
@@ -1660,7 +1767,7 @@ export default function FacultyDashboard() {
 
                       <th
                         className="px-[14px] text-left text-[10px] font-medium uppercase tracking-[0.16em] text-[rgba(201,168,76,0.7)]"
-                        style={{ minWidth: '160px', width: '160px', borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}
+                        style={{ minWidth: `${actionColumnWidth}px`, width: `${actionColumnWidth}px`, borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}
                       >
                         Actions
                       </th>
@@ -1801,8 +1908,56 @@ export default function FacultyDashboard() {
                               )
                             })}
 
-                            <td className="overflow-hidden px-[14px] align-middle" style={{ width: '160px', minWidth: '160px' }}>
+                            <td className="overflow-hidden px-[14px] align-middle" style={{ width: `${actionColumnWidth}px`, minWidth: `${actionColumnWidth}px` }}>
                               <div className="flex flex-nowrap items-center gap-2">
+                                {activeTab === 'volunteers' && (
+                                  <>
+                                    <select
+                                      value={teamDraftById[record.id] || ''}
+                                      onChange={(event) =>
+                                        setTeamDraftById((previous) => ({
+                                          ...previous,
+                                          [record.id]: event.target.value,
+                                        }))
+                                      }
+                                      disabled={assigningTeamId === record.id || isBusy}
+                                      className="h-[26px] rounded-[5px] px-2 text-[10px]"
+                                      style={{
+                                        border: '0.5px solid rgba(255,255,255,0.12)',
+                                        background: 'rgba(255,255,255,0.03)',
+                                        color: '#EEE6D8',
+                                        minWidth: '170px',
+                                      }}
+                                    >
+                                      <option value="">Choose Team</option>
+                                      {VOLUNTEER_TEAM_OPTIONS.map((teamOption) => (
+                                        <option key={teamOption} value={teamOption}>
+                                          {teamOption}
+                                        </option>
+                                      ))}
+                                    </select>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAssignVolunteerTeam(record)}
+                                      disabled={
+                                        assigningTeamId === record.id ||
+                                        isBusy ||
+                                        !(teamDraftById[record.id] || '').trim() ||
+                                        (teamDraftById[record.id] || '').trim() === (record.team_label || '').trim()
+                                      }
+                                      className="h-[26px] rounded-[5px] px-3 text-[10px]"
+                                      style={{
+                                        border: '0.5px solid rgba(20,184,166,0.35)',
+                                        color: '#14B8A6',
+                                        background: 'transparent',
+                                      }}
+                                    >
+                                      {assigningTeamId === record.id ? 'Saving...' : 'Assign Team'}
+                                    </button>
+                                  </>
+                                )}
+
                                 {!isRecordApproved(record) ? (
                                   <button
                                     type="button"
