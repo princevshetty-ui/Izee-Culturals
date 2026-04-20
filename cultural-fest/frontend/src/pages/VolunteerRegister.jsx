@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { isValidRollNo, normalizeFullNameInput, normalizeRollNoInput } from '../utils/formValidation'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
@@ -47,7 +48,11 @@ export default function VolunteerRegister() {
     const newErrors = {}
 
     if (!formData.name.trim()) newErrors.name = 'Name is required'
-    if (!formData.roll_no.trim()) newErrors.roll_no = 'Roll No is required'
+    if (!formData.roll_no.trim()) {
+      newErrors.roll_no = 'Roll No is required'
+    } else if (!isValidRollNo(formData.roll_no)) {
+      newErrors.roll_no = 'Roll No must be 12 alphanumeric characters'
+    }
     if (!formData.course) newErrors.course = 'Course is required'
     if (!formData.year) newErrors.year = 'Year is required'
     if (!formData.email.trim()) {
@@ -67,7 +72,14 @@ export default function VolunteerRegister() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    const nextValue =
+      name === 'roll_no'
+        ? normalizeRollNoInput(value)
+        : name === 'name'
+          ? normalizeFullNameInput(value)
+          : value
+
+    setFormData((prev) => ({ ...prev, [name]: nextValue }))
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }))
     }
@@ -199,6 +211,7 @@ export default function VolunteerRegister() {
                       : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(20,184,166,0.45)] focus:shadow-[0_0_0_3px_rgba(20,184,166,0.08)]'
                   }`}
                 />
+                <p className="mt-1 text-[11px] text-[#EEE6D8]/42">Use full name with each word capitalized.</p>
                 {errors.name && <p className="mt-1.5 text-xs text-red-400">{errors.name}</p>}
               </div>
 
@@ -213,6 +226,7 @@ export default function VolunteerRegister() {
                   value={formData.roll_no}
                   onChange={handleInputChange}
                   placeholder="e.g., U03EX24S0091"
+                  maxLength={12}
                   className={`${inputVolunteer} ${
                     errors.roll_no
                       ? 'border-red-500/60 focus:border-red-500'

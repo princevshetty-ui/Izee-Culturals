@@ -44,6 +44,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from db import supabase
 from utils.duplicate_check import check_duplicate_roll
+from utils.input_validation import is_valid_roll_no, normalize_full_name, normalize_roll_no
 import uuid
 import re
 
@@ -81,8 +82,11 @@ class GroupRegisterRequest(BaseModel):
 async def register_volunteer(req: VolunteerRegisterRequest):
     """Register a volunteer and mark as pending until faculty approval."""
     try:
+        normalized_name = normalize_full_name(req.name)
+        normalized_roll_no = normalize_roll_no(req.roll_no)
+
         # Check for duplicate roll number
-        duplicate = await check_duplicate_roll(supabase, req.roll_no)
+        duplicate = await check_duplicate_roll(supabase, normalized_roll_no)
         if duplicate["is_duplicate"]:
             return JSONResponse(status_code=400, content={
                 "success": False,
@@ -90,10 +94,10 @@ async def register_volunteer(req: VolunteerRegisterRequest):
             })
         
         # Validations
-        if not req.name.strip():
+        if not normalized_name:
             raise HTTPException(status_code=400, detail="Name is required")
-        if not req.roll_no.strip():
-            raise HTTPException(status_code=400, detail="Roll No is required")
+        if not is_valid_roll_no(normalized_roll_no):
+            raise HTTPException(status_code=400, detail="Roll No must be 12 alphanumeric characters")
         if not req.course.strip():
             raise HTTPException(status_code=400, detail="Course is required")
         if not req.year.strip():
@@ -109,8 +113,8 @@ async def register_volunteer(req: VolunteerRegisterRequest):
         # Insert into volunteers table
         supabase.table("volunteers").insert({
             "id": volunteer_id,
-            "name": req.name.strip(),
-            "roll_no": req.roll_no.strip(),
+            "name": normalized_name,
+            "roll_no": normalized_roll_no,
             "course": req.course.strip(),
             "year": req.year.strip(),
             "email": req.email.strip().lower(),
@@ -196,6 +200,28 @@ async def register_group(req: GroupRegisterRequest):
             if not member.year.strip():
                 raise HTTPException(status_code=400, detail=f"Member {idx + 1} year is required")
 
+        leader_name = normalize_full_name(req.leader["name"])
+        leader_roll_no = normalize_roll_no(req.leader["roll_no"])
+        if not leader_name:
+            raise HTTPException(status_code=400, detail="Leader name is required")
+        if not is_valid_roll_no(leader_roll_no):
+            raise HTTPException(status_code=400, detail="Leader roll_no must be 12 alphanumeric characters")
+
+        normalized_members = []
+        for idx, member in enumerate(req.members):
+            member_name = normalize_full_name(member.name)
+            member_roll_no = normalize_roll_no(member.roll_no)
+            if not member_name:
+                raise HTTPException(status_code=400, detail=f"Member {idx + 1} name is required")
+            if not is_valid_roll_no(member_roll_no):
+                raise HTTPException(status_code=400, detail=f"Member {idx + 1} roll_no must be 12 alphanumeric characters")
+            normalized_members.append({
+                "name": member_name,
+                "roll_no": member_roll_no,
+                "course": member.course.strip(),
+                "year": member.year.strip(),
+            })
+
         group_id = str(uuid.uuid4())
         registered_at = datetime.utcnow().isoformat()
 
@@ -207,8 +233,8 @@ async def register_group(req: GroupRegisterRequest):
             "event_name": req.event_name,
             "event_type": req.event_type or "",
             "category_id": req.category_id or "",
-            "leader_name": req.leader["name"].strip(),
-            "leader_roll_no": req.leader["roll_no"].strip(),
+            "leader_name": leader_name,
+            "leader_roll_no": leader_roll_no,
             "leader_course": req.leader["course"].strip(),
             "leader_year": req.leader["year"].strip(),
             "leader_email": req.leader["email"].strip().lower(),
@@ -218,15 +244,15 @@ async def register_group(req: GroupRegisterRequest):
         }).execute()
 
         # Insert each member into group_members
-        for member in req.members:
+        for member in normalized_members:
             member_id = str(uuid.uuid4())
             supabase.table("group_members").insert({
                 "id": member_id,
                 "group_id": group_id,
-                "name": member.name.strip(),
-                "roll_no": member.roll_no.strip(),
-                "course": member.course.strip(),
-                "year": member.year.strip()
+                "name": member["name"],
+                "roll_no": member["roll_no"],
+                "course": member["course"],
+                "year": member["year"]
             }).execute()
 
         return {

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from db import supabase
 from utils.duplicate_check import check_duplicate_roll
+from utils.input_validation import is_valid_roll_no, normalize_full_name, normalize_roll_no
 import uuid
 
 router = APIRouter()
@@ -22,8 +23,16 @@ class StudentRegisterRequest(BaseModel):
 async def register_student(req: StudentRegisterRequest):
     """Register a student and mark as pending until faculty approval."""
     try:
+        normalized_name = normalize_full_name(req.name)
+        normalized_roll_no = normalize_roll_no(req.roll_no)
+
+        if not normalized_name:
+            raise HTTPException(status_code=400, detail="Name is required")
+        if not is_valid_roll_no(normalized_roll_no):
+            raise HTTPException(status_code=400, detail="Roll No must be 12 alphanumeric characters")
+
         # Check for duplicate roll number
-        duplicate = await check_duplicate_roll(supabase, req.roll_no)
+        duplicate = await check_duplicate_roll(supabase, normalized_roll_no)
         if duplicate["is_duplicate"]:
             return JSONResponse(status_code=400, content={
                 "success": False,
@@ -36,8 +45,8 @@ async def register_student(req: StudentRegisterRequest):
         registered_at = datetime.utcnow().isoformat()
         supabase.table("students").insert({
             "id": student_id,
-            "name": req.name,
-            "roll_no": req.roll_no,
+            "name": normalized_name,
+            "roll_no": normalized_roll_no,
             "course": req.course,
             "year": req.year,
             "email": req.email,
@@ -56,6 +65,8 @@ async def register_student(req: StudentRegisterRequest):
             "message": "Registration submitted for faculty approval"
         }
     
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { isValidRollNo, normalizeFullNameInput, normalizeRollNoInput } from '../utils/formValidation'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 const _MOTION = motion
@@ -77,15 +78,29 @@ export default function ParticipantGroupRegister() {
   }
 
   function updateMember(id, field, value) {
+    const nextValue =
+      field === 'roll_no'
+        ? normalizeRollNoInput(value)
+        : field === 'name'
+          ? normalizeFullNameInput(value)
+          : value
+
     setMembers((prev) =>
       prev.map((m) =>
-        m.id === id ? { ...m, [field]: value } : m
+        m.id === id ? { ...m, [field]: nextValue } : m
       )
     )
   }
 
   function updateLeader(field, value) {
-    setLeader((prev) => ({ ...prev, [field]: value }))
+    const nextValue =
+      field === 'roll_no'
+        ? normalizeRollNoInput(value)
+        : field === 'name'
+          ? normalizeFullNameInput(value)
+          : value
+
+    setLeader((prev) => ({ ...prev, [field]: nextValue }))
   }
 
   async function handleSubmit(e) {
@@ -109,11 +124,19 @@ export default function ParticipantGroupRegister() {
         return
       }
     }
+    if (!isValidRollNo(leader.roll_no)) {
+      setError('Leader roll number must be 12 alphanumeric characters')
+      return
+    }
 
     for (let i = 0; i < members.length; i++) {
       const m = members[i]
       if (!m.name.trim() || !m.roll_no.trim() || !m.course.trim() || !m.year.trim()) {
         setError(`All fields for Member ${i + 1} are required`)
+        return
+      }
+      if (!isValidRollNo(m.roll_no)) {
+        setError(`Member ${i + 1} roll number must be 12 alphanumeric characters`)
         return
       }
     }
@@ -381,6 +404,9 @@ export default function ParticipantGroupRegister() {
                   placeholder="Your full name"
                   style={getInputStyle('leader-name')}
                 />
+                <p style={{ ...infoNoteStyle, marginBottom: 0, marginTop: '6px' }}>
+                  Use full name with each word capitalized.
+                </p>
               </div>
               <div>
                 <label style={getLabelStyle()}>Roll No *</label>
@@ -391,6 +417,7 @@ export default function ParticipantGroupRegister() {
                   onFocus={() => setFocusedField('leader-roll')}
                   onBlur={() => setFocusedField(null)}
                   placeholder="Your roll number"
+                  maxLength={12}
                   style={getInputStyle('leader-roll')}
                 />
               </div>
@@ -541,6 +568,9 @@ export default function ParticipantGroupRegister() {
                         placeholder="Member's full name"
                         style={getInputStyle(`member-${idx}-name`)}
                       />
+                      <p style={{ ...infoNoteStyle, marginBottom: 0, marginTop: '6px' }}>
+                        Use full name with each word capitalized.
+                      </p>
                     </div>
                     <div>
                       <label style={getLabelStyle()}>Roll No *</label>
@@ -551,6 +581,7 @@ export default function ParticipantGroupRegister() {
                         onFocus={() => setFocusedField(`member-${idx}-roll`)}
                         onBlur={() => setFocusedField(null)}
                         placeholder="Member's roll number"
+                        maxLength={12}
                         style={getInputStyle(`member-${idx}-roll`)}
                       />
                     </div>
