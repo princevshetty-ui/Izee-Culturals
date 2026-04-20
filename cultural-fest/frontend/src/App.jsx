@@ -14,6 +14,9 @@ const StudentRegister = lazy(() => import('./pages/StudentRegister'))
 const Confirmation = lazy(() => import('./pages/Confirmation'))
 const FacultyLogin = lazy(() => import('./pages/FacultyLogin'))
 const FacultyDashboard = lazy(() => import('./pages/FacultyDashboard'))
+const VoterLogin = lazy(() => import('./pages/VoterLogin'))
+const JudgePortal = lazy(() => import('./pages/JudgePortal'))
+const AudienceVoting = lazy(() => import('./pages/AudienceVoting'))
 
 function PageLoader() {
   return (
@@ -140,6 +143,30 @@ function AppRoutes() {
             element={
               <PageTransition>
                 <FacultyDashboard />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/voting/login"
+            element={
+              <PageTransition>
+                <VoterLogin />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/voting/judge"
+            element={
+              <PageTransition>
+                <JudgePortal />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/voting/audience"
+            element={
+              <PageTransition>
+                <AudienceVoting />
               </PageTransition>
             }
           />
