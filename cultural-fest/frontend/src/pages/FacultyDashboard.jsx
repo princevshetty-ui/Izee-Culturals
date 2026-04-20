@@ -690,24 +690,43 @@ export default function FacultyDashboard() {
     }
     const endpoint = approveEndpointByTab[activeTab]
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${facultyPassword}`,
-      },
-    })
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${facultyPassword}`,
+          },
+        })
 
-    if (response.status === 401) {
-      updateAuthFailure()
-      return { ok: false, unauthorized: true }
+        if (response.status === 401) {
+          updateAuthFailure()
+          return { ok: false, unauthorized: true }
+        }
+
+        const payload = await response.json().catch(() => ({}))
+        if (response.ok && payload.success) {
+          return { ok: true, emailSent: payload.data?.email_sent }
+        }
+
+        const isRetriableStatus = response.status === 429 || response.status >= 500
+        if (isRetriableStatus && attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)))
+          continue
+        }
+
+        return { ok: false, message: getApiErrorMessage(payload, 'Approval failed') }
+      } catch (error) {
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)))
+          continue
+        }
+
+        return { ok: false, message: error.message || 'Approval failed' }
+      }
     }
 
-    const payload = await response.json().catch(() => ({}))
-    if (!response.ok || !payload.success) {
-      return { ok: false, message: getApiErrorMessage(payload, 'Approval failed') }
-    }
-
-    return { ok: true, emailSent: payload.data?.email_sent }
+    return { ok: false, message: 'Approval failed' }
   }
 
   const deleteRecordById = async (recordId) => {
@@ -1144,7 +1163,8 @@ export default function FacultyDashboard() {
     let mailCount = 0
     const failedIds = []
 
-    const outcomes = await runWithConcurrency(selectedPendingIds, 6, async (recordId) => {
+    const approvalConcurrency = activeTab === 'students' ? 8 : 6
+    const outcomes = await runWithConcurrency(selectedPendingIds, approvalConcurrency, async (recordId) => {
       const result = await approveRecordById(recordId)
       return { result }
     })
@@ -1471,7 +1491,7 @@ export default function FacultyDashboard() {
               <img
                 src="/college-logo.png"
                 alt="IZee Got Talent"
-                className="h-12 w-auto object-contain"
+                className="h-[50px] w-auto object-contain"
               />
             </div>
             <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[rgba(238,230,216,0.35)]">
@@ -2155,7 +2175,7 @@ export default function FacultyDashboard() {
                                   </>
                                 )}
 
-                                {!isRecordApproved(record) ? (
+                                {!isRecordApproved(record) && (
                                   <button
                                     type="button"
                                     onClick={() => handleApproveOne(record.id)}
@@ -2181,41 +2201,42 @@ export default function FacultyDashboard() {
                                   >
                                     {approvingId === record.id ? 'Approving...' : 'Approve'}
                                   </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      activeTab === 'students'
-                                        ? handleResendStudentMail(record.id)
-                                        : activeTab === 'participants'
-                                          ? handleResendParticipantMail(record.id)
-                                          : activeTab === 'volunteers'
-                                            ? handleResendVolunteerMail(record.id)
-                                            : handleResendGroupMail(record.id)
-                                    }
-                                    disabled={resendingId === record.id || isBusy}
-                                    className="h-[26px] rounded-[5px] px-3 text-[11px]"
-                                    style={{
-                                      border: '0.5px solid rgba(255,255,255,0.1)',
-                                      color: 'rgba(238,230,216,0.45)',
-                                      background: 'transparent',
-                                    }}
-                                    onMouseEnter={(event) => {
-                                      if (!(resendingId === record.id || isBusy)) {
-                                        event.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
-                                        event.currentTarget.style.color = 'rgba(238,230,216,0.7)'
-                                      }
-                                    }}
-                                    onMouseLeave={(event) => {
-                                      if (!(resendingId === record.id || isBusy)) {
-                                        event.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
-                                        event.currentTarget.style.color = 'rgba(238,230,216,0.45)'
-                                      }
-                                    }}
-                                  >
-                                    {resendingId === record.id ? 'Sending...' : 'Resend'}
-                                  </button>
                                 )}
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    activeTab === 'students'
+                                      ? handleResendStudentMail(record.id)
+                                      : activeTab === 'participants'
+                                        ? handleResendParticipantMail(record.id)
+                                        : activeTab === 'volunteers'
+                                          ? handleResendVolunteerMail(record.id)
+                                          : handleResendGroupMail(record.id)
+                                  }
+                                  disabled={!isRecordApproved(record) || resendingId === record.id || isBusy}
+                                  className="h-[26px] rounded-[5px] px-3 text-[11px]"
+                                  style={{
+                                    border: '0.5px solid rgba(255,255,255,0.1)',
+                                    color: 'rgba(238,230,216,0.45)',
+                                    background: 'transparent',
+                                    opacity: !isRecordApproved(record) ? 0.45 : 1,
+                                  }}
+                                  onMouseEnter={(event) => {
+                                    if (!(!isRecordApproved(record) || resendingId === record.id || isBusy)) {
+                                      event.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
+                                      event.currentTarget.style.color = 'rgba(238,230,216,0.7)'
+                                    }
+                                  }}
+                                  onMouseLeave={(event) => {
+                                    if (!(!isRecordApproved(record) || resendingId === record.id || isBusy)) {
+                                      event.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
+                                      event.currentTarget.style.color = 'rgba(238,230,216,0.45)'
+                                    }
+                                  }}
+                                >
+                                  {resendingId === record.id ? 'Sending...' : 'Resend'}
+                                </button>
 
                                 <button
                                   type="button"

@@ -1639,6 +1639,7 @@ async def get_all_volunteers(
                     "year": volunteer.get("year"),
                     "email": volunteer.get("email"),
                     "phone": volunteer.get("phone"),
+                    "team_label": volunteer.get("team_label") or "",
                     "volunteer_role": role_value,
                     "registered_at": volunteer.get("registered_at"),
                     "approved_at": volunteer.get("approved_at"),

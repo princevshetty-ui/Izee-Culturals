@@ -13,7 +13,7 @@ export default function PageTopBar({
             <img
               src="/college-logo.png"
               alt="IZee Got Talent"
-              className="h-12 w-auto object-contain"
+              className="h-[50px] w-auto object-contain"
             />
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-[0.2em] text-[#BEA35D]/90">IZee Got Talent</p>
