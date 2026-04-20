@@ -242,6 +242,7 @@ export default function FacultyDashboard() {
   const [assigningTeamId, setAssigningTeamId] = useState('')
   const [teamDraftById, setTeamDraftById] = useState({})
   const [bulkTeamLabel, setBulkTeamLabel] = useState('')
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false)
 
   const [selectedCourse, setSelectedCourse] = useState('all')
   const [selectedYear, setSelectedYear] = useState('all')
@@ -378,7 +379,23 @@ export default function FacultyDashboard() {
     setBulkTeamLabel('')
     setInfoMessage('')
     setErrorMessage('')
+    setIsMobileDrawerOpen(false)
   }, [activeTab])
+
+  useEffect(() => {
+    if (!isMobileDrawerOpen) return undefined
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsMobileDrawerOpen(false)
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [isMobileDrawerOpen])
 
   useEffect(() => {
     if (activeTab !== 'volunteers') {
@@ -1480,7 +1497,7 @@ export default function FacultyDashboard() {
 
       <div className="flex min-h-screen">
         <aside
-          className="sticky top-0 h-screen w-[220px] flex-shrink-0 border-r px-0 py-0"
+          className="sticky top-0 hidden h-screen w-[220px] flex-shrink-0 border-r px-0 py-0 md:block"
           style={{
             background: 'rgba(8,9,16,0.95)',
             borderRight: '0.5px solid rgba(255,255,255,0.06)',
@@ -1598,6 +1615,117 @@ export default function FacultyDashboard() {
           </div>
         </aside>
 
+        <AnimatePresence>
+          {isMobileDrawerOpen && (
+            <>
+              <motion.button
+                type="button"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setIsMobileDrawerOpen(false)}
+                className="fixed inset-0 z-40 bg-black/55 md:hidden"
+                aria-label="Close navigation drawer"
+              />
+
+              <motion.aside
+                initial={{ x: -260, opacity: 0.96 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -260, opacity: 0.96 }}
+                transition={{ duration: 0.24, ease: 'easeOut' }}
+                className="fixed inset-y-0 left-0 z-50 w-[250px] border-r md:hidden"
+                style={{
+                  background: 'rgba(8,9,16,0.98)',
+                  borderRight: '0.5px solid rgba(255,255,255,0.09)',
+                }}
+              >
+                <div className="flex h-full flex-col">
+                  <div className="px-5 pt-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <img
+                        src="/college-logo.png"
+                        alt="IZee Got Talent"
+                        className="h-[50px] w-auto object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsMobileDrawerOpen(false)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[rgba(238,230,216,0.7)]"
+                        style={{ border: '0.5px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.03)' }}
+                        aria-label="Close drawer"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[rgba(238,230,216,0.35)]">
+                      Faculty Console
+                    </p>
+                    <div className="mt-4 h-px w-full bg-[rgba(201,168,76,0.2)]" />
+                  </div>
+
+                  <nav className="mt-4">
+                    {NAV_ITEMS.map((item) => {
+                      const isActive = activeTab === item.id
+                      return (
+                        <button
+                          key={`mobile-${item.id}`}
+                          type="button"
+                          onClick={() => {
+                            setActiveTab(item.id)
+                            setIsMobileDrawerOpen(false)
+                          }}
+                          className="flex h-10 w-full items-center gap-2 px-4 text-left text-[13px] tracking-[0.04em] transition"
+                          style={{
+                            color: isActive ? '#C9A84C' : 'rgba(238,230,216,0.55)',
+                            background: isActive ? 'rgba(201,168,76,0.09)' : 'transparent',
+                            borderLeft: isActive ? '2px solid #C9A84C' : '2px solid transparent',
+                            fontWeight: isActive ? 500 : 400,
+                          }}
+                        >
+                          <span>{item.label}</span>
+                        </button>
+                      )
+                    })}
+                  </nav>
+
+                  <div className="mt-auto px-4 pb-4">
+                    <div className="mb-3 h-px w-full bg-[rgba(255,255,255,0.06)]" />
+                    <button
+                      type="button"
+                      onClick={handleExport}
+                      disabled={isExporting || isLoading}
+                      className="mb-2 inline-flex h-9 w-full items-center justify-center gap-2 text-[11px] transition disabled:opacity-50"
+                      style={{
+                        border: '0.5px solid rgba(201,168,76,0.3)',
+                        color: '#C9A84C',
+                        background: 'transparent',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      <span aria-hidden="true">↓</span>
+                      <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="h-9 w-full text-[11px] transition"
+                      style={{
+                        color: 'rgba(238,230,216,0.4)',
+                        border: 'none',
+                        background: 'transparent',
+                      }}
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
+
         <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
           <div className="h-[58px] border-b px-5 sm:px-6 lg:px-7" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
             <div className="flex h-full items-center justify-between">
@@ -1606,6 +1734,20 @@ export default function FacultyDashboard() {
                 <p className="text-[11px] text-[rgba(238,230,216,0.45)]">Showing {sortedRecords.length} records</p>
               </div>
               <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setIsMobileDrawerOpen(true)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] md:hidden"
+                  style={{ border: '0.5px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.03)', color: 'rgba(238,230,216,0.78)' }}
+                  aria-label="Open navigation drawer"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+                    <path d="M4 7h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <path d="M4 12h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <path d="M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </button>
+
                 <button
                   onClick={() => navigate('/')}
                   className="inline-flex items-center gap-2 rounded-full border border-[#EEE6D8]/16 bg-[rgba(255,255,255,0.04)] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-[rgba(238,230,216,0.82)] transition hover:border-[#EEE6D8]/28 hover:bg-[rgba(255,255,255,0.07)] hover:text-[#EEE6D8]"

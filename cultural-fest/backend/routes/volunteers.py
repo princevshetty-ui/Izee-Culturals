@@ -51,6 +51,28 @@ import re
 router = APIRouter()
 
 
+def has_existing_group_category(roll_no: str) -> bool:
+    """Return True if roll number already exists in any group registration (leader/member)."""
+    leader_match = (
+        supabase.table("group_registrations")
+        .select("id")
+        .eq("leader_roll_no", roll_no)
+        .limit(1)
+        .execute()
+    )
+    if leader_match.data:
+        return True
+
+    member_match = (
+        supabase.table("group_members")
+        .select("id")
+        .eq("roll_no", roll_no)
+        .limit(1)
+        .execute()
+    )
+    return bool(member_match.data)
+
+
 class VolunteerRegisterRequest(BaseModel):
     name: str
     roll_no: str
@@ -207,7 +229,14 @@ async def register_group(req: GroupRegisterRequest):
         if not is_valid_roll_no(leader_roll_no):
             raise HTTPException(status_code=400, detail="Leader roll_no must be 12 alphanumeric characters")
 
+        if has_existing_group_category(leader_roll_no):
+            return JSONResponse(status_code=400, content={
+                "success": False,
+                "message": "This roll number already has a Group category registration."
+            })
+
         normalized_members = []
+        seen_rolls = {leader_roll_no}
         for idx, member in enumerate(req.members):
             member_name = normalize_full_name(member.name)
             member_roll_no = normalize_roll_no(member.roll_no)
@@ -215,6 +244,20 @@ async def register_group(req: GroupRegisterRequest):
                 raise HTTPException(status_code=400, detail=f"Member {idx + 1} name is required")
             if not is_valid_roll_no(member_roll_no):
                 raise HTTPException(status_code=400, detail=f"Member {idx + 1} roll_no must be 12 alphanumeric characters")
+
+            if member_roll_no in seen_rolls:
+                return JSONResponse(status_code=400, content={
+                    "success": False,
+                    "message": f"Member {idx + 1} roll number is duplicated in this group."
+                })
+
+            if has_existing_group_category(member_roll_no):
+                return JSONResponse(status_code=400, content={
+                    "success": False,
+                    "message": f"Member {idx + 1} already has a Group category registration."
+                })
+
+            seen_rolls.add(member_roll_no)
             normalized_members.append({
                 "name": member_name,
                 "roll_no": member_roll_no,

@@ -56,17 +56,19 @@ LEFT_SECTION_X1 = 72
 LEFT_SECTION_X2 = SEPARATOR_X - 48
 LEFT_SECTION_CENTER_X = (LEFT_SECTION_X1 + LEFT_SECTION_X2) // 2
 
-# Badge box
-BADGE_W = 390
-BADGE_H = 85
-BADGE_Y = 186
+# Badge box (requested placement bounds)
+BADGE_X = 107
+BADGE_Y = 243
+BADGE_W = 513 - 107
+BADGE_H = 323 - 243
 
 # Main content zone
-CONTENT_X = LEFT_SECTION_X1
-NAME_Y = 350  # Vertical anchor for centered name block
+CONTENT_X = 109
+NAME_X = 109
+NAME_Y = 419
 NAME_FONT_MAX_SIZE = 72
 NAME_FONT_MIN_SIZE = 42
-NAME_MAX_WIDTH = LEFT_SECTION_X2 - LEFT_SECTION_X1 - 24
+NAME_MAX_WIDTH = LEFT_SECTION_X2 - NAME_X - 12
 DETAILS_Y_OFFSET = 26
 SECTION_LABEL_OFFSET = 70
 EVENT_LIST_OFFSET = 26
@@ -467,15 +469,13 @@ def generate_admit_pass(
         # ── STEP 2: ROLE BADGE ──
         badge_label = colors['badge_label']
         badge_font = get_font(28, bold=True)
-        badge_x = LEFT_SECTION_CENTER_X - (BADGE_W // 2)
-    
         draw.rectangle(
-            [badge_x, BADGE_Y, badge_x + BADGE_W, BADGE_Y + BADGE_H],
+            [BADGE_X, BADGE_Y, BADGE_X + BADGE_W, BADGE_Y + BADGE_H],
             fill=colors['badge_fill']
         )
     
         blw, blh = text_size(draw, badge_label, badge_font)
-        badge_text_x = badge_x + (BADGE_W - blw) // 2
+        badge_text_x = BADGE_X + (BADGE_W - blw) // 2
         badge_text_y = BADGE_Y + (BADGE_H - blh) // 2
         draw.text(
             (badge_text_x, badge_text_y),
@@ -505,11 +505,11 @@ def generate_admit_pass(
             line_heights.append(lh)
 
         total_name_height = sum(line_heights) + (line_gap * max(0, len(name_lines) - 1))
-        cursor_y = NAME_Y - (total_name_height // 2)
+        cursor_y = NAME_Y
 
         for idx, line in enumerate(name_lines):
-            lw, lh = text_size(draw, line, name_font)
-            line_x = LEFT_SECTION_CENTER_X - (lw // 2)
+            _, lh = text_size(draw, line, name_font)
+            line_x = NAME_X
             draw.text((line_x, cursor_y), line, font=name_font, fill=colors['text_primary'])
             cursor_y += lh + (line_gap if idx < len(name_lines) - 1 else 0)
 
@@ -538,7 +538,7 @@ def generate_admit_pass(
             min_size=24,
             bold=False,
         )
-        details_x = LEFT_SECTION_CENTER_X - (details_w // 2)
+        details_x = CONTENT_X
         draw.text((details_x, details_y), details_text, font=details_font, fill=colors['text_secondary'])
 
         details_bottom = details_y + details_h
@@ -581,12 +581,12 @@ def generate_admit_pass(
                 category = str(ev.get('category_label') or '').strip()
 
                 draw.rectangle(
-                    [CONTENT_X, row_y + 10, CONTENT_X + 12, row_y + 22],
+                    [CONTENT_X - 24, row_y + 10, CONTENT_X - 12, row_y + 22],
                     fill=(*accent_rgb, 200)
                 )
 
                 draw.text(
-                    (CONTENT_X + 24, row_y),
+                    (CONTENT_X, row_y),
                     ename,
                     font=event_name_font,
                     fill=colors['text_primary']
@@ -595,7 +595,7 @@ def generate_admit_pass(
 
                 if category and category.lower() != 'others':
                     draw.text(
-                        (CONTENT_X + 24 + enw + 20, row_y + 5),
+                        (CONTENT_X + enw + 20, row_y + 5),
                         category,
                         font=cat_font,
                         fill=colors['text_dim']
@@ -606,12 +606,12 @@ def generate_admit_pass(
             if others_event:
                 desc = str(others_event.get('others_description') or '').strip()
                 draw.rectangle(
-                    [CONTENT_X, row_y + 10, CONTENT_X + 12, row_y + 22],
+                    [CONTENT_X - 24, row_y + 10, CONTENT_X - 12, row_y + 22],
                     fill=(*accent_rgb, 150)
                 )
                 others_label = f"Others" + (f": {desc[:40]}" if desc else "")
                 draw.text(
-                    (CONTENT_X + 24, row_y),
+                    (CONTENT_X, row_y),
                     others_label,
                     font=event_name_font,
                     fill=colors['text_secondary']
