@@ -56,6 +56,7 @@ const OTHERS_EVENT_ID = 'others'
 const MotionSection = motion.section
 const MotionButton = motion.button
 const MotionDiv = motion.div
+const MotionSpan = motion.span
 
 const getEventPillLabel = (event) => {
   const hasMeaningfulType = event.type && event.type.toLowerCase() !== 'solo'
@@ -234,15 +235,20 @@ export default function ParticipantEvents() {
                   {category.icon}
                 </span>
                 <span className="mr-2 text-[#BEA35D]" aria-hidden="true">●</span>
-                <span
-                  className="tracking-widest uppercase text-xs font-semibold text-[#EEE6D8]/75"
+                <MotionSpan
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.48, delay: index * 0.1, ease: 'easeOut' }}
+                  className="tracking-widest uppercase font-semibold text-[#EEE6D8]/85"
                   style={{
                     fontFamily: "'Montage', serif",
                     flexShrink: 0,
+                    fontSize: '15px',
+                    display: 'inline-block'
                   }}
                 >
                   {category.label}
-                </span>
+                </MotionSpan>
                 <div style={{
                   flex: 1,
                   height: '0.5px',

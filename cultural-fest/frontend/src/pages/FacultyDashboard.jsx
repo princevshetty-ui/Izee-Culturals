@@ -1471,11 +1471,8 @@ export default function FacultyDashboard() {
               <img
                 src="/college-logo.png"
                 alt="IZee Got Talent"
-                className="h-10 w-auto object-contain"
+                className="h-12 w-auto object-contain"
               />
-              <span className="text-[11px] uppercase tracking-[0.2em] text-[#BEA35D]" style={{ fontFamily: 'system-ui, sans-serif' }}>
-                IZEE GOT TALENT
-              </span>
             </div>
             <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[rgba(238,230,216,0.35)]">
               Faculty Console

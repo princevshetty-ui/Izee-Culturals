@@ -324,7 +324,7 @@ export default function Home() {
                 <p
                   className="mb-1 font-display uppercase text-[#BEA35D]"
                   style={{
-                    fontWeight: 600,
+                    fontWeight: 700,
                     fontSize: '13px',
                     letterSpacing: '0.20em',
                     color: 'rgba(201,168,76,0.85)',
@@ -373,7 +373,7 @@ export default function Home() {
                     initial={{ y: 32, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ duration: 0.58, delay: 0.34, ease: 'easeOut' }}
-                    className="inline-block font-display italic text-[#BEA35D]"
+                    className="inline-block font-display italic font-bold text-[#BEA35D]"
                   >
                     {heroWords[3]}
                   </motion.span>
