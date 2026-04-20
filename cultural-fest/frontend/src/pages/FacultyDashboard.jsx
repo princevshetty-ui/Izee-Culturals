@@ -1467,12 +1467,13 @@ export default function FacultyDashboard() {
           }}
         >
           <div className="px-5 pt-6">
-            <div className="flex items-center">
-              <span className="text-[13px] tracking-[0.16em] text-[#C9A84C]" style={{ fontFamily: 'Montage, serif' }}>
-                IZEE
-              </span>
-              <span className="mx-2 h-4 w-px bg-[rgba(238,230,216,0.35)]" />
-              <span className="text-[13px] tracking-[0.16em] text-[#C9A84C]" style={{ fontFamily: 'Montage, serif' }}>
+            <div className="flex items-center gap-3">
+              <img
+                src="/college-logo.png"
+                alt="IZee Got Talent"
+                className="h-10 w-auto object-contain"
+              />
+              <span className="text-[11px] uppercase tracking-[0.2em] text-[#BEA35D]" style={{ fontFamily: 'system-ui, sans-serif' }}>
                 IZEE GOT TALENT
               </span>
             </div>
@@ -1590,9 +1591,15 @@ export default function FacultyDashboard() {
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => navigate('/')}
-                  className="text-[12px] text-[rgba(238,230,216,0.6)] hover:text-[#C9A84C] transition-colors"
+                  className="inline-flex items-center gap-2 rounded-full border border-[#EEE6D8]/16 bg-[rgba(255,255,255,0.04)] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-[rgba(238,230,216,0.82)] transition hover:border-[#EEE6D8]/28 hover:bg-[rgba(255,255,255,0.07)] hover:text-[#EEE6D8]"
+                  aria-label="Home"
                 >
-                  ← Home
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[#BEA35D]/45 bg-[rgba(190,163,93,0.12)] text-[#BEA35D]">
+                    <svg viewBox="0 0 16 16" width="8" height="8" fill="none" aria-hidden="true">
+                      <path d="M9.75 3.25 5 8l4.75 4.75" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  Home
                 </button>
                 <div
                   className="hidden h-8 items-center rounded-[6px] border px-3 text-[11px] text-[rgba(238,230,216,0.5)] sm:inline-flex"

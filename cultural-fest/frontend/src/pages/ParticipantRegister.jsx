@@ -9,7 +9,7 @@ const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 const COURSES = ['BCA', 'BBA', 'BBA - Aviation']
 const YEARS = ['1st', '2nd', '3rd']
 
-const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#C9A84C]'
+const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#BEA35D]'
 const inputBase =
   'mt-2 w-full rounded-lg border px-4 py-3 text-[#EEE6D8] placeholder:text-[rgba(238,230,216,0.3)] transition focus:outline-none'
 const MotionDiv = motion.div
@@ -149,7 +149,7 @@ export default function ParticipantRegister() {
       className="min-h-screen text-[#EEE6D8]"
       style={{
         background:
-          'radial-gradient(900px circle at 16% 88%, rgba(178,34,52,0.14), transparent 60%), radial-gradient(700px circle at 82% 12%, rgba(201,168,76,0.07), transparent 62%), radial-gradient(1400px at 50% 50%, rgba(20,28,60,0.3), transparent 70%), #080910',
+          'radial-gradient(900px circle at 16% 88%, rgba(178,34,52,0.14), transparent 60%), radial-gradient(700px circle at 82% 12%, rgba(190,163,93,0.07), transparent 62%), radial-gradient(1400px at 50% 50%, rgba(20,28,60,0.3), transparent 70%), #080910',
       }}
     >
       <PageTopBar
@@ -168,13 +168,13 @@ export default function ParticipantRegister() {
             <h1 className="text-3xl sm:text-4xl" style={DISPLAY_FONT}>
               Complete Registration
             </h1>
-            <p className="mt-2 text-[#C9A84C]">Participant Details</p>
+            <p className="mt-2 text-[#BEA35D]">Participant Details</p>
 
             {(selectedEvents.length > 0 || othersSelected) && (
               <div
                 style={{
-                  background: 'rgba(201,168,76,0.05)',
-                  border: '0.5px solid rgba(201,168,76,0.2)',
+                  background: 'rgba(190,163,93,0.05)',
+                  border: '0.5px solid rgba(190,163,93,0.2)',
                   borderRadius: '10px',
                   padding: '14px 16px',
                   marginBottom: '24px',
@@ -186,7 +186,7 @@ export default function ParticipantRegister() {
                     fontSize: '10px',
                     textTransform: 'uppercase',
                     letterSpacing: '0.14em',
-                    color: 'rgba(201,168,76,0.7)',
+                    color: 'rgba(190,163,93,0.7)',
                     fontFamily: 'system-ui, sans-serif',
                     marginBottom: '10px',
                   }}
@@ -200,9 +200,9 @@ export default function ParticipantRegister() {
                       style={{
                         padding: '4px 12px',
                         borderRadius: '999px',
-                        background: 'rgba(201,168,76,0.08)',
-                        border: '0.5px solid rgba(201,168,76,0.25)',
-                        color: '#C9A84C',
+                        background: 'rgba(190,163,93,0.08)',
+                        border: '0.5px solid rgba(190,163,93,0.25)',
+                        color: '#BEA35D',
                         fontSize: '12px',
                         fontFamily: 'system-ui, sans-serif',
                       }}
@@ -215,9 +215,9 @@ export default function ParticipantRegister() {
                       style={{
                         padding: '4px 12px',
                         borderRadius: '999px',
-                        background: 'rgba(201,168,76,0.08)',
-                        border: '0.5px dashed rgba(201,168,76,0.25)',
-                        color: 'rgba(201,168,76,0.8)',
+                        background: 'rgba(190,163,93,0.08)',
+                        border: '0.5px dashed rgba(190,163,93,0.25)',
+                        color: 'rgba(190,163,93,0.8)',
                         fontSize: '12px',
                         fontFamily: 'system-ui, sans-serif',
                       }}
@@ -263,11 +263,11 @@ export default function ParticipantRegister() {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  placeholder="V S"
+                  placeholder="Full Name (e.g., Vishesh Vandan)"
                   className={`${inputBase} ${
                     errors.name
                       ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(190,163,93,0.5)] focus:shadow-[0_0_0_3px_rgba(190,163,93,0.08)]'
                   }`}
                 />
                 <p className="mt-1 text-[11px] text-[#EEE6D8]/42">Use full name with each word capitalized.</p>
@@ -289,7 +289,7 @@ export default function ParticipantRegister() {
                   className={`${inputBase} ${
                     errors.roll_no
                       ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(190,163,93,0.5)] focus:shadow-[0_0_0_3px_rgba(190,163,93,0.08)]'
                   }`}
                 />
                 {errors.roll_no && <p className="mt-1.5 text-xs text-red-400">{errors.roll_no}</p>}
@@ -308,10 +308,10 @@ export default function ParticipantRegister() {
                     className={`${inputBase} ${
                       errors.course
                         ? 'border-red-500/60 focus:border-red-500'
-                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(190,163,93,0.5)] focus:shadow-[0_0_0_3px_rgba(190,163,93,0.08)]'
                     }`}
                   >
-                    <option value="">Select Course</option>
+                    <option value="" className="bg-[#111111] text-[#EEE6D8]">Select Course</option>
                     {COURSES.map((course) => (
                       <option key={course} value={course} className="bg-[#111111] text-[#EEE6D8]">
                         {course}
@@ -333,10 +333,10 @@ export default function ParticipantRegister() {
                     className={`${inputBase} ${
                       errors.year
                         ? 'border-red-500/60 focus:border-red-500'
-                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(190,163,93,0.5)] focus:shadow-[0_0_0_3px_rgba(190,163,93,0.08)]'
                     }`}
                   >
-                    <option value="">Select Year</option>
+                    <option value="" className="bg-[#111111] text-[#EEE6D8]">Select Year</option>
                     {YEARS.map((year) => (
                       <option key={year} value={year} className="bg-[#111111] text-[#EEE6D8]">
                         {year} Year
@@ -361,7 +361,7 @@ export default function ParticipantRegister() {
                   className={`${inputBase} ${
                     errors.email
                       ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(190,163,93,0.5)] focus:shadow-[0_0_0_3px_rgba(190,163,93,0.08)]'
                   }`}
                 />
                 {errors.email && <p className="mt-1.5 text-xs text-red-400">{errors.email}</p>}
@@ -372,8 +372,8 @@ export default function ParticipantRegister() {
                 disabled={isLoading}
                 className="mt-8 w-full rounded-lg px-4 py-3 font-semibold text-[#0C0D10] transition hover:brightness-105 active:scale-[0.985] disabled:opacity-70"
                 style={{
-                  background: 'linear-gradient(135deg, #C9A84C, #A8893C)',
-                  boxShadow: '0 4px 24px rgba(201,168,76,0.25)',
+                  background: 'linear-gradient(135deg, #BEA35D, #A8893C)',
+                  boxShadow: '0 4px 24px rgba(190,163,93,0.25)',
                 }}
               >
                 {isLoading ? (
@@ -399,7 +399,7 @@ export default function ParticipantRegister() {
             className="card-glass hidden rounded-2xl border border-[#EEE6D8]/12 p-6 lg:flex lg:flex-col lg:justify-between"
           >
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A84C]">Stage Note</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#BEA35D]">Stage Note</p>
               <h2 className="mt-3 text-2xl" style={DISPLAY_FONT}>
                 "Two events.
                 One stage."

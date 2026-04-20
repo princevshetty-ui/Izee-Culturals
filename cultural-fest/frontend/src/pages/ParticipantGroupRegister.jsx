@@ -41,7 +41,7 @@ export default function ParticipantGroupRegister() {
     const isFocused = focusedField === fieldKey
     return {
       background: 'rgba(255,255,255,0.04)',
-      border: isFocused ? '0.5px solid rgba(201,168,76,0.45)' : '0.5px solid rgba(255,255,255,0.12)',
+      border: isFocused ? '0.5px solid rgba(190,163,93,0.45)' : '0.5px solid rgba(255,255,255,0.12)',
       borderRadius: '8px',
       color: '#EEE6D8',
       fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -49,7 +49,7 @@ export default function ParticipantGroupRegister() {
       padding: '10px 14px',
       outline: 'none',
       width: '100%',
-      boxShadow: isFocused ? '0 0 0 3px rgba(201,168,76,0.06)' : 'none',
+      boxShadow: isFocused ? '0 0 0 3px rgba(190,163,93,0.06)' : 'none',
       transition: 'border-color 0.18s ease, box-shadow 0.18s ease',
     }
   }
@@ -62,7 +62,7 @@ export default function ParticipantGroupRegister() {
       fontWeight: '600',
       letterSpacing: '0.12em',
       textTransform: 'uppercase',
-      color: 'rgba(201,168,76,0.7)',
+      color: 'rgba(190,163,93,0.7)',
       marginBottom: '6px',
     }
   }
@@ -203,7 +203,7 @@ export default function ParticipantGroupRegister() {
   const goldUnderlineStyle = {
     height: '1px',
     width: '40px',
-    background: 'rgba(201,168,76,0.4)',
+    background: 'rgba(190,163,93,0.4)',
     marginBottom: '16px',
   }
 
@@ -256,9 +256,9 @@ export default function ParticipantGroupRegister() {
               display: 'inline-flex',
               padding: '4px 14px',
               borderRadius: '999px',
-              background: 'rgba(201,168,76,0.08)',
-              border: '0.5px solid rgba(201,168,76,0.25)',
-              color: '#C9A84C',
+              background: 'rgba(190,163,93,0.08)',
+              border: '0.5px solid rgba(190,163,93,0.25)',
+              color: '#BEA35D',
               fontSize: '12px',
               fontFamily: 'system-ui, -apple-system, sans-serif',
             }}
@@ -294,7 +294,7 @@ export default function ParticipantGroupRegister() {
           style={{
             fontFamily: 'system-ui, -apple-system, sans-serif',
             fontSize: '12px',
-            color: 'rgba(201,168,76,0.7)',
+            color: 'rgba(190,163,93,0.7)',
             letterSpacing: '0.04em',
             marginBottom: '32px',
           }}
@@ -362,9 +362,9 @@ export default function ParticipantGroupRegister() {
                   display: 'inline-flex',
                   padding: '2px 10px',
                   borderRadius: '999px',
-                  background: 'rgba(201,168,76,0.1)',
-                  border: '0.5px solid rgba(201,168,76,0.3)',
-                  color: '#C9A84C',
+                  background: 'rgba(190,163,93,0.1)',
+                  border: '0.5px solid rgba(190,163,93,0.3)',
+                  color: '#BEA35D',
                   fontSize: '10px',
                   fontFamily: 'system-ui, -apple-system, sans-serif',
                   fontWeight: '600',
@@ -390,7 +390,7 @@ export default function ParticipantGroupRegister() {
                   onChange={(e) => updateLeader('name', e.target.value)}
                   onFocus={() => setFocusedField('leader-name')}
                   onBlur={() => setFocusedField(null)}
-                  placeholder="Your full name"
+                  placeholder="Full Name (e.g., Vishesh Vandan)"
                   style={getInputStyle('leader-name')}
                 />
                 <p style={{ ...infoNoteStyle, marginBottom: 0, marginTop: '6px' }}>
@@ -565,7 +565,7 @@ export default function ParticipantGroupRegister() {
                         onChange={(e) => updateMember(member.id, 'name', e.target.value)}
                         onFocus={() => setFocusedField(`member-${idx}-name`)}
                         onBlur={() => setFocusedField(null)}
-                        placeholder="Member's full name"
+                        placeholder="Full Name (e.g., Vishesh Vandan)"
                         style={getInputStyle(`member-${idx}-name`)}
                       />
                       <p style={{ ...infoNoteStyle, marginBottom: 0, marginTop: '6px' }}>
@@ -659,8 +659,8 @@ export default function ParticipantGroupRegister() {
                 transition: 'border-color 0.18s ease, color 0.18s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(201,168,76,0.3)'
-                e.currentTarget.style.color = 'rgba(201,168,76,0.8)'
+                e.currentTarget.style.borderColor = 'rgba(190,163,93,0.3)'
+                e.currentTarget.style.color = 'rgba(190,163,93,0.8)'
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
@@ -691,15 +691,15 @@ export default function ParticipantGroupRegister() {
               height: '48px',
               borderRadius: '10px',
               background: submitting
-                ? 'rgba(201,168,76,0.25)'
-                : 'linear-gradient(135deg, #C9A84C 0%, #A8893C 100%)',
-              color: submitting ? 'rgba(201,168,76,0.4)' : '#0A0800',
+                ? 'rgba(190,163,93,0.25)'
+                : 'linear-gradient(135deg, #BEA35D 0%, #A8893C 100%)',
+              color: submitting ? 'rgba(190,163,93,0.4)' : '#0A0800',
               fontWeight: '600',
               fontSize: '15px',
               fontFamily: 'system-ui, -apple-system, sans-serif',
               border: 'none',
               cursor: submitting ? 'not-allowed' : 'pointer',
-              boxShadow: submitting ? 'none' : '0 4px 20px rgba(201,168,76,0.25)',
+              boxShadow: submitting ? 'none' : '0 4px 20px rgba(190,163,93,0.25)',
               letterSpacing: '0.02em',
               transition: 'all 0.18s ease',
               opacity: submitting ? 0.7 : 1,

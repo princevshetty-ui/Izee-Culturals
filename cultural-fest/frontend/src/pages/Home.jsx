@@ -384,7 +384,13 @@ export default function Home() {
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.44, ease: 'easeOut' }}
-                className="mt-5 max-w-[560px] font-display text-[18px] italic text-[rgba(238,230,216,0.62)]"
+                className="mt-5 max-w-[560px] text-[18px] text-[rgba(238,230,216,0.72)]"
+                style={{
+                  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                  letterSpacing: '0.01em',
+                  lineHeight: 1.55,
+                  textShadow: 'none',
+                }}
               >
                 Step into a night of rhythm, theatre, style, and unforgettable campus energy.
               </motion.p>

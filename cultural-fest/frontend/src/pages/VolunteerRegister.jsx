@@ -193,7 +193,7 @@ export default function VolunteerRegister() {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  placeholder="V S"
+                  placeholder="Full Name (e.g., Vishesh Vandan)"
                   className={`${inputVolunteer} ${
                     errors.name
                       ? 'border-red-500/60 focus:border-red-500'
@@ -241,7 +241,7 @@ export default function VolunteerRegister() {
                         : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(20,184,166,0.45)] focus:shadow-[0_0_0_3px_rgba(20,184,166,0.08)]'
                     }`}
                   >
-                    <option value="">Select Course</option>
+                    <option value="" className="bg-[#111111] text-[#EEE6D8]">Select Course</option>
                     {COURSES.map((course) => (
                       <option key={course} value={course} className="bg-[#111111] text-[#EEE6D8]">
                         {course}
@@ -266,7 +266,7 @@ export default function VolunteerRegister() {
                         : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(20,184,166,0.45)] focus:shadow-[0_0_0_3px_rgba(20,184,166,0.08)]'
                     }`}
                   >
-                    <option value="">Select Year</option>
+                    <option value="" className="bg-[#111111] text-[#EEE6D8]">Select Year</option>
                     {YEARS.map((year) => (
                       <option key={year} value={year} className="bg-[#111111] text-[#EEE6D8]">
                         {year} Year

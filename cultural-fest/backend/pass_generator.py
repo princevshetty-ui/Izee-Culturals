@@ -51,33 +51,35 @@ TH = 1024  # template height
 # Separator
 SEPARATOR_X = 857
 
+# Left content zone (text/badge/name)
+LEFT_SECTION_X1 = 72
+LEFT_SECTION_X2 = SEPARATOR_X - 48
+LEFT_SECTION_CENTER_X = (LEFT_SECTION_X1 + LEFT_SECTION_X2) // 2
+
 # Badge box
-BADGE_X = 89
-BADGE_Y = 186
 BADGE_W = 390
 BADGE_H = 85
+BADGE_Y = 186
 
 # Main content zone
-CONTENT_X = 89
-NAME_Y = 332
-NAME_FONT_MAX_SIZE = 72  # Max font size for name (refined luxury theme)
-NAME_FONT_MIN_SIZE = 48  # Min font size for name
-DETAILS_Y_OFFSET = 46
+CONTENT_X = LEFT_SECTION_X1
+NAME_Y = 350  # Vertical anchor for centered name block
+NAME_FONT_MAX_SIZE = 72
+NAME_FONT_MIN_SIZE = 42
+NAME_MAX_WIDTH = LEFT_SECTION_X2 - LEFT_SECTION_X1 - 24
+DETAILS_Y_OFFSET = 26
 SECTION_LABEL_OFFSET = 70
 EVENT_LIST_OFFSET = 26
 EVENT_ROW_GAP = 24
 
-# QR zone
-QR_BOX_X1 = 953
-QR_BOX_Y1 = 273
-QR_BOX_X2 = 1373
-QR_BOX_Y2 = 653
+# QR zone (right panel)
+RIGHT_SECTION_X1 = SEPARATOR_X + 56
+RIGHT_SECTION_X2 = TW - 72
+RIGHT_SECTION_CENTER_X = (RIGHT_SECTION_X1 + RIGHT_SECTION_X2) // 2
+RIGHT_SECTION_CENTER_Y = 464
+
 QR_SIZE = 340
 QR_BG_PADDING = 14
-
-QR_CENTER_X = (QR_BOX_X1 + QR_BOX_X2) // 2
-QR_LABEL_Y = QR_BOX_Y2 + 20
-QR_ID_Y = QR_BOX_Y2 + 50
 
 # Footer
 FOOTER_Y = 967
@@ -164,6 +166,32 @@ def fit_name_text(
     fallback = "..."
     fw, fh = text_size(draw, fallback, font)
     return fallback, font, fw, fh
+
+
+def fit_name_lines(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    max_width: int,
+    start_size: int,
+    min_size: int,
+    max_lines: int = 2,
+) -> tuple[list[str], ImageFont.FreeTypeFont]:
+    """Fit a display name into at most max_lines by reducing size when needed."""
+    normalized = " ".join(str(text or "").split())
+    if not normalized:
+        normalized = "N/A"
+
+    for size in range(start_size, min_size - 1, -2):
+        font = get_name_font(size)
+        lines = wrap_text_lines(draw, normalized, font, max_width=max_width, max_lines=max_lines)
+        if not lines:
+            continue
+        widest = max(text_size(draw, line, font)[0] for line in lines)
+        if widest <= max_width:
+            return lines, font
+
+    fallback_font = get_name_font(min_size)
+    return wrap_text_lines(draw, normalized, fallback_font, max_width=max_width, max_lines=max_lines), fallback_font
 
 
 def hex_to_rgba(hex_color: str, alpha: int = 255) -> tuple[int, int, int, int]:
@@ -361,8 +389,8 @@ def get_color_scheme(role: str) -> dict:
     """Return role-specific color palette for template-based passes."""
     schemes = {
         'participant': {
-            'accent': '#C9A84C',
-            'accent_rgb': (201, 168, 76),
+            'accent': '#BEA35D',
+            'accent_rgb': (190, 163, 93),
             'badge_fill': (139, 26, 26, 220),
             'badge_text': (255, 255, 255, 255),
             'badge_label': 'PARTICIPANT',
@@ -383,8 +411,8 @@ def get_color_scheme(role: str) -> dict:
             'section_label': (45, 212, 191, 180),
         },
         'student': {
-            'accent': '#C9A84C',
-            'accent_rgb': (201, 168, 76),
+            'accent': '#B22234',
+            'accent_rgb': (178, 34, 52),
             'badge_fill': (155, 27, 48, 220),
             'badge_text': (255, 255, 255, 255),
             'badge_label': 'AUDIENCE',
@@ -394,8 +422,8 @@ def get_color_scheme(role: str) -> dict:
             'section_label': (201, 168, 76, 180),
         },
         'group': {
-            'accent': '#C9A84C',
-            'accent_rgb': (201, 168, 76),
+            'accent': '#BEA35D',
+            'accent_rgb': (190, 163, 93),
             'badge_fill': (139, 26, 26, 220),
             'badge_text': (255, 255, 255, 255),
             'badge_label': 'GROUP EVENT',
@@ -439,14 +467,15 @@ def generate_admit_pass(
         # ── STEP 2: ROLE BADGE ──
         badge_label = colors['badge_label']
         badge_font = get_font(28, bold=True)
+        badge_x = LEFT_SECTION_CENTER_X - (BADGE_W // 2)
     
         draw.rectangle(
-            [BADGE_X, BADGE_Y, BADGE_X + BADGE_W, BADGE_Y + BADGE_H],
+            [badge_x, BADGE_Y, badge_x + BADGE_W, BADGE_Y + BADGE_H],
             fill=colors['badge_fill']
         )
     
         blw, blh = text_size(draw, badge_label, badge_font)
-        badge_text_x = BADGE_X + (BADGE_W - blw) // 2
+        badge_text_x = badge_x + (BADGE_W - blw) // 2
         badge_text_y = BADGE_Y + (BADGE_H - blh) // 2
         draw.text(
             (badge_text_x, badge_text_y),
@@ -461,28 +490,33 @@ def generate_admit_pass(
         else:
             raw_name = str(data.get('name') or 'N/A')
 
-        display_name, name_font, _, name_h = fit_name_text(
+        name_lines, name_font = fit_name_lines(
             draw,
             raw_name,
-            max_width=700,
+            max_width=NAME_MAX_WIDTH,
             start_size=NAME_FONT_MAX_SIZE,
             min_size=NAME_FONT_MIN_SIZE,
         )
 
-        draw.text(
-            (CONTENT_X, NAME_Y),
-            display_name,
-            font=name_font,
-            fill=colors['text_primary']
-        )
-        name_bottom = NAME_Y + name_h
+        line_gap = 8
+        line_heights: list[int] = []
+        for line in name_lines:
+            _, lh = text_size(draw, line, name_font)
+            line_heights.append(lh)
+
+        total_name_height = sum(line_heights) + (line_gap * max(0, len(name_lines) - 1))
+        cursor_y = NAME_Y - (total_name_height // 2)
+
+        for idx, line in enumerate(name_lines):
+            lw, lh = text_size(draw, line, name_font)
+            line_x = LEFT_SECTION_CENTER_X - (lw // 2)
+            draw.text((line_x, cursor_y), line, font=name_font, fill=colors['text_primary'])
+            cursor_y += lh + (line_gap if idx < len(name_lines) - 1 else 0)
+
+        name_bottom = cursor_y
 
         # ── STEP 4: DETAILS ROW ──
         details_y = name_bottom + DETAILS_Y_OFFSET
-
-        bold_font = get_font(30, bold=True)
-        reg_font = get_font(30, bold=False)
-        sep_font = get_font(30, bold=False)
 
         if role == 'group':
             roll = str(data.get('leader_roll_no') or 'N/A')
@@ -495,37 +529,19 @@ def generate_admit_pass(
             if not year.lower().endswith('year'):
                 year = year + ' Year'
 
-        cursor_x = CONTENT_X
+        details_text = f"{roll}  ·  {course}  ·  {year}"
+        details_text, details_font, details_w, details_h = fit_text(
+            draw,
+            details_text,
+            max_width=NAME_MAX_WIDTH,
+            start_size=30,
+            min_size=24,
+            bold=False,
+        )
+        details_x = LEFT_SECTION_CENTER_X - (details_w // 2)
+        draw.text((details_x, details_y), details_text, font=details_font, fill=colors['text_secondary'])
 
-        # Roll No
-        draw.text((cursor_x, details_y), roll,
-                  font=bold_font, fill=colors['text_primary'])
-        rw, rh = text_size(draw, roll, bold_font)
-        cursor_x += rw
-
-        # Separator 1
-        sep = "  ·  "
-        draw.text((cursor_x, details_y), sep,
-                  font=sep_font, fill=(*accent_rgb, 200))
-        sw, _ = text_size(draw, sep, sep_font)
-        cursor_x += sw
-
-        # Course
-        draw.text((cursor_x, details_y), course,
-                  font=reg_font, fill=colors['text_secondary'])
-        cw, _ = text_size(draw, course, reg_font)
-        cursor_x += cw
-
-        # Separator 2
-        draw.text((cursor_x, details_y), sep,
-                  font=sep_font, fill=(*accent_rgb, 200))
-        cursor_x += sw
-
-        # Year
-        draw.text((cursor_x, details_y), year,
-                  font=reg_font, fill=colors['text_secondary'])
-
-        details_bottom = details_y + rh
+        details_bottom = details_y + details_h
 
         # ── STEP 5: ROLE-SPECIFIC CONTENT ──
         label_font = get_font(22, bold=True)
@@ -672,7 +688,7 @@ def generate_admit_pass(
             base_y = section_y + label_h + EVENT_LIST_OFFSET
             cursor_y = base_y
 
-            event_lines = wrap_text_lines(draw, event_nm, value_font, max_width=700, max_lines=2)
+            event_lines = wrap_text_lines(draw, event_nm, value_font, max_width=NAME_MAX_WIDTH, max_lines=2)
             for line in event_lines:
                 draw.text((CONTENT_X, cursor_y), line, font=value_font, fill=(*accent_rgb, 255))
                 _, line_h = text_size(draw, line, value_font)
@@ -680,7 +696,7 @@ def generate_admit_pass(
 
             cursor_y += 4
 
-            team_lines = wrap_text_lines(draw, team_nm, event_name_font, max_width=700, max_lines=2)
+            team_lines = wrap_text_lines(draw, team_nm, event_name_font, max_width=NAME_MAX_WIDTH, max_lines=2)
             for line in team_lines:
                 draw.text((CONTENT_X, cursor_y), line, font=event_name_font, fill=colors['text_secondary'])
                 _, line_h = text_size(draw, line, event_name_font)
@@ -703,9 +719,9 @@ def generate_admit_pass(
             'verified': True
         }
 
-        # Center QR using template anchors (not constrained to a black box).
-        qr_center_x = (QR_BOX_X1 + QR_BOX_X2) // 2
-        qr_center_y = (QR_BOX_Y1 + QR_BOX_Y2) // 2
+        # Center QR in the right panel for balanced layout.
+        qr_center_x = RIGHT_SECTION_CENTER_X
+        qr_center_y = RIGHT_SECTION_CENTER_Y
 
         plate_size = QR_SIZE + (2 * QR_BG_PADDING)
 
@@ -731,11 +747,13 @@ def generate_admit_pass(
         # ── STEP 7: QR LABELS ──
         scan_font = get_font(20, bold=False)
         id_font = get_font(22, bold=True)
+        qr_label_y = plate_y2 + 20
+        qr_id_y = plate_y2 + 50
 
         scan_text = "SCAN TO VERIFY"
         stw, _ = text_size(draw, scan_text, scan_font)
         draw.text(
-            (QR_CENTER_X - stw // 2, QR_LABEL_Y),
+            (qr_center_x - stw // 2, qr_label_y),
             scan_text,
             font=scan_font,
             fill=colors['text_dim']
@@ -745,7 +763,7 @@ def generate_admit_pass(
         id_text = f"ID: {pass_id}"
         idw, _ = text_size(draw, id_text, id_font)
         draw.text(
-            (QR_CENTER_X - idw // 2, QR_ID_Y),
+            (qr_center_x - idw // 2, qr_id_y),
             id_text,
             font=id_font,
             fill=(*accent_rgb, 160)

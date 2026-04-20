@@ -493,7 +493,7 @@ export default function QRValidator() {
         <PageTopBar
           breadcrumb="Home → Gate Validation → Access Login"
           onBack={() => navigate('/')}
-          backLabel="← Home"
+          backLabel="Home"
           maxWidthClass="max-w-lg"
         />
 
@@ -574,7 +574,7 @@ export default function QRValidator() {
       <PageTopBar
         breadcrumb="Home → Gate Validation → Entry Checkpoint"
         onBack={() => navigate('/')}
-        backLabel="← Home"
+        backLabel="Home"
         maxWidthClass="max-w-6xl"
         rightSlot={
           <button

@@ -144,9 +144,9 @@ export default function ParticipantEvents() {
       minHeight: '100vh',
       background: `
         radial-gradient(ellipse at top,
-          rgba(184,134,11,0.08) 0%, transparent 60%),
+          rgba(190,163,93,0.1) 0%, transparent 60%),
         radial-gradient(ellipse at bottom,
-          rgba(74,0,128,0.08) 0%, transparent 60%),
+          rgba(20,184,166,0.07) 0%, transparent 62%),
         #0a0a0a
       `,
       color: '#EEE6D8',
@@ -189,7 +189,7 @@ export default function ParticipantEvents() {
               fontFamily: 'system-ui, -apple-system, sans-serif',
               fontSize: '12px',
               fontWeight: '600',
-              color: totalSelected > 0 ? '#C9A84C' : 'rgba(238,230,216,0.35)'
+              color: totalSelected > 0 ? '#BEA35D' : 'rgba(238,230,216,0.35)'
             }}>{totalSelected} / 2</span>
           </div>
           <div style={{
@@ -233,7 +233,7 @@ export default function ParticipantEvents() {
                 }} aria-hidden="true">
                   {category.icon}
                 </span>
-                <span className="mr-2 text-[#C9A84C]" aria-hidden="true">●</span>
+                <span className="mr-2 text-[#BEA35D]" aria-hidden="true">●</span>
                 <span
                   className="tracking-widest uppercase text-xs font-semibold text-[#EEE6D8]/75"
                   style={{
@@ -263,15 +263,15 @@ export default function ParticipantEvents() {
 
                   const basePillStyle = {
                     fontFamily: 'system-ui, -apple-system, sans-serif',
-                    transition: 'all 0.18s ease',
+                    transition: 'all 0.42s cubic-bezier(0.22, 1, 0.36, 1)',
                     pointerEvents: isDisabled ? 'none' : 'auto'
                   }
 
                   const pillClassName = [
-                    'inline-flex items-center gap-1.5 h-9 px-[18px] rounded-full text-[13px] select-none whitespace-nowrap transition-all duration-200',
+                    'inline-flex items-center gap-1.5 h-9 px-[18px] rounded-full text-[13px] select-none whitespace-nowrap transition-all duration-500',
                     isSelected
-                      ? 'bg-[linear-gradient(135deg,#C9A84C,#8A6B2C)] border border-[#C9A84C]/70 text-white font-semibold shadow-lg shadow-[#C9A84C]/25'
-                      : 'border border-white/10 bg-white/5 hover:border-[#C9A84C]/50 hover:shadow-[#C9A84C]/20',
+                      ? 'bg-[linear-gradient(135deg,#BEA35D,#8A6B2C)] border border-[#BEA35D]/70 text-white font-semibold shadow-lg shadow-[#BEA35D]/25'
+                      : 'border border-white/10 bg-white/5 hover:border-[#BEA35D]/50 hover:shadow-[#BEA35D]/20',
                     isDisabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer',
                   ].join(' ')
 
@@ -280,8 +280,9 @@ export default function ParticipantEvents() {
                       key={event.id}
                       type="button"
                       onClick={() => handleEventClick(event)}
-                      whileTap={{ scale: 0.96 }}
+                      whileTap={{ scale: 0.985, transition: { duration: 0.22, ease: 'easeOut' } }}
                       layout
+                      transition={{ layout: { type: 'spring', stiffness: 160, damping: 16, mass: 0.85 } }}
                       className={pillClassName}
                       style={basePillStyle}
                     >
@@ -327,9 +328,9 @@ export default function ParticipantEvents() {
                 height: '36px',
                 padding: '0 18px',
                 borderRadius: '999px',
-                border: othersSelected ? '1px dashed rgba(201,168,76,0.45)' : '1px dashed rgba(255,255,255,0.18)',
-                background: othersSelected ? 'rgba(201,168,76,0.07)' : 'transparent',
-                color: othersSelected ? '#C9A84C' : 'rgba(238,230,216,0.5)',
+                border: othersSelected ? '1px dashed rgba(190,163,93,0.45)' : '1px dashed rgba(255,255,255,0.18)',
+                background: othersSelected ? 'rgba(190,163,93,0.07)' : 'transparent',
+                color: othersSelected ? '#BEA35D' : 'rgba(238,230,216,0.5)',
                 fontSize: '13px',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
                 cursor: !othersSelected && totalSelected >= 2 ? 'not-allowed' : 'pointer',
@@ -345,7 +346,7 @@ export default function ParticipantEvents() {
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.28, ease: 'easeOut' }}
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                   style={{ overflow: 'hidden' }}
                 >
                   <textarea
@@ -358,7 +359,7 @@ export default function ParticipantEvents() {
                       maxWidth: '560px',
                       marginTop: '12px',
                       background: 'rgba(255,255,255,0.04)',
-                      border: '0.5px solid rgba(201,168,76,0.22)',
+                      border: '0.5px solid rgba(190,163,93,0.22)',
                       borderRadius: '10px',
                       color: '#EEE6D8',
                       fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -404,7 +405,7 @@ export default function ParticipantEvents() {
             fontFamily: 'system-ui, -apple-system, sans-serif',
             fontSize: '13px',
             color: totalSelected === 2
-              ? '#C9A84C'
+              ? '#BEA35D'
               : totalSelected === 1
                 ? 'rgba(238,230,216,0.6)'
                 : 'rgba(238,230,216,0.35)'
@@ -418,8 +419,8 @@ export default function ParticipantEvents() {
           onClick={handleContinue}
           disabled={!canContinue}
           className={canContinue
-            ? 'bg-[linear-gradient(135deg,#C9A84C,#8A6B2C)] text-white font-semibold hover:shadow-lg hover:shadow-[#C9A84C]/35 transition-all active:scale-[0.98]'
-            : 'bg-[#C9A84C]/18 text-[#C9A84C]/50 font-semibold cursor-not-allowed'}
+            ? 'bg-[linear-gradient(135deg,#BEA35D,#8A6B2C)] text-white font-semibold hover:shadow-lg hover:shadow-[#BEA35D]/35 transition-all active:scale-[0.98]'
+            : 'bg-[#BEA35D]/18 text-[#BEA35D]/50 font-semibold cursor-not-allowed'}
           style={canContinue
             ? {
                 height: '42px',
@@ -437,7 +438,7 @@ export default function ParticipantEvents() {
                 borderRadius: '999px',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
                 fontSize: '14px',
-                border: '0.5px solid rgba(201,168,76,0.15)',
+                border: '0.5px solid rgba(190,163,93,0.15)',
                 cursor: 'not-allowed'
               }}
         >
@@ -470,20 +471,20 @@ export default function ParticipantEvents() {
                 width: '100%',
                 maxWidth: '460px',
                 background: '#0D0E12',
-                border: '0.5px solid rgba(201,168,76,0.2)',
+                border: '0.5px solid rgba(190,163,93,0.2)',
                 borderRadius: '16px',
                 overflow: 'hidden'
               }}
               initial={{ opacity: 0, y: 12, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.98 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
               onClick={(event) => event.stopPropagation()}
             >
               <div
                 style={{
                   height: '3px',
-                  background: 'linear-gradient(to right, transparent, #C9A84C, transparent)'
+                  background: 'linear-gradient(to right, transparent, #BEA35D, transparent)'
                 }}
               />
 
@@ -502,9 +503,9 @@ export default function ParticipantEvents() {
                   alignItems: 'center',
                   padding: '3px 12px',
                   borderRadius: '999px',
-                  background: 'rgba(201,168,76,0.1)',
-                  border: '0.5px solid rgba(201,168,76,0.3)',
-                  color: '#C9A84C',
+                  background: 'rgba(190,163,93,0.1)',
+                  border: '0.5px solid rgba(190,163,93,0.3)',
+                  color: '#BEA35D',
                   fontSize: '12px',
                   fontFamily: 'system-ui, -apple-system, sans-serif',
                   marginBottom: '16px'
@@ -535,7 +536,7 @@ export default function ParticipantEvents() {
                       width: '100%',
                       height: '44px',
                       borderRadius: '10px',
-                      background: 'linear-gradient(135deg, #C9A84C, #A8893C)',
+                      background: 'linear-gradient(135deg, #BEA35D, #A8893C)',
                       color: '#0A0800',
                       fontWeight: '600',
                       fontSize: '14px',
