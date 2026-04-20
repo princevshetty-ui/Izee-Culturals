@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { isValidRollNo, normalizeFullNameInput, normalizeRollNoInput } from '../utils/formValidation'
+import PageTopBar from '../components/PageTopBar'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
@@ -129,22 +130,10 @@ export default function VolunteerRegister() {
           'radial-gradient(900px circle at 16% 88%, rgba(178,34,52,0.14), transparent 60%), radial-gradient(700px circle at 82% 12%, rgba(201,168,76,0.07), transparent 62%), radial-gradient(1400px at 50% 50%, rgba(20,28,60,0.3), transparent 70%), #080910',
       }}
     >
-      <header className="border-b border-[#EEE6D8]/10 bg-[#080910]/88 backdrop-blur-md">
-        <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-[#EEE6D8]/38">
-            Home → Volunteer Registration → Application Form
-          </p>
-          <div className="mt-2 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="text-sm text-[#EEE6D8]/78 transition hover:text-[#EEE6D8]"
-            >
-              ← Back
-            </button>
-          </div>
-        </div>
-      </header>
+      <PageTopBar
+        breadcrumb="Home → Volunteer Registration → Application Form"
+        onBack={() => navigate('/')}
+      />
 
       <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr]">

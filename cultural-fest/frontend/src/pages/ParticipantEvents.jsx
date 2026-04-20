@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import PageTopBar from '../components/PageTopBar'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
@@ -151,24 +152,18 @@ export default function ParticipantEvents() {
       color: '#EEE6D8',
       paddingBottom: '100px'
     }}>
+      <PageTopBar
+        breadcrumb="Home → Participant Registration → Select Events"
+        onBack={() => navigate('/')}
+        maxWidthClass="max-w-[820px]"
+      />
+
       <div style={{
         maxWidth: '820px',
         margin: '0 auto',
         padding: '32px 24px 0'
       }}>
-        <p className="text-[11px] tracking-[0.05em] text-[#EEE6D8]/30">
-          Home → Participant Registration → Select Events
-        </p>
-
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="mt-3 inline-flex items-center text-sm text-[#EEE6D8]/72 transition hover:text-[#EEE6D8]"
-        >
-          ← Back
-        </button>
-
-        <h1 className="mt-4 text-[clamp(28px,4vw,48px)] leading-[1.06] text-[#EEE6D8]" style={DISPLAY_FONT}>
+        <h1 className="text-[clamp(28px,4vw,48px)] leading-[1.06] text-[#EEE6D8]" style={DISPLAY_FONT}>
           Select Your Events
         </h1>
         <p className="mt-2 text-[15px] text-[#EEE6D8]/55">Choose up to 2 events from any category below</p>
