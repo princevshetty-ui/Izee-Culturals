@@ -1239,7 +1239,13 @@ export default function FacultyDashboard() {
   const actionColumnWidth = activeTab === 'volunteers' ? 380 : 160
 
   return (
-    <div className="min-h-screen bg-[#080910] text-[#EEE6D8]">
+    <div
+      className="min-h-screen text-[#EEE6D8]"
+      style={{
+        background:
+          'radial-gradient(960px circle at 14% 10%, rgba(201,168,76,0.08), transparent 60%), radial-gradient(900px circle at 88% 88%, rgba(178,34,52,0.08), transparent 58%), #080910',
+      }}
+    >
       <style>{`
         .dash-checkbox {
           appearance: none;
@@ -1295,6 +1301,13 @@ export default function FacultyDashboard() {
 
         .dash-row-even {
           background: rgba(255,255,255,0.012);
+        }
+
+        .dash-panel {
+          background: rgba(255,255,255,0.018);
+          border: 0.5px solid rgba(255,255,255,0.08);
+          border-radius: 10px;
+          backdrop-filter: blur(8px);
         }
       `}</style>
 
@@ -1421,11 +1434,11 @@ export default function FacultyDashboard() {
         </aside>
 
         <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="h-[52px] border-b px-5 sm:px-6 lg:px-7" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.012)' }}>
+          <div className="h-[58px] border-b px-5 sm:px-6 lg:px-7" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
             <div className="flex h-full items-center justify-between">
               <div>
                 <p className="text-[14px] font-medium text-[#EEE6D8]">{getTabTitle(activeTab)}</p>
-                <p className="text-[11px] text-[rgba(238,230,216,0.35)]">Showing {sortedRecords.length} records</p>
+                <p className="text-[11px] text-[rgba(238,230,216,0.45)]">Showing {sortedRecords.length} records</p>
               </div>
               <div className="flex items-center gap-4">
                 <button
@@ -1451,14 +1464,12 @@ export default function FacultyDashboard() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
               >
               <section
-                className="mb-4 flex h-16 overflow-hidden"
+                className="dash-panel mb-4 flex h-16 overflow-hidden"
                 style={{
-                  background: 'rgba(255,255,255,0.018)',
-                  border: '0.5px solid rgba(255,255,255,0.06)',
-                  borderRadius: '10px',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
                 }}
               >
                   {isStudentOrParticipantTab ? (
@@ -1511,7 +1522,7 @@ export default function FacultyDashboard() {
                   )}
               </section>
 
-              <section className="mb-3 flex flex-wrap items-center gap-3">
+              <section className="dash-panel mb-3 flex flex-wrap items-center gap-3 px-3 py-3">
                 <input
                   type="text"
                   value={nameSearch}
@@ -1617,7 +1628,7 @@ export default function FacultyDashboard() {
                 </button>
               </section>
 
-              <section className="mb-1 flex items-center justify-between gap-3 py-[6px]">
+              <section className="mb-1 flex items-center justify-between gap-3 rounded-[8px] py-[6px]">
                 <p className="text-[11px] text-[rgba(238,230,216,0.35)]">
                   Page {currentPagination.page} / {currentPagination.totalPages} | Total Records: {currentPagination.total}
                 </p>
@@ -1653,7 +1664,7 @@ export default function FacultyDashboard() {
                 </div>
               </section>
 
-              <section className="mb-2 flex items-center justify-between gap-3 py-[10px]">
+              <section className="mb-2 flex items-center justify-between gap-3 rounded-[8px] py-[10px]">
                 <p className="text-[11px] text-[rgba(238,230,216,0.38)]">Visible: {visibleIds.length} | Selected: {selectedIds.length}</p>
 
                 <div className="flex flex-wrap items-center gap-2">

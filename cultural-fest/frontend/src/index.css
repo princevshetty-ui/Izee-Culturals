@@ -87,9 +87,12 @@ body {
   color: var(--text-primary);
   font-family: var(--font-display);
   line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: geometricPrecision;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
+  font-synthesis-weight: none;
   font-feature-settings: "kern" 1, "liga" 1;
 }
 
