@@ -1,17 +1,16 @@
 from datetime import datetime, timedelta, timezone
 import os
 from typing import Any
+import bcrypt
 
 from fastapi import APIRouter, Header, HTTPException
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from pydantic import BaseModel
 
 from db import supabase
+from routes.faculty import verify_faculty_token
 
 router = APIRouter()
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 JWT_ALGORITHM = "HS256"
 JWT_EXP_HOURS = 12
 ALLOWED_VOTER_ROLES = {"judge", "staff", "student"}
@@ -32,6 +31,34 @@ class AudienceVoteRequest(BaseModel):
     performance_id: str
     category_id: str
     idempotency_key: str
+
+
+class VotingConfigPatchRequest(BaseModel):
+    voting_open: bool | None = None
+    judge_weight: float | None = None
+    audience_weight: float | None = None
+    reveal_triggered: bool | None = None
+
+
+class PerformanceCreateRequest(BaseModel):
+    title: str
+    performer_name: str
+    category_id: str
+    category_label: str
+    event_id: str
+    event_name: str
+
+
+class PerformancePatchRequest(BaseModel):
+    is_withdrawn: bool | None = None
+    is_active: bool | None = None
+
+
+class VoterCreateRequest(BaseModel):
+    name: str
+    roll_no: str
+    role: str
+    password: str
 
 
 def api_response(success: bool, data: Any, message: str) -> dict[str, Any]:
@@ -156,7 +183,7 @@ async def voting_login(req: VotingLoginRequest):
 
     password_hash = str(voter.get("password_hash") or "")
     try:
-        password_ok = pwd_context.verify(req.password, password_hash)
+        password_ok = bcrypt.checkpw(req.password.encode("utf-8"), password_hash.encode("utf-8"))
     except Exception:
         password_ok = False
 
@@ -198,18 +225,157 @@ async def post_voting_config_alias():
 
 @router.get("/voting/performances")
 async def get_voting_performances(authorization: str | None = Header(None)):
-    _get_current_voter(authorization)
+    auth_context = _authorize_voter_or_faculty(authorization)
+
+    query = supabase.table("performances").select("*")
+    if auth_context.get("auth_type") != "faculty":
+        query = query.eq("is_active", True).eq("is_withdrawn", False)
+
+    response = query.order("created_at").execute()
+    message = "Performances fetched" if auth_context.get("auth_type") == "faculty" else "Active performances fetched"
+    return api_response(True, response.data or [], message)
+
+
+@router.patch("/faculty/voting/config")
+async def patch_voting_config(req: VotingConfigPatchRequest, authorization: str | None = Header(None)):
+    verify_faculty_token(authorization)
+
+    updates: dict[str, Any] = {}
+    if req.voting_open is not None:
+        updates["voting_open"] = req.voting_open
+    if req.judge_weight is not None:
+        updates["judge_weight"] = req.judge_weight
+    if req.audience_weight is not None:
+        updates["audience_weight"] = req.audience_weight
+    if req.reveal_triggered is not None:
+        updates["reveal_triggered"] = req.reveal_triggered
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No config fields provided")
+
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    response = (
+        supabase.table("voting_config")
+        .update(updates)
+        .eq("id", 1)
+        .execute()
+    )
+    updated_rows = response.data or []
+    if not updated_rows:
+        updated_rows = [_fetch_voting_config()]
+
+    return api_response(True, updated_rows[0], "Voting config updated")
+
+
+@router.post("/faculty/voting/performance")
+async def create_voting_performance(req: PerformanceCreateRequest, authorization: str | None = Header(None)):
+    verify_faculty_token(authorization)
+
+    payload = {
+        "title": req.title.strip(),
+        "performer_name": req.performer_name.strip(),
+        "category_id": req.category_id.strip(),
+        "category_label": req.category_label.strip(),
+        "event_id": req.event_id.strip(),
+        "event_name": req.event_name.strip(),
+    }
+
+    response = supabase.table("performances").insert(payload).execute()
+    rows = response.data or []
+    return api_response(True, rows[0] if rows else payload, "Performance created")
+
+
+@router.patch("/faculty/voting/performance/{performance_id}")
+async def patch_voting_performance(
+    performance_id: str,
+    req: PerformancePatchRequest,
+    authorization: str | None = Header(None),
+):
+    verify_faculty_token(authorization)
+
+    updates: dict[str, Any] = {}
+    if req.is_withdrawn is not None:
+        updates["is_withdrawn"] = req.is_withdrawn
+    if req.is_active is not None:
+        updates["is_active"] = req.is_active
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No performance fields provided")
 
     response = (
         supabase.table("performances")
-        .select("*")
-        .eq("is_active", True)
-        .eq("is_withdrawn", False)
-        .order("created_at")
+        .update(updates)
+        .eq("id", performance_id)
         .execute()
     )
+    rows = response.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Performance not found")
 
-    return api_response(True, response.data or [], "Active performances fetched")
+    return api_response(True, rows[0], "Performance updated")
+
+
+@router.post("/faculty/voting/voter")
+async def create_voter(req: VoterCreateRequest, authorization: str | None = Header(None)):
+    verify_faculty_token(authorization)
+
+    normalized_role = req.role.strip().lower()
+    if normalized_role not in ALLOWED_VOTER_ROLES:
+        raise HTTPException(status_code=422, detail="Role must be judge, staff, or student")
+
+    password_hash = bcrypt.hashpw(req.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    payload = {
+        "name": req.name.strip(),
+        "roll_no": req.roll_no.strip(),
+        "role": normalized_role,
+        "password_hash": password_hash,
+    }
+
+    try:
+        response = supabase.table("voters").insert(payload).execute()
+    except Exception as exc:
+        message = str(exc)
+        if "voters_roll_no_key" in message or "duplicate" in message.lower():
+            raise HTTPException(status_code=409, detail="Voter with this roll number already exists")
+        raise
+
+    rows = response.data or []
+    created = rows[0] if rows else payload
+    created.pop("password_hash", None)
+    return api_response(True, created, "Voter created")
+
+
+@router.get("/faculty/voting/voters")
+async def list_voters(authorization: str | None = Header(None)):
+    verify_faculty_token(authorization)
+
+    response = (
+        supabase.table("voters")
+        .select("id, name, roll_no, role, created_at")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return api_response(True, response.data or [], "Voters fetched")
+
+
+@router.delete("/faculty/voting/voter/{voter_id}")
+async def delete_voter(voter_id: str, authorization: str | None = Header(None)):
+    verify_faculty_token(authorization)
+
+    response = (
+        supabase.table("voters")
+        .delete()
+        .eq("id", voter_id)
+        .execute()
+    )
+    rows = response.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Voter not found")
+
+    deleted = rows[0]
+    deleted.pop("password_hash", None)
+    return api_response(True, deleted, "Voter deleted")
 
 
 @router.post("/voting/judge/score")

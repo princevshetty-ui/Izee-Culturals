@@ -39,7 +39,15 @@ const NAV_ITEMS = [
   { id: 'participants', label: 'Participants' },
   { id: 'volunteers', label: 'Volunteers' },
   { id: 'groups', label: 'Groups' },
+  { id: 'voting', label: 'Voting Controls' },
 ]
+
+const CATEGORIES = {
+  performance: { label: 'Performance Based', events: ['Singing', 'Singing - Band', 'Dance', 'Dance - Crew', 'Instrumental'] },
+  expression: { label: 'Expression Based', events: ['Standup Comedy', 'Poetry', 'Rap', 'Beatboxing'] },
+  creative: { label: 'Creative Talents', events: ['Live Painting', 'Fashion Walk', 'Reel-making', 'Content Creation'] },
+  wildcard: { label: 'Wildcard', events: ['Magic', 'Mimicry', 'Freestyle'] },
+}
 
 const VOLUNTEER_TEAM_OPTIONS = [
   'Registration & Reception Team',
@@ -77,6 +85,7 @@ function getTabTitle(tabId) {
   if (tabId === 'students') return 'Students'
   if (tabId === 'participants') return 'Participants'
   if (tabId === 'volunteers') return 'Volunteers'
+  if (tabId === 'voting') return 'Voting Controls'
   return 'Groups'
 }
 
@@ -218,6 +227,20 @@ function formatTimestamp(value) {
   })
 }
 
+function makeEventIdFromName(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function parseWeightInput(value, fallback) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return fallback
+  return parsed
+}
+
 export default function FacultyDashboard() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('students')
@@ -244,30 +267,59 @@ export default function FacultyDashboard() {
   const [bulkTeamLabel, setBulkTeamLabel] = useState('')
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false)
 
+  const [isVotingLoading, setIsVotingLoading] = useState(false)
+  const [votingConfig, setVotingConfig] = useState(null)
+  const [judgeWeightDraft, setJudgeWeightDraft] = useState('0.8')
+  const [audienceWeightDraft, setAudienceWeightDraft] = useState('0.2')
+  const [votingPerformances, setVotingPerformances] = useState([])
+  const [votingVoters, setVotingVoters] = useState([])
+  const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false)
+  const [isVoterModalOpen, setIsVoterModalOpen] = useState(false)
+  const [performanceDraft, setPerformanceDraft] = useState({
+    title: '',
+    performer_name: '',
+    category_id: 'performance',
+    event_name: CATEGORIES.performance.events[0],
+  })
+  const [voterDraft, setVoterDraft] = useState({
+    name: '',
+    roll_no: '',
+    role: 'judge',
+    password: '',
+  })
+  const [isSavingVotingConfig, setIsSavingVotingConfig] = useState(false)
+  const [isSavingPerformance, setIsSavingPerformance] = useState(false)
+  const [isSavingVoter, setIsSavingVoter] = useState(false)
+  const [withdrawingPerformanceId, setWithdrawingPerformanceId] = useState('')
+  const [deletingVoterId, setDeletingVoterId] = useState('')
+
   const [selectedCourse, setSelectedCourse] = useState('all')
   const [selectedYear, setSelectedYear] = useState('all')
   const [selectedEvent, setSelectedEvent] = useState('all')
   const [selectedTeamLabel, setSelectedTeamLabel] = useState('all')
   const [nameSearch, setNameSearch] = useState('')
   const [sortKey, setSortKey] = useState('registered_desc')
-  const [pageByTab, setPageByTab] = useState({ students: 1, participants: 1, volunteers: 1, groups: 1 })
+  const [pageByTab, setPageByTab] = useState({ students: 1, participants: 1, volunteers: 1, groups: 1, voting: 1 })
   const [paginationByTab, setPaginationByTab] = useState({
     students: { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 },
     participants: { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 },
     volunteers: { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 },
     groups: { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 },
+    voting: { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 },
   })
   const [summaryByTab, setSummaryByTab] = useState({
     students: { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 },
     participants: { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 },
     volunteers: { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 },
     groups: { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 },
+    voting: { total: 0, approved_count: 0, pending_count: 0, approved_today: 0 },
   })
   const [tabCache, setTabCache] = useState({
     students: null,
     participants: null,
     volunteers: null,
-    groups: null
+    groups: null,
+    voting: null,
   })
   const [selectedIds, setSelectedIds] = useState([])
   const tabCacheRef = useRef(tabCache)
@@ -357,6 +409,45 @@ export default function FacultyDashboard() {
     }
   }
 
+  const fetchVotingPayload = async (endpoint, options = {}) => {
+    const response = await fetch(endpoint, options)
+    if (response.status === 401) {
+      throw new Error('AUTH_UNAUTHORIZED')
+    }
+
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok || !payload?.success) {
+      throw new Error(getApiErrorMessage(payload, 'Voting request failed'))
+    }
+
+    return payload
+  }
+
+  const loadVotingControlsData = async (signal) => {
+    const [configPayload, performancesPayload, votersPayload] = await Promise.all([
+      fetchVotingPayload('/api/voting/config', { signal }),
+      fetchVotingPayload('/api/voting/performances', {
+        signal,
+        headers: {
+          Authorization: `Bearer ${facultyPassword}`,
+        },
+      }),
+      fetchVotingPayload('/api/faculty/voting/voters', {
+        signal,
+        headers: {
+          Authorization: `Bearer ${facultyPassword}`,
+        },
+      }),
+    ])
+
+    const config = configPayload.data || null
+    setVotingConfig(config)
+    setJudgeWeightDraft(String(config?.judge_weight ?? 0.8))
+    setAudienceWeightDraft(String(config?.audience_weight ?? 0.2))
+    setVotingPerformances(Array.isArray(performancesPayload.data) ? performancesPayload.data : [])
+    setVotingVoters(Array.isArray(votersPayload.data) ? votersPayload.data : [])
+  }
+
   useEffect(() => {
     const isAuthenticated = sessionStorage.getItem('authenticated') === 'true'
     const storedPassword = sessionStorage.getItem('facultyPassword') || ''
@@ -419,6 +510,32 @@ export default function FacultyDashboard() {
     fetchRequestRef.current = requestId
 
     const isStaleRequest = () => abortController.signal.aborted || fetchRequestRef.current !== requestId
+
+    if (activeTab === 'voting') {
+      setIsVotingLoading(true)
+      setErrorMessage('')
+      setInfoMessage('')
+
+      loadVotingControlsData(abortController.signal)
+        .catch((error) => {
+          if (error?.name === 'AbortError' || isStaleRequest()) return
+          if (error?.message === 'AUTH_UNAUTHORIZED') {
+            updateAuthFailure()
+            return
+          }
+          setErrorMessage(error.message || 'Unable to load voting controls')
+        })
+        .finally(() => {
+          if (!isStaleRequest()) {
+            setIsVotingLoading(false)
+            setIsLoading(false)
+          }
+        })
+
+      return () => {
+        abortController.abort()
+      }
+    }
 
     const fetchDashboardData = async () => {
       // Check if tab cache exists and use it instead of fetching
@@ -672,11 +789,17 @@ export default function FacultyDashboard() {
 
   const isBusy =
     isLoading ||
+    isVotingLoading ||
     isExporting ||
     Boolean(approvingId) ||
     Boolean(deletingId) ||
     Boolean(resendingId) ||
-    Boolean(bulkAction)
+    Boolean(bulkAction) ||
+    isSavingVotingConfig ||
+    isSavingPerformance ||
+    isSavingVoter ||
+    Boolean(withdrawingPerformanceId) ||
+    Boolean(deletingVoterId)
 
   const runWithConcurrency = async (ids, limit, worker) => {
     const queue = [...ids]
@@ -937,6 +1060,11 @@ export default function FacultyDashboard() {
   }
 
   const handleExport = async () => {
+    if (activeTab === 'voting') {
+      setInfoMessage('Voting controls do not have CSV export.')
+      return
+    }
+
     setIsExporting(true)
     setErrorMessage('')
     setInfoMessage('')
@@ -986,6 +1114,278 @@ export default function FacultyDashboard() {
       setErrorMessage(error.message || 'CSV export failed')
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  const refreshVotingData = async () => {
+    await loadVotingControlsData()
+  }
+
+  const patchVotingConfig = async (payload) => {
+    const responsePayload = await fetchVotingPayload('/api/faculty/voting/config', {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${facultyPassword}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const nextConfig = responsePayload.data || votingConfig
+    setVotingConfig(nextConfig)
+    setJudgeWeightDraft(String(nextConfig?.judge_weight ?? judgeWeightDraft))
+    setAudienceWeightDraft(String(nextConfig?.audience_weight ?? audienceWeightDraft))
+  }
+
+  const handleToggleVotingOpen = async () => {
+    if (!votingConfig) return
+    setIsSavingVotingConfig(true)
+    setErrorMessage('')
+    setInfoMessage('')
+
+    try {
+      await patchVotingConfig({ voting_open: !Boolean(votingConfig.voting_open) })
+      setInfoMessage(`Voting is now ${!Boolean(votingConfig.voting_open) ? 'open' : 'closed'}.`)
+    } catch (error) {
+      if (error?.message === 'AUTH_UNAUTHORIZED') {
+        updateAuthFailure()
+      } else {
+        setErrorMessage(error.message || 'Unable to update voting status')
+      }
+    } finally {
+      setIsSavingVotingConfig(false)
+    }
+  }
+
+  const handleSaveVotingWeights = async () => {
+    const judgeWeight = parseWeightInput(judgeWeightDraft, NaN)
+    const audienceWeight = parseWeightInput(audienceWeightDraft, NaN)
+
+    if (!Number.isFinite(judgeWeight) || !Number.isFinite(audienceWeight)) {
+      setErrorMessage('Judge and Audience weights must be valid numbers.')
+      return
+    }
+
+    const sum = judgeWeight + audienceWeight
+    if (Math.abs(sum - 1) > 0.0001) {
+      setErrorMessage('Judge Weight and Audience Weight must sum to 1.0.')
+      return
+    }
+
+    setIsSavingVotingConfig(true)
+    setErrorMessage('')
+    setInfoMessage('')
+
+    try {
+      await patchVotingConfig({ judge_weight: judgeWeight, audience_weight: audienceWeight })
+      setInfoMessage('Voting weights saved successfully.')
+    } catch (error) {
+      if (error?.message === 'AUTH_UNAUTHORIZED') {
+        updateAuthFailure()
+      } else {
+        setErrorMessage(error.message || 'Unable to save voting weights')
+      }
+    } finally {
+      setIsSavingVotingConfig(false)
+    }
+  }
+
+  const handleTriggerReveal = async () => {
+    if (Boolean(votingConfig?.voting_open)) return
+
+    if (!window.confirm('Trigger Grand Reveal now? This action should only be done once voting is closed.')) {
+      return
+    }
+
+    setIsSavingVotingConfig(true)
+    setErrorMessage('')
+    setInfoMessage('')
+
+    try {
+      await patchVotingConfig({ reveal_triggered: true })
+      setInfoMessage('Grand Reveal triggered successfully.')
+    } catch (error) {
+      if (error?.message === 'AUTH_UNAUTHORIZED') {
+        updateAuthFailure()
+      } else {
+        setErrorMessage(error.message || 'Unable to trigger grand reveal')
+      }
+    } finally {
+      setIsSavingVotingConfig(false)
+    }
+  }
+
+  const resetPerformanceDraft = () => {
+    setPerformanceDraft({
+      title: '',
+      performer_name: '',
+      category_id: 'performance',
+      event_name: CATEGORIES.performance.events[0],
+    })
+  }
+
+  const handlePerformanceCategoryChange = (categoryId) => {
+    const fallbackEvent = CATEGORIES[categoryId]?.events?.[0] || ''
+    setPerformanceDraft((previous) => ({
+      ...previous,
+      category_id: categoryId,
+      event_name: fallbackEvent,
+    }))
+  }
+
+  const handleAddPerformance = async () => {
+    const title = performanceDraft.title.trim()
+    const performerName = performanceDraft.performer_name.trim()
+    const categoryId = performanceDraft.category_id
+    const eventName = performanceDraft.event_name
+
+    if (!title || !performerName || !categoryId || !eventName) {
+      setErrorMessage('Fill all performance fields before saving.')
+      return
+    }
+
+    setIsSavingPerformance(true)
+    setErrorMessage('')
+    setInfoMessage('')
+
+    try {
+      await fetchVotingPayload('/api/faculty/voting/performance', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${facultyPassword}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          performer_name: performerName,
+          category_id: categoryId,
+          category_label: CATEGORIES[categoryId]?.label || categoryId,
+          event_id: makeEventIdFromName(eventName),
+          event_name: eventName,
+        }),
+      })
+
+      await refreshVotingData()
+      setInfoMessage('Performance added successfully.')
+      setIsPerformanceModalOpen(false)
+      resetPerformanceDraft()
+    } catch (error) {
+      if (error?.message === 'AUTH_UNAUTHORIZED') {
+        updateAuthFailure()
+      } else {
+        setErrorMessage(error.message || 'Unable to add performance')
+      }
+    } finally {
+      setIsSavingPerformance(false)
+    }
+  }
+
+  const handleToggleWithdrawPerformance = async (performance) => {
+    setWithdrawingPerformanceId(performance.id)
+    setErrorMessage('')
+    setInfoMessage('')
+
+    try {
+      await fetchVotingPayload(`/api/faculty/voting/performance/${performance.id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${facultyPassword}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ is_withdrawn: !Boolean(performance.is_withdrawn) }),
+      })
+
+      await refreshVotingData()
+      setInfoMessage('Performance status updated.')
+    } catch (error) {
+      if (error?.message === 'AUTH_UNAUTHORIZED') {
+        updateAuthFailure()
+      } else {
+        setErrorMessage(error.message || 'Unable to update performance')
+      }
+    } finally {
+      setWithdrawingPerformanceId('')
+    }
+  }
+
+  const resetVoterDraft = () => {
+    setVoterDraft({
+      name: '',
+      roll_no: '',
+      role: 'judge',
+      password: '',
+    })
+  }
+
+  const handleAddVoter = async () => {
+    const name = voterDraft.name.trim()
+    const rollNo = voterDraft.roll_no.trim()
+    const password = voterDraft.password
+
+    if (!name || !rollNo || !password) {
+      setErrorMessage('Fill all voter fields before saving.')
+      return
+    }
+
+    setIsSavingVoter(true)
+    setErrorMessage('')
+    setInfoMessage('')
+
+    try {
+      await fetchVotingPayload('/api/faculty/voting/voter', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${facultyPassword}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          roll_no: rollNo,
+          role: voterDraft.role,
+          password,
+        }),
+      })
+
+      await refreshVotingData()
+      setInfoMessage('Voter added successfully.')
+      setIsVoterModalOpen(false)
+      resetVoterDraft()
+    } catch (error) {
+      if (error?.message === 'AUTH_UNAUTHORIZED') {
+        updateAuthFailure()
+      } else {
+        setErrorMessage(error.message || 'Unable to add voter')
+      }
+    } finally {
+      setIsSavingVoter(false)
+    }
+  }
+
+  const handleDeleteVoter = async (voterId) => {
+    if (!window.confirm('Delete this voter? This action cannot be undone.')) return
+
+    setDeletingVoterId(voterId)
+    setErrorMessage('')
+    setInfoMessage('')
+
+    try {
+      await fetchVotingPayload(`/api/faculty/voting/voter/${voterId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${facultyPassword}`,
+        },
+      })
+
+      await refreshVotingData()
+      setInfoMessage('Voter deleted successfully.')
+    } catch (error) {
+      if (error?.message === 'AUTH_UNAUTHORIZED') {
+        updateAuthFailure()
+      } else {
+        setErrorMessage(error.message || 'Unable to delete voter')
+      }
+    } finally {
+      setDeletingVoterId('')
     }
   }
 
@@ -1731,7 +2131,11 @@ export default function FacultyDashboard() {
             <div className="flex h-full items-center justify-between">
               <div>
                 <p className="text-[14px] font-medium text-[#EEE6D8]">{getTabTitle(activeTab)}</p>
-                <p className="text-[11px] text-[rgba(238,230,216,0.45)]">Showing {sortedRecords.length} records</p>
+                <p className="text-[11px] text-[rgba(238,230,216,0.45)]">
+                  {activeTab === 'voting'
+                    ? `Performances: ${votingPerformances.length} | Voters: ${votingVoters.length}`
+                    : `Showing ${sortedRecords.length} records`}
+                </p>
               </div>
               <div className="flex items-center gap-4">
                 <button
@@ -1779,6 +2183,413 @@ export default function FacultyDashboard() {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.3, ease: 'easeOut' }}
               >
+              {activeTab === 'voting' ? (
+                <>
+                  <section className="dash-panel mb-4 p-4 sm:p-5">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="text-[14px] font-semibold text-[#EEE6D8]">Section 1 - Config Panel</h3>
+                    </div>
+
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="rounded-[10px] border p-4" style={{ border: '0.5px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.015)' }}>
+                        <p className="text-[11px] uppercase tracking-[0.12em] text-[rgba(238,230,216,0.45)]">Voting Open / Closed</p>
+                        <div className="mt-3 flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={handleToggleVotingOpen}
+                            disabled={!votingConfig || isSavingVotingConfig}
+                            className="relative h-7 w-14 rounded-full transition"
+                            style={{
+                              background: votingConfig?.voting_open ? 'rgba(20,184,166,0.5)' : 'rgba(178,34,52,0.55)',
+                              border: '0.5px solid rgba(255,255,255,0.2)',
+                              opacity: !votingConfig || isSavingVotingConfig ? 0.55 : 1,
+                            }}
+                            aria-label="Toggle voting open"
+                          >
+                            <span
+                              className="absolute top-[2px] h-[22px] w-[22px] rounded-full bg-[#EEE6D8] transition"
+                              style={{ left: votingConfig?.voting_open ? '30px' : '2px' }}
+                            />
+                          </button>
+                          <span className="text-[13px] font-medium" style={{ color: votingConfig?.voting_open ? '#14B8A6' : '#B22234' }}>
+                            {votingConfig?.voting_open ? 'Voting Open' : 'Voting Closed'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[10px] border p-4" style={{ border: '0.5px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.015)' }}>
+                        <p className="text-[11px] uppercase tracking-[0.12em] text-[rgba(238,230,216,0.45)]">Weights</p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          <label className="text-[11px] text-[rgba(238,230,216,0.55)]">
+                            Judge Weight
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="1"
+                              value={judgeWeightDraft}
+                              onChange={(event) => setJudgeWeightDraft(event.target.value)}
+                              className="mt-1 h-[34px] w-full rounded-[6px] px-3 text-[12px]"
+                              style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                            />
+                          </label>
+                          <label className="text-[11px] text-[rgba(238,230,216,0.55)]">
+                            Audience Weight
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="1"
+                              value={audienceWeightDraft}
+                              onChange={(event) => setAudienceWeightDraft(event.target.value)}
+                              className="mt-1 h-[34px] w-full rounded-[6px] px-3 text-[12px]"
+                              style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                            />
+                          </label>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between">
+                          <p className="text-[11px] text-[rgba(238,230,216,0.45)]">Sum should be exactly 1.0</p>
+                          <button
+                            type="button"
+                            onClick={handleSaveVotingWeights}
+                            disabled={isSavingVotingConfig}
+                            className="h-[30px] rounded-[6px] px-3 text-[11px]"
+                            style={{ border: '0.5px solid rgba(201,168,76,0.35)', color: '#C9A84C', background: 'transparent' }}
+                          >
+                            {isSavingVotingConfig ? 'Saving...' : 'Save Weights'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-end">
+                      <button
+                        type="button"
+                        onClick={handleTriggerReveal}
+                        disabled={Boolean(votingConfig?.voting_open) || isSavingVotingConfig}
+                        className="h-[34px] rounded-[8px] px-4 text-[11px] font-medium uppercase tracking-[0.08em]"
+                        style={{
+                          border: '0.5px solid rgba(178,34,52,0.45)',
+                          color: '#F2D7DB',
+                          background: 'rgba(178,34,52,0.35)',
+                          opacity: Boolean(votingConfig?.voting_open) || isSavingVotingConfig ? 0.45 : 1,
+                        }}
+                      >
+                        Trigger Grand Reveal
+                      </button>
+                    </div>
+                  </section>
+
+                  <section className="dash-panel mb-4 p-4 sm:p-5">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="text-[14px] font-semibold text-[#EEE6D8]">Section 2 - Performances Management</h3>
+                      <button
+                        type="button"
+                        onClick={() => setIsPerformanceModalOpen(true)}
+                        className="h-[32px] rounded-[6px] px-3 text-[11px]"
+                        style={{ border: '0.5px solid rgba(201,168,76,0.35)', color: '#C9A84C', background: 'transparent' }}
+                      >
+                        Add Performance
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full border-separate border-spacing-0">
+                        <thead>
+                          <tr className="h-9" style={{ background: 'rgba(255,255,255,0.022)' }}>
+                            <th className="px-3 text-left text-[10px] uppercase tracking-[0.14em] text-[rgba(201,168,76,0.7)]">Title</th>
+                            <th className="px-3 text-left text-[10px] uppercase tracking-[0.14em] text-[rgba(201,168,76,0.7)]">Performer</th>
+                            <th className="px-3 text-left text-[10px] uppercase tracking-[0.14em] text-[rgba(201,168,76,0.7)]">Category</th>
+                            <th className="px-3 text-left text-[10px] uppercase tracking-[0.14em] text-[rgba(201,168,76,0.7)]">Event</th>
+                            <th className="px-3 text-left text-[10px] uppercase tracking-[0.14em] text-[rgba(201,168,76,0.7)]">Active</th>
+                            <th className="px-3 text-left text-[10px] uppercase tracking-[0.14em] text-[rgba(201,168,76,0.7)]">Withdraw</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {isVotingLoading && (
+                            <tr>
+                              <td colSpan={6} className="h-14 px-3 text-center text-[12px] text-[rgba(238,230,216,0.45)]">Loading performances...</td>
+                            </tr>
+                          )}
+                          {!isVotingLoading && votingPerformances.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="h-14 px-3 text-center text-[12px] text-[rgba(238,230,216,0.45)]">No performances found.</td>
+                            </tr>
+                          )}
+                          {!isVotingLoading && votingPerformances.map((performance) => (
+                            <tr key={performance.id} className="h-10" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
+                              <td className="px-3 text-[12px] text-[#EEE6D8]">{performance.title || '-'}</td>
+                              <td className="px-3 text-[12px] text-[rgba(238,230,216,0.72)]">{performance.performer_name || '-'}</td>
+                              <td className="px-3 text-[12px] text-[rgba(238,230,216,0.72)]">{performance.category_label || performance.category_id || '-'}</td>
+                              <td className="px-3 text-[12px] text-[rgba(238,230,216,0.72)]">{performance.event_name || '-'}</td>
+                              <td className="px-3 text-[11px]" style={{ color: performance.is_active ? '#14B8A6' : '#B22234' }}>
+                                {performance.is_active ? 'Active' : 'Inactive'}
+                              </td>
+                              <td className="px-3">
+                                <label className="inline-flex items-center gap-2 text-[11px] text-[rgba(238,230,216,0.62)]">
+                                  <input
+                                    type="checkbox"
+                                    className="dash-checkbox"
+                                    checked={Boolean(performance.is_withdrawn)}
+                                    onChange={() => handleToggleWithdrawPerformance(performance)}
+                                    disabled={withdrawingPerformanceId === performance.id}
+                                  />
+                                  {withdrawingPerformanceId === performance.id ? 'Saving...' : (performance.is_withdrawn ? 'Withdrawn' : 'Open')}
+                                </label>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+
+                  <section className="dash-panel p-4 sm:p-5">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="text-[14px] font-semibold text-[#EEE6D8]">Section 3 - Voter Management</h3>
+                      <button
+                        type="button"
+                        onClick={() => setIsVoterModalOpen(true)}
+                        className="h-[32px] rounded-[6px] px-3 text-[11px]"
+                        style={{ border: '0.5px solid rgba(201,168,76,0.35)', color: '#C9A84C', background: 'transparent' }}
+                      >
+                        Add Voter
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full border-separate border-spacing-0">
+                        <thead>
+                          <tr className="h-9" style={{ background: 'rgba(255,255,255,0.022)' }}>
+                            <th className="px-3 text-left text-[10px] uppercase tracking-[0.14em] text-[rgba(201,168,76,0.7)]">Name</th>
+                            <th className="px-3 text-left text-[10px] uppercase tracking-[0.14em] text-[rgba(201,168,76,0.7)]">Roll No</th>
+                            <th className="px-3 text-left text-[10px] uppercase tracking-[0.14em] text-[rgba(201,168,76,0.7)]">Role</th>
+                            <th className="px-3 text-left text-[10px] uppercase tracking-[0.14em] text-[rgba(201,168,76,0.7)]">Created</th>
+                            <th className="px-3 text-left text-[10px] uppercase tracking-[0.14em] text-[rgba(201,168,76,0.7)]">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {isVotingLoading && (
+                            <tr>
+                              <td colSpan={5} className="h-14 px-3 text-center text-[12px] text-[rgba(238,230,216,0.45)]">Loading voters...</td>
+                            </tr>
+                          )}
+                          {!isVotingLoading && votingVoters.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="h-14 px-3 text-center text-[12px] text-[rgba(238,230,216,0.45)]">No voters found.</td>
+                            </tr>
+                          )}
+                          {!isVotingLoading && votingVoters.map((voter) => (
+                            <tr key={voter.id} className="h-10" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
+                              <td className="px-3 text-[12px] text-[#EEE6D8]">{voter.name || '-'}</td>
+                              <td className="px-3 font-mono text-[12px] text-[rgba(238,230,216,0.72)]">{voter.roll_no || '-'}</td>
+                              <td className="px-3 text-[12px] capitalize text-[rgba(238,230,216,0.72)]">{voter.role || '-'}</td>
+                              <td className="px-3 text-[11px] text-[rgba(238,230,216,0.52)]">{formatTimestamp(voter.created_at)}</td>
+                              <td className="px-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteVoter(voter.id)}
+                                  disabled={deletingVoterId === voter.id}
+                                  className="h-[26px] rounded-[5px] px-3 text-[11px]"
+                                  style={{ border: '0.5px solid rgba(178,34,52,0.2)', color: 'rgba(178,34,52,0.65)', background: 'transparent' }}
+                                >
+                                  {deletingVoterId === voter.id ? 'Deleting...' : 'Delete'}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+
+                  <AnimatePresence>
+                    {isPerformanceModalOpen && (
+                      <>
+                        <motion.button
+                          type="button"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          onClick={() => {
+                            if (isSavingPerformance) return
+                            setIsPerformanceModalOpen(false)
+                          }}
+                          className="fixed inset-0 z-40 bg-black/60"
+                        />
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 20 }}
+                          className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-[12px] border p-4 sm:p-5"
+                          style={{ border: '0.5px solid rgba(255,255,255,0.12)', background: '#0C0D12' }}
+                        >
+                          <h4 className="text-[14px] font-semibold text-[#EEE6D8]">Add Performance</h4>
+                          <div className="mt-4 grid gap-3">
+                            <input
+                              type="text"
+                              value={performanceDraft.title}
+                              onChange={(event) => setPerformanceDraft((previous) => ({ ...previous, title: event.target.value }))}
+                              placeholder="Title"
+                              className="h-[36px] rounded-[6px] px-3 text-[12px]"
+                              style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                            />
+                            <input
+                              type="text"
+                              value={performanceDraft.performer_name}
+                              onChange={(event) => setPerformanceDraft((previous) => ({ ...previous, performer_name: event.target.value }))}
+                              placeholder="Performer Name"
+                              className="h-[36px] rounded-[6px] px-3 text-[12px]"
+                              style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                            />
+
+                            <select
+                              value={performanceDraft.category_id}
+                              onChange={(event) => handlePerformanceCategoryChange(event.target.value)}
+                              className="dash-select h-[36px] rounded-[6px] px-3 text-[12px]"
+                              style={selectStyle}
+                            >
+                              {Object.entries(CATEGORIES).map(([id, config]) => (
+                                <option key={id} value={id}>{config.label}</option>
+                              ))}
+                            </select>
+
+                            <select
+                              value={performanceDraft.event_name}
+                              onChange={(event) => setPerformanceDraft((previous) => ({ ...previous, event_name: event.target.value }))}
+                              className="dash-select h-[36px] rounded-[6px] px-3 text-[12px]"
+                              style={selectStyle}
+                            >
+                              {(CATEGORIES[performanceDraft.category_id]?.events || []).map((eventName) => (
+                                <option key={eventName} value={eventName}>{eventName}</option>
+                              ))}
+                            </select>
+
+                            <input
+                              type="text"
+                              value={performanceDraft.event_name}
+                              onChange={(event) => setPerformanceDraft((previous) => ({ ...previous, event_name: event.target.value }))}
+                              placeholder="Event Name"
+                              className="h-[36px] rounded-[6px] px-3 text-[12px]"
+                              style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                            />
+                          </div>
+
+                          <div className="mt-4 flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isSavingPerformance) return
+                                setIsPerformanceModalOpen(false)
+                              }}
+                              className="h-[32px] rounded-[6px] px-3 text-[11px]"
+                              style={{ border: '0.5px solid rgba(255,255,255,0.15)', color: 'rgba(238,230,216,0.72)', background: 'transparent' }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleAddPerformance}
+                              disabled={isSavingPerformance}
+                              className="h-[32px] rounded-[6px] px-3 text-[11px]"
+                              style={{ border: '0.5px solid rgba(201,168,76,0.35)', color: '#C9A84C', background: 'transparent' }}
+                            >
+                              {isSavingPerformance ? 'Saving...' : 'Save Performance'}
+                            </button>
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+
+                  <AnimatePresence>
+                    {isVoterModalOpen && (
+                      <>
+                        <motion.button
+                          type="button"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          onClick={() => {
+                            if (isSavingVoter) return
+                            setIsVoterModalOpen(false)
+                          }}
+                          className="fixed inset-0 z-40 bg-black/60"
+                        />
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 20 }}
+                          className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-[12px] border p-4 sm:p-5"
+                          style={{ border: '0.5px solid rgba(255,255,255,0.12)', background: '#0C0D12' }}
+                        >
+                          <h4 className="text-[14px] font-semibold text-[#EEE6D8]">Add Voter</h4>
+                          <div className="mt-4 grid gap-3">
+                            <input
+                              type="text"
+                              value={voterDraft.name}
+                              onChange={(event) => setVoterDraft((previous) => ({ ...previous, name: event.target.value }))}
+                              placeholder="Name"
+                              className="h-[36px] rounded-[6px] px-3 text-[12px]"
+                              style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                            />
+                            <input
+                              type="text"
+                              value={voterDraft.roll_no}
+                              onChange={(event) => setVoterDraft((previous) => ({ ...previous, roll_no: event.target.value }))}
+                              placeholder="Roll No"
+                              className="h-[36px] rounded-[6px] px-3 text-[12px]"
+                              style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                            />
+                            <select
+                              value={voterDraft.role}
+                              onChange={(event) => setVoterDraft((previous) => ({ ...previous, role: event.target.value }))}
+                              className="dash-select h-[36px] rounded-[6px] px-3 text-[12px]"
+                              style={selectStyle}
+                            >
+                              <option value="judge">judge</option>
+                              <option value="staff">staff</option>
+                              <option value="student">student</option>
+                            </select>
+                            <input
+                              type="password"
+                              value={voterDraft.password}
+                              onChange={(event) => setVoterDraft((previous) => ({ ...previous, password: event.target.value }))}
+                              placeholder="Password"
+                              className="h-[36px] rounded-[6px] px-3 text-[12px]"
+                              style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                            />
+                          </div>
+
+                          <div className="mt-4 flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isSavingVoter) return
+                                setIsVoterModalOpen(false)
+                              }}
+                              className="h-[32px] rounded-[6px] px-3 text-[11px]"
+                              style={{ border: '0.5px solid rgba(255,255,255,0.15)', color: 'rgba(238,230,216,0.72)', background: 'transparent' }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleAddVoter}
+                              disabled={isSavingVoter}
+                              className="h-[32px] rounded-[6px] px-3 text-[11px]"
+                              style={{ border: '0.5px solid rgba(201,168,76,0.35)', color: '#C9A84C', background: 'transparent' }}
+                            >
+                              {isSavingVoter ? 'Saving...' : 'Save Voter'}
+                            </button>
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </>
+              ) : (
+              <>
               <section
                 className="dash-panel mb-4 flex h-16 overflow-hidden"
                 style={{
@@ -2413,6 +3224,8 @@ export default function FacultyDashboard() {
                   </tbody>
                 </table>
               </section>
+              </>
+              )}
               </motion.div>
             </AnimatePresence>
           </div>
