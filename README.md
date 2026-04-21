@@ -296,7 +296,7 @@ source venv/bin/activate
 pip install fastapi uvicorn python-dotenv supabase qrcode
 uvicorn main:app --reload
 ```
-
+hi
 Backend starts on: `http://127.0.0.1:8000`
 
 ## Frontend

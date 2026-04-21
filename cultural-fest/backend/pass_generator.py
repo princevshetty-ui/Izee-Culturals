@@ -8,23 +8,31 @@ from typing import Optional, Dict, Any
 
 
 def load_font_safe(font_path: str, size: int):
-    """Load font with fallback chain for robustness."""
+    """Load font with a guaranteed readable size fallback."""
+    # 1. Try the intended custom font
     try:
-        return ImageFont.truetype(font_path, size)
-    except (IOError, OSError, Exception):
-        try:
-            fallbacks = [
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-            ]
-            for fb in fallbacks:
-                try:
-                    return ImageFont.truetype(fb, size)
-                except:
-                    continue
-            return ImageFont.load_default()
-        except:
-            return ImageFont.load_default()
+        if os.path.exists(font_path):
+            return ImageFont.truetype(font_path, size)
+    except Exception as e:
+        print(f"Custom font load error: {e}")
+
+    # 2. If custom font fails, try Linux system fonts at the SAME size
+    # This prevents the "ant-size" 10px default
+    fallbacks = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
+    ]
+    for fb in fallbacks:
+        if os.path.exists(fb):
+            try:
+                return ImageFont.truetype(fb, size)
+            except:
+                continue
+    
+    # 3. Final safety: If all else fails, return default (will be small)
+    print(f"WARNING: All fonts failed for {font_path}. Reverting to default.")
+    return ImageFont.load_default()
 
 
 # ━━━ TEMPLATE PATHS ━━━
@@ -40,8 +48,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Prefer bundled Nevara for the display name; fallback to system fonts when unavailable.
 NAME_FONT_PATHS = [
-    os.path.join(BASE_DIR, 'assets', 'fonts', 'Nevarademo-6YXEY.otf'),
-    os.path.join(BASE_DIR, '..', 'frontend', 'public', 'fonts', 'Nevarademo-6YXEY.otf'),
+    os.path.join(BASE_DIR, 'assets', 'fonts', 'Nevarademo-6YXEY.otf')
 ]
 
 # ━━━ COORDINATE CONSTANTS ━━━
@@ -66,8 +73,8 @@ BADGE_H = 323 - 243
 CONTENT_X = 109
 NAME_X = 109
 NAME_Y = 419
-NAME_FONT_MAX_SIZE = 72
-NAME_FONT_MIN_SIZE = 42
+NAME_FONT_MAX_SIZE = 84
+NAME_FONT_MIN_SIZE = 50
 NAME_MAX_WIDTH = LEFT_SECTION_X2 - NAME_X - 12
 DETAILS_Y_OFFSET = 26
 SECTION_LABEL_OFFSET = 70
