@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import os
+import uuid as uuid_module
 from typing import Any
 import bcrypt
 
@@ -38,6 +39,15 @@ class VotingConfigPatchRequest(BaseModel):
     judge_weight: float | None = None
     audience_weight: float | None = None
     reveal_triggered: bool | None = None
+
+
+class AwardConfigPatchRequest(BaseModel):
+    award_label: str
+
+
+class StudentImportResponse(BaseModel):
+    imported: int
+    skipped: int
 
 
 class PerformanceCreateRequest(BaseModel):
@@ -581,3 +591,93 @@ async def get_voting_results(authorization: str | None = Header(None)):
         },
         "Voting results calculated",
     )
+
+
+@router.get("/voting/award-config")
+async def get_award_config_public():
+    try:
+        response = supabase.table("award_config").select("*").execute()
+        return api_response(True, response.data or [], "OK")
+    except Exception as e:
+        return api_response(False, [], str(e))
+
+
+@router.get("/faculty/voting/award-config")
+async def get_award_config_admin(authorization: str | None = Header(None)):
+    verify_faculty_token(authorization)
+    try:
+        response = supabase.table("award_config").select("*").execute()
+        return api_response(True, response.data or [], "OK")
+    except Exception as e:
+        return api_response(False, [], str(e))
+
+
+@router.patch("/faculty/voting/award-config/{category_id}")
+async def update_award_config(
+    category_id: str,
+    body: AwardConfigPatchRequest,
+    authorization: str | None = Header(None),
+):
+    verify_faculty_token(authorization)
+    try:
+        response = (
+            supabase.table("award_config")
+            .update({"award_label": body.award_label})
+            .eq("category_id", category_id)
+            .execute()
+        )
+        return api_response(True, response.data, "Updated")
+    except Exception as e:
+        return api_response(False, None, str(e))
+
+
+@router.post("/faculty/voting/import-students")
+async def import_students(authorization: str | None = Header(None)):
+    verify_faculty_token(authorization)
+    try:
+        students_res = (
+            supabase.table("students")
+            .select("id, name, roll_no")
+            .not_.is_("approved_at", "null")
+            .not_.is_("qr_code", "null")
+            .execute()
+        )
+        students = students_res.data or []
+        imported = 0
+        skipped = 0
+
+        for s in students:
+            sid = str(s.get("id") or "")
+            qr_id = sid.replace("-", "")[:8]
+            roll = str(s.get("roll_no") or "")
+
+            existing = (
+                supabase.table("voters")
+                .select("id")
+                .eq("roll_no", roll)
+                .execute()
+            )
+            if existing.data:
+                skipped += 1
+                continue
+
+            pw_hash = bcrypt.hashpw(qr_id.encode(), bcrypt.gensalt()).decode()
+
+            supabase.table("voters").insert(
+                {
+                    "id": str(uuid_module.uuid4()),
+                    "name": str(s.get("name") or ""),
+                    "roll_no": roll,
+                    "role": "student",
+                    "password_hash": pw_hash,
+                }
+            ).execute()
+            imported += 1
+
+        return api_response(
+            True,
+            {"imported": imported, "skipped": skipped},
+            f"{imported} imported, {skipped} skipped",
+        )
+    except Exception as e:
+        return api_response(False, None, str(e))
