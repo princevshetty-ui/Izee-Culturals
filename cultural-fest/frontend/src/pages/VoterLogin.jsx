@@ -17,7 +17,7 @@ export default function VoterLogin() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('http://localhost:8000/api/voting/login', {
+      const response = await fetch('/api/voting/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roll_no: rollNo, password })

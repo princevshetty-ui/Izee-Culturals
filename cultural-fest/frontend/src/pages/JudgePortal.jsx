@@ -40,7 +40,7 @@ export default function JudgePortal() {
       const token = sessionStorage.getItem('VOTER_TOKEN')
 
       // Fetch config
-      const configRes = await fetch('http://localhost:8000/api/voting/config', {
+      const configRes = await fetch('/api/voting/config', {
         headers: { Authorization: `Bearer ${token}` }
       })
       const configData = await configRes.json()
@@ -49,7 +49,7 @@ export default function JudgePortal() {
       }
 
       // Fetch performances
-      const perfRes = await fetch('http://localhost:8000/api/voting/performances', {
+      const perfRes = await fetch('/api/voting/performances', {
         headers: { Authorization: `Bearer ${token}` }
       })
       const perfData = await perfRes.json()
@@ -82,7 +82,7 @@ export default function JudgePortal() {
     setSubmitting(performanceId)
 
     try {
-      const response = await fetch('http://localhost:8000/api/voting/judge/score', {
+      const response = await fetch('/api/voting/judge/score', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
