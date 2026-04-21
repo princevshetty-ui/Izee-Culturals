@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { isValidRollNo, normalizeFullNameInput, normalizeRollNoInput } from '../utils/formValidation'
 import PageTopBar from '../components/PageTopBar'
+import { apiFetch } from '../utils/api'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 const COURSES = ['BCA', 'BBA', 'BBA - Aviation']
@@ -146,7 +147,7 @@ export default function ParticipantGroupRegister() {
     setSubmitting(true)
 
     try {
-      const res = await fetch('/api/register/group-participant', {
+      const res = await apiFetch('/api/register/group-participant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

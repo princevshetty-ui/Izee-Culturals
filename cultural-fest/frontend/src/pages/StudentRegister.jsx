@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { isValidRollNo, normalizeFullNameInput, normalizeRollNoInput } from '../utils/formValidation'
 import PageTopBar from '../components/PageTopBar'
+import { apiFetch } from '../utils/api'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
@@ -81,7 +82,7 @@ export default function StudentRegister() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/register/student', {
+      const response = await apiFetch('/api/register/student', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

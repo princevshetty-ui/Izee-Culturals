@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import confetti from 'canvas-confetti'
+import { apiFetch } from '../utils/api'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 const GOLD = '#BEA35D'
@@ -25,7 +26,7 @@ export default function WinnerReveal() {
   useEffect(() => {
     const poll = async () => {
       try {
-        const configRes = await fetch('/api/voting/config')
+        const configRes = await apiFetch('/api/voting/config')
         const configData = await configRes.json()
         if (configData.success) {
           setVotingConfig(configData.data)
@@ -35,7 +36,7 @@ export default function WinnerReveal() {
           }
         }
 
-        const resultsRes = await fetch('/api/voting/results')
+        const resultsRes = await apiFetch('/api/voting/results')
         const resultsData = await resultsRes.json()
         if (resultsData.success) {
           setResults(resultsData.data)

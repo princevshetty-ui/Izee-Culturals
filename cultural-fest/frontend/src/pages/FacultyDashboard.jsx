@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { EVENTS } from '../data/events.js'
+import { apiFetch } from '../utils/api'
 
 const _MOTION = motion
 
@@ -342,7 +343,7 @@ export default function FacultyDashboard() {
 
   const fetchFacultyList = async (endpoint, signal) => {
     for (let attempt = 1; attempt <= 2; attempt += 1) {
-      const response = await fetch(endpoint, {
+      const response = await apiFetch(endpoint, {
         signal,
         headers: {
           Authorization: `Bearer ${facultyPassword}`,
@@ -410,7 +411,7 @@ export default function FacultyDashboard() {
   }
 
   const fetchVotingPayload = async (endpoint, options = {}) => {
-    const response = await fetch(endpoint, options)
+    const response = await apiFetch(endpoint, options)
     if (response.status === 401) {
       throw new Error('AUTH_UNAUTHORIZED')
     }
@@ -832,7 +833,7 @@ export default function FacultyDashboard() {
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        const response = await fetch(endpoint, {
+        const response = await apiFetch(endpoint, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${facultyPassword}`,
@@ -878,7 +879,7 @@ export default function FacultyDashboard() {
     }
     const endpoint = deleteEndpointByTab[activeTab]
 
-    const response = await fetch(endpoint, {
+    const response = await apiFetch(endpoint, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${facultyPassword}`,
@@ -899,7 +900,7 @@ export default function FacultyDashboard() {
   }
 
   const resendStudentMailById = async (recordId) => {
-    const response = await fetch(`/api/faculty/resend/student/${recordId}`, {
+    const response = await apiFetch(`/api/faculty/resend/student/${recordId}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${facultyPassword}`,
@@ -920,7 +921,7 @@ export default function FacultyDashboard() {
   }
 
   const resendParticipantMailById = async (recordId) => {
-    const response = await fetch(`/api/faculty/resend/participant/${recordId}`, {
+    const response = await apiFetch(`/api/faculty/resend/participant/${recordId}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${facultyPassword}`,
@@ -941,7 +942,7 @@ export default function FacultyDashboard() {
   }
 
   const resendVolunteerMailById = async (recordId) => {
-    const response = await fetch(`/api/faculty/resend/volunteer/${recordId}`, {
+    const response = await apiFetch(`/api/faculty/resend/volunteer/${recordId}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${facultyPassword}`,
@@ -962,7 +963,7 @@ export default function FacultyDashboard() {
   }
 
   const resendGroupMailById = async (recordId) => {
-    const response = await fetch(`/api/faculty/resend/group/${recordId}`, {
+    const response = await apiFetch(`/api/faculty/resend/group/${recordId}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${facultyPassword}`,
@@ -983,7 +984,7 @@ export default function FacultyDashboard() {
   }
 
   const assignVolunteerTeamById = async (recordId, teamLabel) => {
-    const response = await fetch(`/api/faculty/volunteer/${recordId}/assign-team`, {
+    const response = await apiFetch(`/api/faculty/volunteer/${recordId}/assign-team`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${facultyPassword}`,
@@ -1085,7 +1086,7 @@ export default function FacultyDashboard() {
 
       const exportEndpoint = exportEndpointByTab[activeTab]
 
-      const response = await fetch(exportEndpoint, {
+      const response = await apiFetch(exportEndpoint, {
         headers: {
           Authorization: `Bearer ${facultyPassword}`,
         },

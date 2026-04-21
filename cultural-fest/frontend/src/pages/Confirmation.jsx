@@ -2,6 +2,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 import PageTopBar from '../components/PageTopBar'
+import { apiFetch } from '../utils/api'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 const MotionDiv = motion.div
@@ -48,7 +49,7 @@ export default function Confirmation() {
     setStatusError('')
 
     try {
-      const response = await fetch(statusEndpoint)
+      const response = await apiFetch(statusEndpoint)
       const payload = await response.json()
 
       if (!response.ok || !payload.success) {

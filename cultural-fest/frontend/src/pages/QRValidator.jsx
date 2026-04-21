@@ -2,6 +2,7 @@ import { Html5Qrcode } from 'html5-qrcode'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageTopBar from '../components/PageTopBar'
+import { apiFetch } from '../utils/api'
 
 const SCANNER_REGION_ID = 'entry-gate-qr-scanner'
 const SCAN_THROTTLE_MS = 1400
@@ -44,7 +45,7 @@ async function fetchJsonWithRetry(url, options = {}, config = {}) {
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
 
     try {
-      const response = await fetch(withNoCache(url), {
+      const response = await apiFetch(withNoCache(url), {
         ...options,
         cache: 'no-store',
         signal: controller.signal,

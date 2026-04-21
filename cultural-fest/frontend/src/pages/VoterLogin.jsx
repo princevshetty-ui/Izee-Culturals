@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { apiFetch } from '../utils/api'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 
@@ -17,7 +18,7 @@ export default function VoterLogin() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/voting/login', {
+      const response = await apiFetch('/api/voting/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roll_no: rollNo, password })

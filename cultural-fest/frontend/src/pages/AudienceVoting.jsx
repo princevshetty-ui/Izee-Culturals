@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { apiFetch } from '../utils/api'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 
@@ -40,7 +41,7 @@ export default function AudienceVoting() {
       const token = sessionStorage.getItem('VOTER_TOKEN')
 
       // Fetch config
-      const configRes = await fetch('/api/voting/config', {
+      const configRes = await apiFetch('/api/voting/config', {
         headers: { Authorization: `Bearer ${token}` }
       })
       const configData = await configRes.json()
@@ -49,7 +50,7 @@ export default function AudienceVoting() {
       }
 
       // Fetch performances
-      const perfRes = await fetch('/api/voting/performances', {
+      const perfRes = await apiFetch('/api/voting/performances', {
         headers: { Authorization: `Bearer ${token}` }
       })
       const perfData = await perfRes.json()
@@ -82,7 +83,7 @@ export default function AudienceVoting() {
     setSubmitting(categoryId)
 
     try {
-      const response = await fetch('/api/voting/audience/vote', {
+      const response = await apiFetch('/api/voting/audience/vote', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
