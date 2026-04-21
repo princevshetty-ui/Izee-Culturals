@@ -66,6 +66,12 @@ class VolunteerTeamAssignmentRequest(BaseModel):
     team_label: str
 
 
+class RegistrationConfigUpdateRequest(BaseModel):
+    student_open: bool | None = None
+    participant_open: bool | None = None
+    volunteer_open: bool | None = None
+
+
 def verify_faculty_token(authorization: str = Header(None)):
     """Verify faculty token from Authorization header."""
     if not authorization:
@@ -80,6 +86,38 @@ def verify_faculty_token(authorization: str = Header(None)):
     
     if bearer_token != faculty_password:
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+def normalize_registration_config_row(row: dict | None) -> dict:
+    row = row or {}
+    return {
+        "id": 1,
+        "student_open": bool(row.get("student_open", True)),
+        "participant_open": bool(row.get("participant_open", True)),
+        "volunteer_open": bool(row.get("volunteer_open", True)),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+def fetch_registration_config() -> dict:
+    response = (
+        supabase.table("registration_config")
+        .select("id, student_open, participant_open, volunteer_open, updated_at")
+        .eq("id", 1)
+        .limit(1)
+        .execute()
+    )
+
+    if response.data:
+        return normalize_registration_config_row(response.data[0])
+
+    created = (
+        supabase.table("registration_config")
+        .insert({"id": 1, "student_open": True, "participant_open": True, "volunteer_open": True})
+        .execute()
+    )
+    created_row = created.data[0] if created.data else None
+    return normalize_registration_config_row(created_row)
 
 
 def fetch_with_retry(fetch_fn, attempts: int = 2, delay_seconds: float = 0.25):
@@ -625,6 +663,68 @@ async def faculty_login(req: FacultyLoginRequest):
         "data": {"token": "ok"},
         "message": "Login successful"
     }
+
+
+@router.get("/config/registrations")
+async def get_registration_config():
+    try:
+        config = fetch_registration_config()
+        return {
+            "success": True,
+            "data": config,
+            "message": "Registration config retrieved successfully",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "data": None,
+            "message": f"Failed to fetch registration config: {str(e)}",
+        }
+
+
+@router.patch("/faculty/config/registrations")
+async def update_registration_config(req: RegistrationConfigUpdateRequest, authorization: str = Header(None)):
+    verify_faculty_token(authorization)
+
+    try:
+        current = fetch_registration_config()
+
+        updates = {}
+        if req.student_open is not None:
+            updates["student_open"] = req.student_open
+        if req.participant_open is not None:
+            updates["participant_open"] = req.participant_open
+        if req.volunteer_open is not None:
+            updates["volunteer_open"] = req.volunteer_open
+
+        if not updates:
+            return {
+                "success": True,
+                "data": current,
+                "message": "No registration config changes provided",
+            }
+
+        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        response = (
+            supabase.table("registration_config")
+            .update(updates)
+            .eq("id", 1)
+            .execute()
+        )
+
+        updated_row = response.data[0] if response.data else {**current, **updates}
+        return {
+            "success": True,
+            "data": normalize_registration_config_row(updated_row),
+            "message": "Registration config updated successfully",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "data": None,
+            "message": f"Failed to update registration config: {str(e)}",
+        }
 
 
 @router.post("/validate/access/login")

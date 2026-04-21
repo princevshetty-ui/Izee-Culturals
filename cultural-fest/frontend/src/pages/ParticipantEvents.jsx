@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import PageTopBar from '../components/PageTopBar'
+import { apiFetch } from '../utils/api'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
@@ -75,11 +76,32 @@ export default function ParticipantEvents() {
   const [selectedIds, setSelectedIds] = useState([])
   const [othersText, setOthersText] = useState('')
   const [groupModalEvent, setGroupModalEvent] = useState(null)
+  const [isRegistrationOpen, setIsRegistrationOpen] = useState(true)
 
   const totalSelected = selectedIds.length
   const othersSelected = selectedIds.includes(OTHERS_EVENT_ID)
   const othersNeedsText = othersSelected && othersText.trim().length === 0
   const canContinue = totalSelected >= 1 && !othersNeedsText
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadRegistrationConfig = async () => {
+      try {
+        const response = await apiFetch('/api/config/registrations')
+        const payload = await response.json().catch(() => ({}))
+        if (!isMounted || !response.ok || !payload?.success || !payload?.data) return
+        setIsRegistrationOpen(Boolean(payload.data.participant_open))
+      } catch {
+        // Keep default open if config fetch fails.
+      }
+    }
+
+    loadRegistrationConfig()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!groupModalEvent) return undefined
@@ -101,6 +123,8 @@ export default function ParticipantEvents() {
   }, [groupModalEvent])
 
   function handleEventClick(event) {
+    if (!isRegistrationOpen) return
+
     if (event.isGroup) {
       setGroupModalEvent(event)
       return
@@ -117,6 +141,8 @@ export default function ParticipantEvents() {
   }
 
   function handleOthersToggle() {
+    if (!isRegistrationOpen) return
+
     if (selectedIds.includes(OTHERS_EVENT_ID)) {
       setSelectedIds((prev) => prev.filter((id) => id !== OTHERS_EVENT_ID))
       setOthersText('')
@@ -127,6 +153,7 @@ export default function ParticipantEvents() {
   }
 
   function handleContinue() {
+    if (!isRegistrationOpen) return
     if (!canContinue) return
 
     const selectedEvents = CATEGORIES.flatMap((cat) => cat.events).filter((ev) => selectedIds.includes(ev.id))
@@ -168,6 +195,12 @@ export default function ParticipantEvents() {
           Select Your Events
         </h1>
         <p className="mt-2 text-[15px] text-[#EEE6D8]/55">Choose any 1 or 2 events across any category. Maximum 2 events total.</p>
+
+        {!isRegistrationOpen && (
+          <p className="mt-3 rounded-lg border border-[#B22234]/40 bg-[#B22234]/12 px-4 py-3 text-[13px] text-[#E8B8BF]">
+            Registrations are currently closed
+          </p>
+        )}
 
         <div style={{
           marginBottom: '36px',
@@ -423,7 +456,7 @@ export default function ParticipantEvents() {
         <button
           type="button"
           onClick={handleContinue}
-          disabled={!canContinue}
+          disabled={!canContinue || !isRegistrationOpen}
           className={canContinue
             ? 'bg-[linear-gradient(135deg,#BEA35D,#8A6B2C)] text-white font-semibold hover:shadow-lg hover:shadow-[#BEA35D]/35 transition-all active:scale-[0.98]'
             : 'bg-[#BEA35D]/18 text-[#BEA35D]/50 font-semibold cursor-not-allowed'}

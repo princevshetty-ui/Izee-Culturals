@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { EVENTS } from '../data/events.js'
+import { apiFetch } from '../utils/api'
 
 const _MOTION = motion
 
@@ -110,6 +111,37 @@ export default function Home() {
   const canvasRef = useRef(null)
   const mouseRef = useRef({ x: 0, y: 0 })
   const rafRef = useRef(0)
+  const [registrationConfig, setRegistrationConfig] = useState({
+    student_open: true,
+    participant_open: true,
+    volunteer_open: true,
+  })
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadRegistrationConfig = async () => {
+      try {
+        const response = await apiFetch('/api/config/registrations')
+        const payload = await response.json().catch(() => ({}))
+        if (!isMounted || !response.ok || !payload?.success || !payload?.data) return
+
+        setRegistrationConfig((previous) => ({
+          ...previous,
+          student_open: Boolean(payload.data.student_open),
+          participant_open: Boolean(payload.data.participant_open),
+          volunteer_open: Boolean(payload.data.volunteer_open),
+        }))
+      } catch {
+        // Keep defaults open when config cannot be loaded.
+      }
+    }
+
+    loadRegistrationConfig()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -533,7 +565,8 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => navigate('/participant/events')}
-                  className="group mt-5 inline-flex items-center rounded-full border px-4 py-2 text-[#BEA35D] transition duration-300 ease-out hover:bg-[rgba(201,168,76,0.18)] hover:text-[#EBD08F]"
+                  disabled={!registrationConfig.participant_open}
+                  className="group mt-5 inline-flex items-center rounded-full border px-4 py-2 text-[#BEA35D] transition duration-300 ease-out hover:bg-[rgba(201,168,76,0.18)] hover:text-[#EBD08F] disabled:cursor-not-allowed disabled:opacity-55"
                   style={{
                     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                     fontSize: '13px',
@@ -545,8 +578,8 @@ export default function Home() {
                     borderWidth: '0.5px',
                   }}
                 >
-                  Register to Compete
-                  <span className="ml-2 inline-block transition-transform duration-300 ease-out group-hover:translate-x-[3px]">→</span>
+                  {registrationConfig.participant_open ? 'Register to Compete' : 'Registrations Closed'}
+                  <span className="ml-2 inline-block transition-transform duration-300 ease-out group-hover:translate-x-[3px]">{registrationConfig.participant_open ? '→' : '•'}</span>
                 </button>
               </motion.div>
 
@@ -650,7 +683,8 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => navigate('/student/register')}
-                  className="group mt-5 inline-flex items-center rounded-full border px-4 py-2 text-[#D44455] transition duration-300 ease-out hover:bg-[rgba(178,34,52,0.18)] hover:text-[#E45B6C]"
+                  disabled={!registrationConfig.student_open}
+                  className="group mt-5 inline-flex items-center rounded-full border px-4 py-2 text-[#D44455] transition duration-300 ease-out hover:bg-[rgba(178,34,52,0.18)] hover:text-[#E45B6C] disabled:cursor-not-allowed disabled:opacity-55"
                   style={{
                     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                     fontSize: '13px',
@@ -662,8 +696,8 @@ export default function Home() {
                     borderWidth: '0.5px',
                   }}
                 >
-                  Register as Audience
-                  <span className="ml-2 inline-block transition-transform duration-300 ease-out group-hover:translate-x-[3px]">→</span>
+                  {registrationConfig.student_open ? 'Register as Audience' : 'Registrations Closed'}
+                  <span className="ml-2 inline-block transition-transform duration-300 ease-out group-hover:translate-x-[3px]">{registrationConfig.student_open ? '→' : '•'}</span>
                 </button>
               </motion.div>
 

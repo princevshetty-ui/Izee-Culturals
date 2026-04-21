@@ -323,6 +323,12 @@ export default function FacultyDashboard() {
     voting: null,
   })
   const [selectedIds, setSelectedIds] = useState([])
+  const [registrationConfig, setRegistrationConfig] = useState({
+    student_open: true,
+    participant_open: true,
+    volunteer_open: true,
+  })
+  const [isSavingRegistrationConfig, setIsSavingRegistrationConfig] = useState(false)
   const tabCacheRef = useRef(tabCache)
   const fetchRequestRef = useRef(0)
 
@@ -449,6 +455,60 @@ export default function FacultyDashboard() {
     setVotingVoters(Array.isArray(votersPayload.data) ? votersPayload.data : [])
   }
 
+  const loadRegistrationConfig = async () => {
+    const response = await apiFetch('/api/config/registrations')
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok || !payload?.success || !payload?.data) return
+
+    setRegistrationConfig((previous) => ({
+      ...previous,
+      student_open: Boolean(payload.data.student_open),
+      participant_open: Boolean(payload.data.participant_open),
+      volunteer_open: Boolean(payload.data.volunteer_open),
+    }))
+  }
+
+  const handleToggleRegistrationConfig = async (key) => {
+    if (!facultyPassword || isSavingRegistrationConfig) return
+
+    const nextValue = !Boolean(registrationConfig[key])
+    setIsSavingRegistrationConfig(true)
+
+    try {
+      const response = await apiFetch('/api/faculty/config/registrations', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${facultyPassword}`,
+        },
+        body: JSON.stringify({ [key]: nextValue }),
+      })
+
+      if (response.status === 401) {
+        updateAuthFailure()
+        return
+      }
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok || !payload?.success) {
+        throw new Error(getApiErrorMessage(payload, 'Failed to update registration controls'))
+      }
+
+      setRegistrationConfig((previous) => ({
+        ...previous,
+        student_open: Boolean(payload.data?.student_open ?? previous.student_open),
+        participant_open: Boolean(payload.data?.participant_open ?? previous.participant_open),
+        volunteer_open: Boolean(payload.data?.volunteer_open ?? previous.volunteer_open),
+      }))
+      setInfoMessage(payload.message || 'Registration controls updated')
+      setErrorMessage('')
+    } catch (error) {
+      setErrorMessage(error.message || 'Failed to update registration controls')
+    } finally {
+      setIsSavingRegistrationConfig(false)
+    }
+  }
+
   useEffect(() => {
     const isAuthenticated = sessionStorage.getItem('authenticated') === 'true'
     const storedPassword = sessionStorage.getItem('facultyPassword') || ''
@@ -460,6 +520,14 @@ export default function FacultyDashboard() {
 
     setFacultyPassword(storedPassword)
   }, [navigate])
+
+  useEffect(() => {
+    if (!facultyPassword) return
+
+    loadRegistrationConfig().catch(() => {
+      // Keep defaults open if fetch fails.
+    })
+  }, [facultyPassword])
 
   useEffect(() => {
     setSelectedCourse('all')
@@ -2645,6 +2713,48 @@ export default function FacultyDashboard() {
                       </div>
                     </>
                   )}
+              </section>
+
+              <section className="dash-panel mb-3 p-3 sm:p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.5)]">Registration Controls</p>
+                  <span className="text-[10px] text-[rgba(238,230,216,0.38)]">Public Forms</span>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {[
+                    { key: 'student_open', label: 'Student' },
+                    { key: 'participant_open', label: 'Participant' },
+                    { key: 'volunteer_open', label: 'Volunteer' },
+                  ].map((item) => {
+                    const isOpen = Boolean(registrationConfig[item.key])
+                    return (
+                      <div
+                        key={item.key}
+                        className="flex items-center justify-between rounded-[8px] border px-3 py-2"
+                        style={{ border: '0.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.015)' }}
+                      >
+                        <p className="text-[12px] text-[rgba(238,230,216,0.78)]">{item.label}</p>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleRegistrationConfig(item.key)}
+                          disabled={isSavingRegistrationConfig}
+                          className="relative h-6 w-12 rounded-full transition disabled:opacity-55"
+                          style={{
+                            background: isOpen ? 'rgba(20,184,166,0.45)' : 'rgba(178,34,52,0.55)',
+                            border: '0.5px solid rgba(255,255,255,0.18)',
+                          }}
+                          aria-label={`Toggle ${item.label} registration`}
+                        >
+                          <span
+                            className="absolute top-[2px] h-[18px] w-[18px] rounded-full bg-[#EEE6D8] transition"
+                            style={{ left: isOpen ? '26px' : '2px' }}
+                          />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
               </section>
 
               <section className="dash-panel mb-3 flex flex-wrap items-center gap-3 px-3 py-3">

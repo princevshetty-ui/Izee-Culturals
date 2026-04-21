@@ -44,6 +44,27 @@ export default function ParticipantRegister() {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState('')
+  const [isRegistrationOpen, setIsRegistrationOpen] = useState(true)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadRegistrationConfig = async () => {
+      try {
+        const response = await apiFetch('/api/config/registrations')
+        const payload = await response.json().catch(() => ({}))
+        if (!isMounted || !response.ok || !payload?.success || !payload?.data) return
+        setIsRegistrationOpen(Boolean(payload.data.participant_open))
+      } catch {
+        // Keep default open if config fetch fails.
+      }
+    }
+
+    loadRegistrationConfig()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const validateEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -89,6 +110,11 @@ export default function ParticipantRegister() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setApiError('')
+
+    if (!isRegistrationOpen) {
+      setApiError('Registrations are currently closed')
+      return
+    }
 
     if (!validateForm()) return
 
@@ -170,6 +196,16 @@ export default function ParticipantRegister() {
               Complete Registration
             </h1>
             <p className="mt-2 text-[#BEA35D]">Participant Details</p>
+
+            {!isRegistrationOpen && (
+              <MotionDiv
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 rounded-xl border border-[#B22234]/40 bg-[#B22234]/12 p-4 text-sm text-[#E8B8BF]"
+              >
+                Registrations are currently closed
+              </MotionDiv>
+            )}
 
             {(selectedEvents.length > 0 || othersSelected) && (
               <div
@@ -253,7 +289,11 @@ export default function ParticipantRegister() {
               </MotionDiv>
             )}
 
-            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+            <form
+              onSubmit={handleSubmit}
+              className="mt-8 space-y-5"
+              style={{ opacity: isRegistrationOpen ? 1 : 0.58, pointerEvents: isRegistrationOpen ? 'auto' : 'none' }}
+            >
               <div>
                 <label htmlFor="name" className={labelClass}>
                   Full Name
