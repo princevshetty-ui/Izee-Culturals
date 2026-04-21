@@ -50,6 +50,7 @@ VOLUNTEER_TEAM_OPTIONS = {
     "Program Coordination Team",
     "Discipline & Security Committee",
     "Hospitality & Welfare Team",
+    "Technical Support Team",
 }
 
 ENTRY_SCAN_MEMORY: dict[str, str] = {}

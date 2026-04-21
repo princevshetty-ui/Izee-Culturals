@@ -22,6 +22,7 @@ const VOLUNTEER_TEAMS = [
   'Program Coordination Team',
   'Discipline & Security Committee',
   'Hospitality & Welfare Team',
+  'Technical Support Team',
 ]
 
 export default function VolunteerRegister() {

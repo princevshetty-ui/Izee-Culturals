@@ -55,6 +55,7 @@ const VOLUNTEER_TEAM_OPTIONS = [
   'Program Coordination Team',
   'Discipline & Security Committee',
   'Hospitality & Welfare Team',
+  'Technical Support Team',
 ]
 
 const STUDENT_COURSES = ['BCA', 'BBA', 'BBA - Aviation']
