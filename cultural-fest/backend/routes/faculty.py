@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Header, Query, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from db import supabase
+from utils.duplicate_check import check_duplicate_roll
+from utils.input_validation import is_valid_roll_no, normalize_full_name, normalize_roll_no
 from qr_utils import generate_qr
 from pass_generator import (
     generate_student_pass,
@@ -17,7 +19,7 @@ import csv
 import re
 from datetime import datetime, timezone, timedelta
 from io import StringIO, BytesIO
-from uuid import UUID
+from uuid import UUID, uuid4
 from zipfile import ZIP_DEFLATED, ZipFile
 from PIL import Image
 
@@ -64,6 +66,15 @@ class GateAccessLoginRequest(BaseModel):
 
 class VolunteerTeamAssignmentRequest(BaseModel):
     team_label: str
+
+
+class FacultyOnspotStudentRequest(BaseModel):
+    name: str
+    roll_no: str
+    course: str
+    year: str
+    email: str
+    phone: str | None = None
 
 
 class RegistrationConfigUpdateRequest(BaseModel):
@@ -663,6 +674,71 @@ async def faculty_login(req: FacultyLoginRequest):
         "data": {"token": "ok"},
         "message": "Login successful"
     }
+
+
+@router.post("/faculty/onspot/student")
+async def register_onspot_student(req: FacultyOnspotStudentRequest, authorization: str = Header(None)):
+    """Faculty-only on-spot student registration with immediate approval and pass generation."""
+    verify_faculty_token(authorization)
+
+    try:
+        normalized_name = normalize_full_name(req.name)
+        normalized_roll_no = normalize_roll_no(req.roll_no)
+
+        if not normalized_name:
+            raise HTTPException(status_code=400, detail="Name is required")
+        if not is_valid_roll_no(normalized_roll_no):
+            raise HTTPException(status_code=400, detail="Roll No must be 12 alphanumeric characters")
+
+        duplicate = await check_duplicate_roll(supabase, normalized_roll_no)
+        if duplicate["is_duplicate"]:
+            return {
+                "success": False,
+                "data": None,
+                "message": "This roll number is already registered.",
+            }
+
+        student_id = str(uuid4())
+        timestamp_iso = datetime.now(timezone.utc).isoformat()
+
+        pass_base64 = generate_student_pass(
+            {
+                "id": student_id,
+                "name": normalized_name,
+                "roll_no": normalized_roll_no,
+                "course": req.course,
+                "year": req.year,
+            },
+            logo_path=LOGO_PATH,
+        )
+
+        supabase.table("students").insert(
+            {
+                "id": student_id,
+                "name": normalized_name,
+                "roll_no": normalized_roll_no,
+                "course": req.course,
+                "year": req.year,
+                "email": req.email,
+                "phone": (req.phone or "").strip(),
+                "registered_at": timestamp_iso,
+                "approved_at": timestamp_iso,
+                "qr_code": pass_base64,
+            }
+        ).execute()
+
+        return {
+            "success": True,
+            "data": {
+                "id": student_id,
+                "approved": True,
+            },
+            "message": "On-spot student registered and approved successfully",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/config/registrations")

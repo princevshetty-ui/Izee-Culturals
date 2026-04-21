@@ -329,6 +329,16 @@ export default function FacultyDashboard() {
     volunteer_open: true,
   })
   const [isSavingRegistrationConfig, setIsSavingRegistrationConfig] = useState(false)
+  const [isOnspotStudentModalOpen, setIsOnspotStudentModalOpen] = useState(false)
+  const [isSavingOnspotStudent, setIsSavingOnspotStudent] = useState(false)
+  const [onspotStudentDraft, setOnspotStudentDraft] = useState({
+    name: '',
+    roll_no: '',
+    course: '',
+    year: '',
+    email: '',
+    phone: '',
+  })
   const tabCacheRef = useRef(tabCache)
   const fetchRequestRef = useRef(0)
 
@@ -1455,6 +1465,70 @@ export default function FacultyDashboard() {
       }
     } finally {
       setDeletingVoterId('')
+    }
+  }
+
+  const handleOnspotStudentInput = (event) => {
+    const { name, value } = event.target
+    setOnspotStudentDraft((previous) => ({ ...previous, [name]: value }))
+  }
+
+  const handleSubmitOnspotStudent = async () => {
+    const payload = {
+      name: onspotStudentDraft.name.trim(),
+      roll_no: onspotStudentDraft.roll_no.trim(),
+      course: onspotStudentDraft.course.trim(),
+      year: onspotStudentDraft.year.trim(),
+      email: onspotStudentDraft.email.trim(),
+      phone: onspotStudentDraft.phone.trim(),
+    }
+
+    if (!payload.name || !payload.roll_no || !payload.course || !payload.year || !payload.email || !payload.phone) {
+      setErrorMessage('All on-spot registration fields are required.')
+      return
+    }
+
+    setIsSavingOnspotStudent(true)
+    setErrorMessage('')
+    setInfoMessage('')
+
+    try {
+      const response = await apiFetch('/api/faculty/onspot/student', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${facultyPassword}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (response.status === 401) {
+        updateAuthFailure()
+        return
+      }
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data?.success) {
+        throw new Error(getApiErrorMessage(data, 'On-spot registration failed'))
+      }
+
+      setIsOnspotStudentModalOpen(false)
+      setOnspotStudentDraft({
+        name: '',
+        roll_no: '',
+        course: '',
+        year: '',
+        email: '',
+        phone: '',
+      })
+
+      invalidateActiveTabCache()
+      setRefreshKey((previous) => previous + 1)
+      setInfoMessage(`On-spot student registered successfully. ID: ${data?.data?.id || '-'}`)
+    } catch (error) {
+      setErrorMessage(error.message || 'On-spot registration failed')
+    } finally {
+      setIsSavingOnspotStudent(false)
     }
   }
 
@@ -2758,6 +2832,21 @@ export default function FacultyDashboard() {
               </section>
 
               <section className="dash-panel mb-3 flex flex-wrap items-center gap-3 px-3 py-3">
+                {activeTab === 'students' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsOnspotStudentModalOpen(true)}
+                    className="h-[30px] rounded-[999px] px-4 text-[11px]"
+                    style={{
+                      border: '0.5px solid rgba(20,184,166,0.45)',
+                      color: '#14B8A6',
+                      background: 'transparent',
+                    }}
+                  >
+                    On-Spot Audience Registration
+                  </button>
+                )}
+
                 <input
                   type="text"
                   value={nameSearch}
@@ -3014,6 +3103,114 @@ export default function FacultyDashboard() {
                   {infoMessage}
                 </div>
               )}
+
+              <AnimatePresence>
+                {isOnspotStudentModalOpen && activeTab === 'students' && (
+                  <>
+                    <motion.button
+                      type="button"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => {
+                        if (isSavingOnspotStudent) return
+                        setIsOnspotStudentModalOpen(false)
+                      }}
+                      className="fixed inset-0 z-40 bg-black/60"
+                    />
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 20 }}
+                      className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-[12px] border p-4 sm:p-5"
+                      style={{ border: '0.5px solid rgba(255,255,255,0.12)', background: '#0C0D12' }}
+                    >
+                      <h4 className="text-[14px] font-semibold text-[#EEE6D8]">On-Spot Audience Registration</h4>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <input
+                          type="text"
+                          name="name"
+                          value={onspotStudentDraft.name}
+                          onChange={handleOnspotStudentInput}
+                          placeholder="Full Name"
+                          className="h-[36px] rounded-[6px] px-3 text-[12px] sm:col-span-2"
+                          style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                        />
+                        <input
+                          type="text"
+                          name="roll_no"
+                          value={onspotStudentDraft.roll_no}
+                          onChange={handleOnspotStudentInput}
+                          placeholder="Roll No"
+                          className="h-[36px] rounded-[6px] px-3 text-[12px]"
+                          style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                        />
+                        <input
+                          type="text"
+                          name="phone"
+                          value={onspotStudentDraft.phone}
+                          onChange={handleOnspotStudentInput}
+                          placeholder="Phone"
+                          className="h-[36px] rounded-[6px] px-3 text-[12px]"
+                          style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                        />
+                        <input
+                          type="text"
+                          name="course"
+                          value={onspotStudentDraft.course}
+                          onChange={handleOnspotStudentInput}
+                          placeholder="Course"
+                          className="h-[36px] rounded-[6px] px-3 text-[12px]"
+                          style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                        />
+                        <input
+                          type="text"
+                          name="year"
+                          value={onspotStudentDraft.year}
+                          onChange={handleOnspotStudentInput}
+                          placeholder="Year"
+                          className="h-[36px] rounded-[6px] px-3 text-[12px]"
+                          style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                        />
+                        <input
+                          type="email"
+                          name="email"
+                          value={onspotStudentDraft.email}
+                          onChange={handleOnspotStudentInput}
+                          placeholder="Email"
+                          className="h-[36px] rounded-[6px] px-3 text-[12px] sm:col-span-2"
+                          style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
+                        />
+                      </div>
+
+                      <div className="mt-4 flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isSavingOnspotStudent) return
+                            setIsOnspotStudentModalOpen(false)
+                          }}
+                          className="h-[32px] rounded-[6px] px-3 text-[11px]"
+                          style={{ border: '0.5px solid rgba(255,255,255,0.15)', color: 'rgba(238,230,216,0.72)', background: 'transparent' }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSubmitOnspotStudent}
+                          disabled={isSavingOnspotStudent}
+                          className="h-[32px] rounded-[6px] px-3 text-[11px]"
+                          style={{ border: '0.5px solid rgba(20,184,166,0.45)', color: '#14B8A6', background: 'transparent' }}
+                        >
+                          {isSavingOnspotStudent ? 'Registering...' : 'Register & Approve'}
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
 
               <section className="overflow-x-auto">
                 <table className="min-w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
