@@ -102,19 +102,16 @@ async def register_participant(req: ParticipantRegisterRequest):
         if not is_valid_roll_no(normalized_roll_no):
             raise HTTPException(status_code=400, detail="Roll No must be 12 alphanumeric characters")
 
-        # Count total slots used
-        total_slots = len(req.events)
-        if req.others_selected:
-            total_slots += 1
-        
         # Validate selections
-        if total_slots == 0:
+        event_count = len(req.events)
+
+        if event_count < 1:
             raise HTTPException(
                 status_code=400,
                 detail="Select at least 1 event or choose Others"
             )
-        
-        if total_slots > 2:
+
+        if event_count > 2:
             raise HTTPException(
                 status_code=400,
                 detail="Maximum 2 event slots allowed"
@@ -126,25 +123,6 @@ async def register_participant(req: ParticipantRegisterRequest):
                 detail="Please describe your talent for Others"
             )
 
-        requested_categories = [resolve_event_category(event) for event in req.events]
-        if req.others_selected:
-            requested_categories.append(INDIVIDUAL_CATEGORY)
-
-        if len(requested_categories) != len(set(requested_categories)):
-            return JSONResponse(status_code=400, content={
-                "success": False,
-                "message": "Only one registration per category is allowed (one Individual and one Group)."
-            })
-
-        existing_categories = fetch_existing_participant_categories(normalized_roll_no)
-        category_overlap = existing_categories.intersection(set(requested_categories))
-        if category_overlap:
-            overlap_label = "Group" if GROUP_CATEGORY in category_overlap else "Individual"
-            return JSONResponse(status_code=400, content={
-                "success": False,
-                "message": f"This roll number already has a {overlap_label} category registration."
-            })
-        
         participant_id = str(uuid.uuid4())
         
         # Insert into participants table
