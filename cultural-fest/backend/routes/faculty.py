@@ -74,7 +74,6 @@ class FacultyOnspotStudentRequest(BaseModel):
     course: str
     year: str
     email: str
-    phone: str | None = None
 
 
 class RegistrationConfigUpdateRequest(BaseModel):
@@ -720,7 +719,7 @@ async def register_onspot_student(req: FacultyOnspotStudentRequest, authorizatio
                 "course": req.course,
                 "year": req.year,
                 "email": req.email,
-                "phone": (req.phone or "").strip(),
+                "phone": "",
                 "registered_at": timestamp_iso,
                 "approved_at": timestamp_iso,
                 "qr_code": pass_base64,

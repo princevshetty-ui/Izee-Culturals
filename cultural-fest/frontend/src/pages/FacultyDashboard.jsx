@@ -57,6 +57,9 @@ const VOLUNTEER_TEAM_OPTIONS = [
   'Hospitality & Welfare Team',
 ]
 
+const STUDENT_COURSES = ['BCA', 'BBA', 'BBA - Aviation']
+const STUDENT_YEARS = ['1st', '2nd', '3rd']
+
 const DEFAULT_PAGE_SIZE = 25
 
 function titleCaseFromSnakeCase(value) {
@@ -337,7 +340,6 @@ export default function FacultyDashboard() {
     course: '',
     year: '',
     email: '',
-    phone: '',
   })
   const tabCacheRef = useRef(tabCache)
   const fetchRequestRef = useRef(0)
@@ -1480,10 +1482,9 @@ export default function FacultyDashboard() {
       course: onspotStudentDraft.course.trim(),
       year: onspotStudentDraft.year.trim(),
       email: onspotStudentDraft.email.trim(),
-      phone: onspotStudentDraft.phone.trim(),
     }
 
-    if (!payload.name || !payload.roll_no || !payload.course || !payload.year || !payload.email || !payload.phone) {
+    if (!payload.name || !payload.roll_no || !payload.course || !payload.year || !payload.email) {
       setErrorMessage('All on-spot registration fields are required.')
       return
     }
@@ -1519,7 +1520,6 @@ export default function FacultyDashboard() {
         course: '',
         year: '',
         email: '',
-        phone: '',
       })
 
       invalidateActiveTabCache()
@@ -3147,33 +3147,34 @@ export default function FacultyDashboard() {
                           className="h-[36px] rounded-[6px] px-3 text-[12px]"
                           style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
                         />
-                        <input
-                          type="text"
-                          name="phone"
-                          value={onspotStudentDraft.phone}
-                          onChange={handleOnspotStudentInput}
-                          placeholder="Phone"
-                          className="h-[36px] rounded-[6px] px-3 text-[12px]"
-                          style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
-                        />
-                        <input
-                          type="text"
+                        <select
                           name="course"
                           value={onspotStudentDraft.course}
                           onChange={handleOnspotStudentInput}
-                          placeholder="Course"
                           className="h-[36px] rounded-[6px] px-3 text-[12px]"
                           style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
-                        />
-                        <input
-                          type="text"
+                        >
+                          <option value="" className="bg-[#111111] text-[#EEE6D8]">Select Course</option>
+                          {STUDENT_COURSES.map((course) => (
+                            <option key={course} value={course} className="bg-[#111111] text-[#EEE6D8]">
+                              {course}
+                            </option>
+                          ))}
+                        </select>
+                        <select
                           name="year"
                           value={onspotStudentDraft.year}
                           onChange={handleOnspotStudentInput}
-                          placeholder="Year"
                           className="h-[36px] rounded-[6px] px-3 text-[12px]"
                           style={{ border: '0.5px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)', color: '#EEE6D8' }}
-                        />
+                        >
+                          <option value="" className="bg-[#111111] text-[#EEE6D8]">Select Year</option>
+                          {STUDENT_YEARS.map((year) => (
+                            <option key={year} value={year} className="bg-[#111111] text-[#EEE6D8]">
+                              {year} Year
+                            </option>
+                          ))}
+                        </select>
                         <input
                           type="email"
                           name="email"
