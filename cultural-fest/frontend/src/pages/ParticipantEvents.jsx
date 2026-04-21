@@ -167,7 +167,7 @@ export default function ParticipantEvents() {
         <h1 className="text-[clamp(28px,4vw,48px)] leading-[1.06] text-[#EEE6D8]" style={DISPLAY_FONT}>
           Select Your Events
         </h1>
-        <p className="mt-2 text-[15px] text-[#EEE6D8]/55">Choose up to 2 events from any category below</p>
+        <p className="mt-2 text-[15px] text-[#EEE6D8]/55">Choose any 1 or 2 events across any category. Maximum 2 events total.</p>
 
         <div style={{
           marginBottom: '36px',
