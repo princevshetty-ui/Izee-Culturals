@@ -137,64 +137,83 @@ export default function JudgePortal() {
   const isVotingOpen = votingConfig?.voting_open ?? false
 
   return (
-    <div className="min-h-screen bg-base text-white">
-      {/* Header */}
-      <div className="border-b border-gold/20 bg-surface sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold" style={DISPLAY_FONT}>
-              Judge Portal
-            </h1>
-            <p className="text-gold text-sm mt-1">{judgeData.name}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-crimson hover:bg-crimson/90 rounded text-white text-sm font-medium transition"
-          >
-            Logout
-          </button>
-        </div>
+    <div className="relative min-h-screen overflow-hidden bg-[#0C0D10] text-white">
+      <div className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute -top-24 right-0 h-[460px] w-[460px]"
+          style={{ background: 'radial-gradient(ellipse, rgba(190,163,93,0.08), transparent 60%)' }}
+        />
+        <div
+          className="absolute bottom-0 left-[-120px] h-[420px] w-[420px]"
+          style={{ background: 'radial-gradient(ellipse, rgba(158,38,54,0.08), transparent 60%)' }}
+        />
       </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Voting Closed Overlay */}
+      <header className="sticky top-0 z-40 border-b border-[rgba(190,163,93,0.15)] bg-[#121317]/95 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+          <h1 className="text-3xl text-[#BEA35D]" style={DISPLAY_FONT}>Judge Portal</h1>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-white/70">{judgeData.name}</p>
+            <button
+              onClick={handleLogout}
+              className="rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:border-[rgba(190,163,93,0.4)] hover:text-[#BEA35D]"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="relative z-10 mx-auto w-full max-w-6xl px-6 py-8">
         {!isVotingOpen && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <div className="bg-surface border border-gold/20 rounded-lg p-8 text-center">
-              <h2 className="text-2xl font-bold mb-2" style={DISPLAY_FONT}>
-                Voting Not Open
-              </h2>
-              <p className="text-white/60">Voting is not open yet. Please check back later.</p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,13,16,0.95)] px-6">
+            <div
+              className="w-full max-w-lg rounded-2xl border p-10 text-center"
+              style={{
+                background: 'rgba(18,19,23,0.8)',
+                borderColor: 'rgba(190,163,93,0.2)',
+                backdropFilter: 'blur(16px)'
+              }}
+            >
+              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-[rgba(190,163,93,0.35)] text-2xl text-[#BEA35D]">
+                🔒
+              </div>
+              <h2 className="text-3xl text-[#BEA35D]" style={DISPLAY_FONT}>Voting is not open</h2>
+              <p className="mt-3 text-sm text-white/60">Please wait for the administrator to open voting</p>
             </div>
           </div>
         )}
 
-        {/* Error Message */}
         {error && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-crimson/20 border border-crimson rounded p-4 text-crimson mb-6"
+            className="mb-6 rounded-xl border border-[#9E2636]/60 bg-[#9E2636]/15 p-4 text-sm text-[#d86b79]"
           >
             {error}
           </motion.div>
         )}
 
-        {/* Categories */}
         <div className="space-y-12">
           {Object.entries(groupedByCategory).map(([categoryId, perfs]) => (
-            <motion.div
+            <motion.section
               key={categoryId}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
+              className="space-y-6"
             >
-              <h2 className="text-2xl font-bold mb-6 text-gold">
-                {CATEGORY_MAP[categoryId] || categoryId}
-              </h2>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#BEA35D]" />
+                  <h2 className="text-xs uppercase tracking-[0.28em] text-[#BEA35D]">
+                    {CATEGORY_MAP[categoryId] || categoryId}
+                  </h2>
+                </div>
+                <div className="h-px w-full bg-[rgba(190,163,93,0.22)]" />
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 {perfs.map((perf) => {
                   const isSubmitted = submittedScores.has(perf.id)
                   const currentScore = scores[perf.id] ?? 0
@@ -202,46 +221,35 @@ export default function JudgePortal() {
                   return (
                     <motion.div
                       key={perf.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
+                      initial={{ opacity: 0, scale: 0.96 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className={`border rounded-lg p-6 transition ${
-                        isSubmitted
-                          ? 'border-green-500/50 bg-green-500/5'
-                          : 'border-gold/20 bg-surface/50 hover:border-gold/40'
-                      }`}
+                      className="relative overflow-hidden rounded-2xl border p-6"
+                      style={{
+                        background: 'rgba(18,19,23,0.8)',
+                        backdropFilter: 'blur(16px)',
+                        borderColor: isSubmitted ? 'rgba(34,197,94,0.4)' : 'rgba(190,163,93,0.2)'
+                      }}
                     >
-                      {/* Performance Info */}
-                      <div className="mb-4">
-                        <h3 className="text-lg font-semibold">{perf.title}</h3>
-                        <p className="text-white/60 text-sm">{perf.performer_name}</p>
-                        <div className="flex gap-2 mt-2">
-                          <span className="text-xs px-2 py-1 bg-gold/10 text-gold rounded">
-                            {perf.event_name}
+                      <span className="absolute right-4 top-4 rounded-full border border-[rgba(190,163,93,0.35)] bg-[rgba(190,163,93,0.15)] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#BEA35D]">
+                        {CATEGORY_MAP[categoryId] || categoryId}
+                      </span>
+
+                      <div className="mb-6 pr-24">
+                        <p className="text-[13px] uppercase tracking-[0.15em] text-[#BEA35D]/70">{perf.event_name}</p>
+                        <h3 className="mt-2 text-[22px] leading-tight text-white" style={DISPLAY_FONT}>{perf.performer_name}</h3>
+                        <p className="mt-1 text-sm text-white/55">{perf.title}</p>
+                        {perf.is_withdrawn && (
+                          <span className="mt-3 inline-flex rounded-full border border-[#9E2636]/50 bg-[#9E2636]/15 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#d86b79]">
+                            Withdrawn
                           </span>
-                          {perf.is_withdrawn && (
-                            <span className="text-xs px-2 py-1 bg-crimson/10 text-crimson rounded">
-                              Withdrawn
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
 
-                      {/* Submitted Badge */}
-                      {isSubmitted && (
-                        <div className="flex items-center gap-2 text-green-400 mb-4">
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" />
-                          </svg>
-                          <span className="text-sm font-medium">Score Submitted</span>
-                        </div>
-                      )}
-
-                      {/* Score Input */}
                       {!isSubmitted && (
-                        <div className="mb-4">
-                          <div className="flex justify-between items-center mb-2">
-                            <label className="text-sm font-medium">Score</label>
-                            <span className="text-gold text-lg font-semibold">{currentScore}</span>
+                        <div className="mb-5">
+                          <div className="mb-2 flex items-end justify-between">
+                            <span className="text-[11px] uppercase tracking-[0.32em] text-[#BEA35D]">Score</span>
+                            <span className="text-5xl leading-none text-[#BEA35D]" style={DISPLAY_FONT}>{currentScore}</span>
                           </div>
                           <input
                             type="range"
@@ -249,40 +257,85 @@ export default function JudgePortal() {
                             max="100"
                             value={currentScore}
                             onChange={(e) => handleScoreChange(perf.id, e.target.value)}
-                            className="w-full h-2 bg-gold/20 rounded-lg appearance-none cursor-pointer accent-gold"
+                            className="award-slider h-2 w-full cursor-pointer appearance-none rounded-full"
                             disabled={submitting === perf.id}
                           />
-                          <div className="flex justify-between text-xs text-white/40 mt-1">
+                          <div className="mt-1 flex justify-between text-[11px] text-white/40">
                             <span>0</span>
                             <span>100</span>
                           </div>
                         </div>
                       )}
 
-                      {/* Submit Button */}
                       {!isSubmitted && (
                         <button
                           onClick={() => handleSubmitScore(perf.id)}
                           disabled={submitting === perf.id || isVotingOpen === false}
-                          className="w-full bg-gold text-base font-semibold py-2 rounded hover:bg-gold/90 disabled:bg-gold/50 disabled:cursor-not-allowed transition"
+                          className="w-full rounded-lg py-3 text-sm font-bold uppercase tracking-[0.16em] text-[#0C0D10] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                          style={{
+                            background: 'linear-gradient(135deg, #BEA35D, #8B6914)',
+                            boxShadow: '0 0 20px rgba(190,163,93,0.2)'
+                          }}
                         >
                           {submitting === perf.id ? 'Submitting...' : 'Submit Score'}
                         </button>
+                      )}
+
+                      {isSubmitted && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.94 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="absolute inset-0 flex items-center justify-center rounded-2xl border border-green-400/45 bg-[rgba(12,26,16,0.82)] backdrop-blur-sm"
+                        >
+                          <motion.div
+                            initial={{ scale: 0.6, rotate: -18 }}
+                            animate={{ scale: 1, rotate: 0 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 16 }}
+                            className="text-center text-green-300"
+                          >
+                            <div className="mb-2 text-3xl">✓</div>
+                            <p className="text-sm font-semibold uppercase tracking-[0.14em]">Score Submitted</p>
+                          </motion.div>
+                        </motion.div>
                       )}
                     </motion.div>
                   )
                 })}
               </div>
-            </motion.div>
+            </motion.section>
           ))}
         </div>
 
         {performances.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-white/60">No performances to judge</p>
-          </div>
+          <div className="py-14 text-center text-white/55">No performances to judge</div>
         )}
-      </div>
+      </main>
+
+      <style>{`
+        .award-slider {
+          background: rgba(190, 163, 93, 0.2);
+        }
+        .award-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          background: #BEA35D;
+          border: 2px solid #0C0D10;
+          box-shadow: 0 0 10px rgba(190, 163, 93, 0.5);
+          cursor: pointer;
+        }
+        .award-slider::-moz-range-thumb {
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          background: #BEA35D;
+          border: 2px solid #0C0D10;
+          box-shadow: 0 0 10px rgba(190, 163, 93, 0.5);
+          cursor: pointer;
+        }
+      `}</style>
     </div>
   )
 }

@@ -56,98 +56,115 @@ export default function VoterLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-base text-white flex items-center justify-center px-4">
-      {/* Background glow effect */}
-      <div className="fixed inset-0 opacity-30 pointer-events-none">
+    <div className="relative min-h-screen overflow-hidden bg-[#0C0D10] text-white">
+      <div className="pointer-events-none absolute inset-0">
         <div
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-          style={{
-            width: '500px',
-            height: '500px',
-            background: 'radial-gradient(circle, rgba(190,163,93,0.15) 0%, transparent 70%)',
-            filter: 'blur(40px)'
-          }}
+          className="absolute -top-28 right-[-120px] h-[520px] w-[520px]"
+          style={{ background: 'radial-gradient(ellipse, rgba(190,163,93,0.06), transparent 60%)' }}
+        />
+        <div
+          className="absolute -bottom-28 left-[-120px] h-[520px] w-[520px]"
+          style={{ background: 'radial-gradient(ellipse, rgba(158,38,54,0.06), transparent 60%)' }}
         />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md z-10"
-      >
-        <div className="bg-surface border border-gold/20 rounded-lg p-8 shadow-lg">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold mb-2" style={DISPLAY_FONT}>
-              Voting Portal
-            </h1>
-            <p className="text-gold text-sm">Judge & Audience Voting</p>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Roll Number */}
-            <div>
-              <label htmlFor="rollNo" className="block text-sm font-medium text-white mb-2">
-                Roll Number
-              </label>
-              <input
-                id="rollNo"
-                type="text"
-                value={rollNo}
-                onChange={(e) => setRollNo(e.target.value)}
-                placeholder="Enter your roll number"
-                className="w-full px-4 py-3 bg-base border border-gold/20 rounded text-white placeholder-white/40 focus:outline-none focus:border-gold/50 transition"
-                required
-                disabled={isLoading}
-              />
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+          className="w-full max-w-md"
+        >
+          <div
+            className="rounded-2xl border p-10"
+            style={{
+              background: 'rgba(18,19,23,0.8)',
+              backdropFilter: 'blur(16px)',
+              borderColor: 'rgba(190,163,93,0.2)'
+            }}
+          >
+            <div className="mb-8 text-center">
+              <p className="text-[14px] uppercase tracking-[0.32em] text-[#BEA35D]">IZee Got Talent</p>
+              <h1 className="mt-2 text-[32px] leading-none text-white" style={DISPLAY_FONT}>
+                Voter Portal
+              </h1>
+              <div className="mx-auto mb-8 mt-4 h-px w-12" style={{ background: 'rgba(190,163,93,0.3)' }} />
             </div>
 
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-white mb-2">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="w-full px-4 py-3 bg-base border border-gold/20 rounded text-white placeholder-white/40 focus:outline-none focus:border-gold/50 transition"
-                required
-                disabled={isLoading}
-              />
-            </div>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label
+                  htmlFor="rollNo"
+                  className="mb-2 block text-xs uppercase tracking-[0.24em] text-white/50"
+                >
+                  Roll Number
+                </label>
+                <input
+                  id="rollNo"
+                  type="text"
+                  value={rollNo}
+                  onChange={(e) => setRollNo(e.target.value)}
+                  placeholder="Enter your roll number"
+                  className="w-full rounded-lg border border-[rgba(190,163,93,0.2)] bg-white/[0.04] px-4 py-3 text-white placeholder-white/40 outline-none transition-colors duration-200 focus:border-[#BEA35D]"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
 
-            {/* Error Message */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="bg-crimson/20 border border-crimson rounded p-3 text-crimson text-sm"
+              <div>
+                <label
+                  htmlFor="password"
+                  className="mb-2 block text-xs uppercase tracking-[0.24em] text-white/50"
+                >
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="w-full rounded-lg border border-[rgba(190,163,93,0.2)] bg-white/[0.04] px-4 py-3 text-white placeholder-white/40 outline-none transition-colors duration-200 focus:border-[#BEA35D]"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading || !rollNo || !password}
+                className="w-full rounded-lg py-3 text-sm font-bold tracking-[0.16em] text-[#0C0D10] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                style={{
+                  background: 'linear-gradient(135deg, #BEA35D, #8B6914)',
+                  boxShadow: '0 0 0 rgba(190,163,93,0)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = '0 0 22px rgba(190,163,93,0.28)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = '0 0 0 rgba(190,163,93,0)'
+                }}
               >
-                {error}
-              </motion.div>
-            )}
+                {isLoading ? 'Logging in...' : 'Login'}
+              </button>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading || !rollNo || !password}
-              className="w-full bg-gold text-base font-semibold py-3 rounded hover:bg-gold/90 disabled:bg-gold/50 disabled:cursor-not-allowed transition"
-            >
-              {isLoading ? 'Logging in...' : 'Login'}
-            </button>
-          </form>
+              {error && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center text-xs text-[#9E2636]"
+                >
+                  {error}
+                </motion.p>
+              )}
 
-          {/* Footer */}
-          <p className="text-center text-white/40 text-xs mt-6">
-            For judges and authorized voters only
-          </p>
-        </div>
-      </motion.div>
+              <p className="pt-1 text-center text-xs text-white/30">
+                Students can use their QR ID password. For judges and authorized voters only.
+              </p>
+            </form>
+          </div>
+        </motion.div>
+      </div>
     </div>
   )
 }

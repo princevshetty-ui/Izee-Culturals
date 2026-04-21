@@ -137,88 +137,97 @@ export default function AudienceVoting() {
   const voterRoleBadge = voterData.role === 'staff' ? 'Staff' : 'Student'
 
   return (
-    <div className="min-h-screen bg-base text-white">
-      {/* Header */}
-      <div className="border-b border-gold/20 bg-surface sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold" style={DISPLAY_FONT}>
-              Voting Portal
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-white/80">{voterData.name}</p>
-              <span className="text-xs px-2 py-1 bg-gold/20 text-gold rounded">
-                {voterRoleBadge}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-crimson hover:bg-crimson/90 rounded text-white text-sm font-medium transition"
-          >
-            Logout
-          </button>
-        </div>
+    <div className="relative min-h-screen overflow-hidden bg-[#0C0D10] text-white">
+      <div className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute -top-24 right-0 h-[460px] w-[460px]"
+          style={{ background: 'radial-gradient(ellipse, rgba(190,163,93,0.08), transparent 60%)' }}
+        />
+        <div
+          className="absolute -bottom-20 left-[-100px] h-[400px] w-[400px]"
+          style={{ background: 'radial-gradient(ellipse, rgba(158,38,54,0.08), transparent 60%)' }}
+        />
       </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Voting Closed Overlay */}
+      <header className="sticky top-0 z-40 border-b border-[rgba(190,163,93,0.15)] bg-[#121317]/95 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+          <h1 className="text-3xl text-[#BEA35D]" style={DISPLAY_FONT}>Audience Voting</h1>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-white/80">{voterData.name}</p>
+            <span
+              className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.16em] ${
+                voterRoleBadge === 'Staff'
+                  ? 'border-[rgba(190,163,93,0.45)] text-[#BEA35D]'
+                  : 'border-white/35 text-white/85'
+              }`}
+            >
+              {voterRoleBadge === 'Staff' ? 'STAFF VOTER' : 'STUDENT'}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:border-[rgba(190,163,93,0.4)] hover:text-[#BEA35D]"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="relative z-10 mx-auto w-full max-w-6xl px-6 py-8">
         {!isVotingOpen && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <div className="bg-surface border border-gold/20 rounded-lg p-8 text-center">
-              <h2 className="text-2xl font-bold mb-2" style={DISPLAY_FONT}>
-                Voting Not Open
-              </h2>
-              <p className="text-white/60">Voting is not open yet. Please check back later.</p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,13,16,0.95)] px-6">
+            <div
+              className="w-full max-w-lg rounded-2xl border p-10 text-center"
+              style={{
+                background: 'rgba(18,19,23,0.8)',
+                borderColor: 'rgba(190,163,93,0.2)',
+                backdropFilter: 'blur(16px)'
+              }}
+            >
+              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-[rgba(190,163,93,0.35)] text-2xl text-[#BEA35D]">
+                🔒
+              </div>
+              <h2 className="text-3xl text-[#BEA35D]" style={DISPLAY_FONT}>Voting is not open</h2>
+              <p className="mt-3 text-sm text-white/60">Please wait for the administrator to open voting</p>
             </div>
           </div>
         )}
 
-        {/* Error Message */}
         {error && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-crimson/20 border border-crimson rounded p-4 text-crimson mb-6"
+            className="mb-6 rounded-xl border border-[#9E2636]/60 bg-[#9E2636]/15 p-4 text-sm text-[#d86b79]"
           >
             {error}
           </motion.div>
         )}
 
-        {/* Categories */}
         <div className="space-y-12">
           {Object.entries(groupedByCategory).map(([categoryId, perfs]) => {
             const isVoted = submittedCategories.has(categoryId)
             const selectedPerfId = selectedPerfs[categoryId]
 
             return (
-              <motion.div
+              <motion.section
                 key={categoryId}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4 }}
+                className="space-y-6"
               >
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gold">
-                    {CATEGORY_MAP[categoryId] || categoryId}
-                  </h2>
-                  {isVoted && (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="flex items-center gap-2 text-green-400"
-                    >
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" />
-                      </svg>
-                      <span className="font-medium">Vote Recorded</span>
-                    </motion.div>
-                  )}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#BEA35D]" />
+                    <h2 className="text-xs uppercase tracking-[0.28em] text-[#BEA35D]">
+                      {CATEGORY_MAP[categoryId] || categoryId}
+                    </h2>
+                  </div>
+                  <div className="h-px w-full bg-[rgba(190,163,93,0.22)]" />
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/40">One vote per category</p>
                 </div>
 
-                {/* Performance Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                <div className="space-y-4">
                   {perfs.map((perf) => {
                     const isSelected = selectedPerfId === perf.id
                     const canSelect = !isVoted
@@ -227,77 +236,75 @@ export default function AudienceVoting() {
                       <motion.button
                         key={perf.id}
                         onClick={() => canSelect && handleSelectPerformance(categoryId, perf.id)}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className={`text-left border rounded-lg p-6 transition ${
-                          isVoted
-                            ? 'border-gold/20 opacity-50 cursor-not-allowed bg-surface/30'
-                            : isSelected
-                              ? 'border-gold bg-gold/5 hover:bg-gold/10'
-                              : 'border-gold/20 bg-surface/50 hover:border-gold/40 hover:bg-surface'
+                        initial={{ opacity: 0, y: 14 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`relative w-full overflow-hidden rounded-2xl border p-6 text-left transition ${
+                          isVoted ? 'cursor-not-allowed opacity-40' : ''
                         }`}
+                        style={{
+                          background: 'rgba(18,19,23,0.8)',
+                          backdropFilter: 'blur(16px)',
+                          borderColor: isSelected ? 'rgba(190,163,93,0.95)' : 'rgba(190,163,93,0.2)',
+                          borderWidth: isSelected ? '2px' : '1px',
+                          boxShadow: isSelected ? '0 0 24px rgba(190,163,93,0.28)' : 'none'
+                        }}
                         disabled={isVoted}
                       >
-                        {/* Radio Button */}
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold">{perf.title}</h3>
-                            <p className="text-white/60 text-sm">{perf.performer_name}</p>
-                          </div>
-                          <div
-                            className={`w-5 h-5 rounded-full border-2 flex-shrink-0 mt-1 transition ${
-                              isSelected
-                                ? 'border-gold bg-gold'
-                                : 'border-gold/40'
-                            }`}
-                          >
-                            {isSelected && (
-                              <div className="w-full h-full rounded-full flex items-center justify-center">
-                                <div className="w-1.5 h-1.5 bg-base rounded-full" />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Event Badge */}
-                        <div className="flex gap-2 flex-wrap">
-                          <span className="text-xs px-2 py-1 bg-gold/10 text-gold rounded">
-                            {perf.event_name}
+                        {isSelected && (
+                          <span className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full border border-[rgba(190,163,93,0.45)] bg-[#BEA35D]/20 text-[#BEA35D]">
+                            ✓
                           </span>
+                        )}
+
+                        <div className="pr-10">
+                          <p className="text-[13px] uppercase tracking-[0.15em] text-[#BEA35D]/70">{perf.event_name}</p>
+                          <h3 className="mt-1 text-[22px] leading-tight text-white" style={DISPLAY_FONT}>{perf.performer_name}</h3>
+                          <p className="mt-1 text-sm text-white/55">{perf.title}</p>
                           {perf.is_withdrawn && (
-                            <span className="text-xs px-2 py-1 bg-crimson/10 text-crimson rounded">
+                            <span className="mt-3 inline-flex rounded-full border border-[#9E2636]/50 bg-[#9E2636]/15 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#d86b79]">
                               Withdrawn
                             </span>
                           )}
                         </div>
+
+                        {isVoted && isSelected && (
+                          <div className="mt-4 rounded-lg border border-green-400/35 bg-green-400/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-green-300">
+                            Vote Recorded ✓
+                          </div>
+                        )}
                       </motion.button>
                     )
                   })}
                 </div>
 
-                {/* Submit Vote Button */}
-                {!isVoted && (
+                {!isVoted ? (
                   <button
                     onClick={() => handleSubmitVote(categoryId)}
                     disabled={!selectedPerfId || submitting === categoryId}
-                    className="px-6 py-2 bg-gold text-base font-semibold rounded hover:bg-gold/90 disabled:bg-gold/50 disabled:cursor-not-allowed transition"
+                    className="w-full rounded-lg py-3 text-sm font-bold uppercase tracking-[0.16em] text-[#0C0D10] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{
+                      background: 'linear-gradient(135deg, #BEA35D, #8B6914)',
+                      boxShadow: '0 0 20px rgba(190,163,93,0.2)'
+                    }}
                   >
                     {submitting === categoryId
                       ? 'Submitting Vote...'
                       : `Submit Vote for ${CATEGORY_MAP[categoryId] || categoryId}`}
                   </button>
+                ) : (
+                  <div className="w-full rounded-lg border border-green-400/35 bg-green-400/10 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-green-300">
+                    Vote Recorded
+                  </div>
                 )}
-              </motion.div>
+              </motion.section>
             )
           })}
         </div>
 
         {performances.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-white/60">No performances available for voting</p>
-          </div>
+          <div className="py-14 text-center text-white/55">No performances available for voting</div>
         )}
-      </div>
+      </main>
     </div>
   )
 }
