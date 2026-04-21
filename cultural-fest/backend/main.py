@@ -21,36 +21,45 @@ from routers import voting
 
 app = FastAPI(title="Cultural Fest API")
 
+# Build allowed origins list
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://localhost:5175",
-    "http://127.0.0.1:5175",
     "http://localhost:3000",
-    "http://127.0.0.1:3000",
 ]
 
-_frontend_url = os.getenv("FRONTEND_URL", "")
-_vercel_url = os.getenv("VERCEL_URL", "")
+# Add production URLs from environment
+FRONTEND_URL = os.getenv("FRONTEND_URL", "")
+if FRONTEND_URL:
+    ALLOWED_ORIGINS.append(FRONTEND_URL)
+    # Also add without trailing slash if present
+    ALLOWED_ORIGINS.append(FRONTEND_URL.rstrip("/"))
 
-if _frontend_url:
-    ALLOWED_ORIGINS.append(_frontend_url)
-    
-if _vercel_url:
-    if not _vercel_url.startswith("http"):
-        ALLOWED_ORIGINS.append(f"https://{_vercel_url}")
-    else:
-        ALLOWED_ORIGINS.append(_vercel_url)
+# Add Railway preview URLs pattern
+VERCEL_URL = os.getenv("VERCEL_URL", "")
+if VERCEL_URL:
+    ALLOWED_ORIGINS.append(f"https://{VERCEL_URL}")
 
-# Allow all *.app.github.dev domains (Codespaces)
+# Hardcode the known Railway frontend URL as fallback
+RAILWAY_FRONTEND = os.getenv(
+    "RAILWAY_FRONTEND_URL",
+    "https://izee-culturals-frontend-production.up.railway.app"
+)
+ALLOWED_ORIGINS.append(RAILWAY_FRONTEND)
+
+# Remove duplicates
+ALLOWED_ORIGINS = list(set(ALLOWED_ORIGINS))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://.*\.app\.github\.dev",
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+print(f"[CORS] Allowed origins: {ALLOWED_ORIGINS}")
 
 # Include route routers
 app.include_router(students.router, prefix="/api")
