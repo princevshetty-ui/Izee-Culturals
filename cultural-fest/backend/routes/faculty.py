@@ -11,17 +11,13 @@ from pass_generator import (
 )
 import os
 import base64
-import smtplib
+import httpx
 import time
 import csv
 import re
 from datetime import datetime, timezone, timedelta
 from io import StringIO, BytesIO
 from uuid import UUID
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
-from email.mime.application import MIMEApplication
 from zipfile import ZIP_DEFLATED, ZipFile
 from PIL import Image
 
@@ -322,16 +318,12 @@ def send_group_bundle_email(
     bundle_bytes: bytes,
     total_passes: int,
 ):
-    """Send leader-only zip bundle containing all team member passes as PDFs."""
-    smtp_host = os.getenv("SMTP_HOST")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_password = os.getenv("SMTP_PASSWORD")
-    smtp_from = os.getenv("SMTP_FROM_EMAIL", smtp_user)
-    smtp_use_tls = os.getenv("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes"}
+    """Send leader-only zip bundle containing all team member passes as PDFs via Resend."""
+    resend_api_key = os.getenv("RESEND_API_KEY", "")
+    resend_from = os.getenv("RESEND_FROM_EMAIL", "IZee Got Talent <noreply@yourdomain.com>")
 
-    if not smtp_host or not smtp_user or not smtp_password or not smtp_from:
-        return False, "SMTP configuration missing"
+    if not resend_api_key:
+        return False, "RESEND_API_KEY not set"
     if not to_email:
         return False, "Recipient email missing"
 
@@ -380,29 +372,36 @@ def send_group_bundle_email(
     </html>
     """
 
+    zip_name = f"group_pass_bundle_{short_id or 'TEAM'}.zip"
+    attachment_b64 = base64.b64encode(bundle_bytes).decode("utf-8")
+
+    payload = {
+        "from": resend_from,
+        "to": [to_email],
+        "subject": subject,
+        "html": html,
+        "text": plain,
+        "attachments": [
+            {
+                "filename": zip_name,
+                "content": attachment_b64,
+            }
+        ],
+    }
+
     try:
-        message = MIMEMultipart("mixed")
-        message["Subject"] = subject
-        message["From"] = smtp_from
-        message["To"] = to_email
-
-        alternative = MIMEMultipart("alternative")
-        alternative.attach(MIMEText(plain, "plain"))
-        alternative.attach(MIMEText(html, "html"))
-        message.attach(alternative)
-
-        zip_name = f"group_pass_bundle_{short_id or 'TEAM'}.zip"
-        bundle_attachment = MIMEApplication(bundle_bytes, _subtype="zip")
-        bundle_attachment.add_header("Content-Disposition", "attachment", filename=zip_name)
-        message.attach(bundle_attachment)
-
-        server = smtplib.SMTP(smtp_host, smtp_port, timeout=25)
-        if smtp_use_tls:
-            server.starttls()
-        server.login(smtp_user, smtp_password)
-        server.sendmail(smtp_from, [to_email], message.as_string())
-        server.quit()
-        return True, None
+        with httpx.Client(timeout=15.0) as client:
+            response = client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            if response.status_code in (200, 201):
+                return True, None
+            return False, f"Resend error {response.status_code}: {response.text}"
     except Exception as exc:
         return False, str(exc)
 
@@ -517,16 +516,13 @@ def send_approval_email(
         user_type: str,
         events: list[str] | None = None,
 ):
-        """Send approval email with branded HTML template and inline QR image."""
-        smtp_host = os.getenv("SMTP_HOST")
-        smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        smtp_user = os.getenv("SMTP_USER")
-        smtp_password = os.getenv("SMTP_PASSWORD")
-        smtp_from = os.getenv("SMTP_FROM_EMAIL", smtp_user)
-        smtp_use_tls = os.getenv("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes"}
+        """Send approval email with branded HTML template and inline pass preview via Resend."""
+        resend_api_key = os.getenv("RESEND_API_KEY", "")
+        resend_from = os.getenv("RESEND_FROM_EMAIL", "IZee Got Talent <noreply@yourdomain.com>")
 
-        if not smtp_host or not smtp_user or not smtp_password or not smtp_from:
-                return False, "SMTP configuration missing"
+        if not resend_api_key:
+                print(f"[EMAIL SKIPPED] RESEND_API_KEY not set. Would send to: {to_email}")
+                return False, "RESEND_API_KEY not set"
 
         if not to_email:
                 return False, "Recipient email missing"
@@ -541,6 +537,7 @@ def send_approval_email(
                         "</div>"
                 )
 
+        subject = "Izee Got Talent - Registration Approved"
         html = f"""
         <html>
             <body style="margin:0;padding:0;background:#0A0A0A;font-family:Arial,Helvetica,sans-serif;color:#F5F0E8;">
@@ -563,7 +560,7 @@ def send_approval_email(
                                         </p>
                                         <p style="margin:0 0 16px 0;font-size:13px;color:#C9A84C">Registration ID: {registration_id}</p>
                                         <div style="margin-top:16px;border-radius:10px;overflow:hidden;border:1px solid rgba(201,168,76,0.22)">
-                                            <img src="cid:approval_pass" width="600" style="display:block;max-width:100%;height:auto;border-radius:8px;" alt="Admit Pass" />
+                                            <img src="data:image/png;base64,{qr_code_base64}" width="600" style="display:block;max-width:100%;height:auto;border-radius:8px;" alt="Admit Pass" />
                                         </div>
                                         <p style="margin:12px 0 0 0;font-size:12px;color:rgba(245,240,232,0.5);font-style:italic;">
                                             Save this image — it is your entry pass for the event. Show it at the entry gate for scanning.
@@ -582,35 +579,36 @@ def send_approval_email(
         </html>
         """
 
+        payload = {
+                "from": resend_from,
+                "to": [to_email],
+                "subject": subject,
+                "html": html,
+                "attachments": [
+                        {
+                                "filename": "izee_gta_pass.png",
+                                "content": qr_code_base64,
+                        }
+                ],
+        }
+
         try:
-                message = MIMEMultipart("related")
-                message["Subject"] = "Izee Got Talent - Registration Approved"
-                message["From"] = smtp_from
-                message["To"] = to_email
-
-                alternative = MIMEMultipart("alternative")
-                alternative.attach(MIMEText("Your registration has been approved. Please use the attached QR code.", "plain"))
-                alternative.attach(MIMEText(html, "html"))
-                message.attach(alternative)
-
-                qr_bytes = base64.b64decode(qr_code_base64)
-                pass_image = MIMEImage(qr_bytes, _subtype="png")
-                pass_image.add_header("Content-ID", "<approval_pass>")
-                pass_image.add_header(
-                    "Content-Disposition",
-                    "attachment",
-                    filename="izee_gta_pass.png"
-                )
-                message.attach(pass_image)
-
-                server = smtplib.SMTP(smtp_host, smtp_port, timeout=25)
-                if smtp_use_tls:
-                        server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_from, [to_email], message.as_string())
-                server.quit()
-                return True, None
+                with httpx.Client(timeout=15.0) as client:
+                        response = client.post(
+                                "https://api.resend.com/emails",
+                                headers={
+                                        "Authorization": f"Bearer {resend_api_key}",
+                                        "Content-Type": "application/json",
+                                },
+                                json=payload,
+                        )
+                if response.status_code in (200, 201):
+                        print(f"[EMAIL SENT] {to_email} - {subject}")
+                        return True, None
+                print(f"[EMAIL FAILED] {response.status_code}: {response.text}")
+                return False, f"Resend error {response.status_code}: {response.text}"
         except Exception as exc:
+                print(f"[EMAIL ERROR] {exc}")
                 return False, str(exc)
 
 
