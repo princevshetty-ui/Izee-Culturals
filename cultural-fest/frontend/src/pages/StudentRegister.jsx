@@ -314,7 +314,7 @@ export default function StudentRegister() {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  placeholder="Enter Full Name as in ID Card (e.g., Vishesh Vandan)""
+                  placeholder="Enter Full Name as in ID Card (e.g., Vishesh Vandan)"
                   className={`${inputBase} ${
                     errors.name
                       ? 'border-red-500/60 focus:border-red-500'
