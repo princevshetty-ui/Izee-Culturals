@@ -1,7 +1,7 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
-import { apiUrl } from '../lib/api.js'
+import { apiUrl } from '../utils/api.js'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { apiUrl } from '../lib/api.js'
+import { apiUrl } from '../utils/api.js'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
