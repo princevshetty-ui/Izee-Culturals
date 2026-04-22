@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { isValidRollNo, normalizeFullNameInput, normalizeRollNoInput } from '../utils/formValidation'
-import PageTopBar from '../components/PageTopBar'
-import { apiFetch } from '../utils/api'
+import { apiUrl } from '../lib/api.js'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
-const COURSES = ['BCA', 'BBA', 'BBA - Aviation']
-const _MOTION = motion
 
 export default function ParticipantGroupRegister() {
   const navigate = useNavigate()
@@ -42,7 +38,7 @@ export default function ParticipantGroupRegister() {
     const isFocused = focusedField === fieldKey
     return {
       background: 'rgba(255,255,255,0.04)',
-      border: isFocused ? '0.5px solid rgba(190,163,93,0.45)' : '0.5px solid rgba(255,255,255,0.12)',
+      border: isFocused ? '0.5px solid rgba(201,168,76,0.45)' : '0.5px solid rgba(255,255,255,0.12)',
       borderRadius: '8px',
       color: '#EEE6D8',
       fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -50,7 +46,7 @@ export default function ParticipantGroupRegister() {
       padding: '10px 14px',
       outline: 'none',
       width: '100%',
-      boxShadow: isFocused ? '0 0 0 3px rgba(190,163,93,0.06)' : 'none',
+      boxShadow: isFocused ? '0 0 0 3px rgba(201,168,76,0.06)' : 'none',
       transition: 'border-color 0.18s ease, box-shadow 0.18s ease',
     }
   }
@@ -63,7 +59,7 @@ export default function ParticipantGroupRegister() {
       fontWeight: '600',
       letterSpacing: '0.12em',
       textTransform: 'uppercase',
-      color: 'rgba(190,163,93,0.7)',
+      color: 'rgba(201,168,76,0.7)',
       marginBottom: '6px',
     }
   }
@@ -81,29 +77,15 @@ export default function ParticipantGroupRegister() {
   }
 
   function updateMember(id, field, value) {
-    const nextValue =
-      field === 'roll_no'
-        ? normalizeRollNoInput(value)
-        : field === 'name'
-          ? normalizeFullNameInput(value)
-          : value
-
     setMembers((prev) =>
       prev.map((m) =>
-        m.id === id ? { ...m, [field]: nextValue } : m
+        m.id === id ? { ...m, [field]: value } : m
       )
     )
   }
 
   function updateLeader(field, value) {
-    const nextValue =
-      field === 'roll_no'
-        ? normalizeRollNoInput(value)
-        : field === 'name'
-          ? normalizeFullNameInput(value)
-          : value
-
-    setLeader((prev) => ({ ...prev, [field]: nextValue }))
+    setLeader((prev) => ({ ...prev, [field]: value }))
   }
 
   async function handleSubmit(e) {
@@ -127,10 +109,6 @@ export default function ParticipantGroupRegister() {
         return
       }
     }
-    if (!isValidRollNo(leader.roll_no)) {
-      setError('Leader roll number must be 12 alphanumeric characters')
-      return
-    }
 
     for (let i = 0; i < members.length; i++) {
       const m = members[i]
@@ -138,16 +116,12 @@ export default function ParticipantGroupRegister() {
         setError(`All fields for Member ${i + 1} are required`)
         return
       }
-      if (!isValidRollNo(m.roll_no)) {
-        setError(`Member ${i + 1} roll number must be 12 alphanumeric characters`)
-        return
-      }
     }
 
     setSubmitting(true)
 
     try {
-      const res = await apiFetch('/api/register/group-participant', {
+      const res = await fetch(apiUrl('/api/register/group-participant'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -157,11 +131,7 @@ export default function ParticipantGroupRegister() {
           event_type: groupEvent.type,
           category_id: groupEvent.categoryId || '',
           leader,
-          members: members.map((member) => {
-            const rest = { ...member }
-            delete rest.id
-            return rest
-          }),
+          members: members.map(({ id, ...rest }) => rest),
         }),
       })
 
@@ -204,7 +174,7 @@ export default function ParticipantGroupRegister() {
   const goldUnderlineStyle = {
     height: '1px',
     width: '40px',
-    background: 'rgba(190,163,93,0.4)',
+    background: 'rgba(201,168,76,0.4)',
     marginBottom: '16px',
   }
 
@@ -214,6 +184,11 @@ export default function ParticipantGroupRegister() {
     color: 'rgba(238,230,216,0.4)',
     marginBottom: '20px',
     lineHeight: '1.6',
+  }
+
+  const addMemberButtonHoverStyle = {
+    borderColor: 'rgba(201,168,76,0.3)',
+    color: 'rgba(201,168,76,0.8)',
   }
 
   return (
@@ -231,12 +206,6 @@ export default function ParticipantGroupRegister() {
         paddingBottom: '100px',
       }}
     >
-      <PageTopBar
-        breadcrumb="Home → Participant Registration → Group Registration"
-        onBack={() => navigate('/participant/register')}
-        maxWidthClass="max-w-[680px]"
-      />
-
       <div
         style={{
           maxWidth: '680px',
@@ -244,28 +213,53 @@ export default function ParticipantGroupRegister() {
           padding: '32px 24px',
         }}
       >
-        <div
+        <p
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontSize: '11px',
+            letterSpacing: '0.05em',
+            color: 'rgba(238,230,216,0.3)',
             marginBottom: '16px',
           }}
         >
-          <div
-            style={{
-              display: 'inline-flex',
-              padding: '4px 14px',
-              borderRadius: '999px',
-              background: 'rgba(190,163,93,0.08)',
-              border: '0.5px solid rgba(190,163,93,0.25)',
-              color: '#BEA35D',
-              fontSize: '12px',
-              fontFamily: 'system-ui, -apple-system, sans-serif',
-            }}
-          >
-            {groupEvent.name} · {groupEvent.type} · Group Event 👥
-          </div>
+          Home → Participant Registration → Group Registration
+        </p>
+
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          style={{
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontSize: '14px',
+            background: 'none',
+            border: 'none',
+            color: 'rgba(238,230,216,0.72)',
+            cursor: 'pointer',
+            padding: 0,
+            marginBottom: '16px',
+            transition: 'color 0.18s ease',
+          }}
+          onMouseEnter={(e) => (e.target.style.color = '#EEE6D8')}
+          onMouseLeave={(e) => (e.target.style.color = 'rgba(238,230,216,0.72)')}
+        >
+          ← Back
+        </button>
+
+        <div
+          style={{
+            display: 'inline-flex',
+            padding: '4px 14px',
+            borderRadius: '999px',
+            background: 'rgba(201,168,76,0.08)',
+            border: '0.5px solid rgba(201,168,76,0.25)',
+            color: '#C9A84C',
+            fontSize: '12px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            marginTop: '16px',
+            marginBottom: '12px',
+          }}
+        >
+          {groupEvent.name} · {groupEvent.type} · Group Event 👥
         </div>
 
         <h1
@@ -285,22 +279,10 @@ export default function ParticipantGroupRegister() {
             fontSize: '14px',
             color: 'rgba(238,230,216,0.55)',
             lineHeight: '1.65',
-            marginBottom: '14px',
-          }}
-        >
-          All members must be students of our college. The team leader's details will appear on the group pass.
-        </p>
-
-        <p
-          style={{
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            fontSize: '12px',
-            color: 'rgba(190,163,93,0.7)',
-            letterSpacing: '0.04em',
             marginBottom: '32px',
           }}
         >
-          Step 1: Team Name · Step 2: Leader Details · Step 3: Member Details
+          All members must be students of our college. The team leader's details will appear on the group pass.
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -363,9 +345,9 @@ export default function ParticipantGroupRegister() {
                   display: 'inline-flex',
                   padding: '2px 10px',
                   borderRadius: '999px',
-                  background: 'rgba(190,163,93,0.1)',
-                  border: '0.5px solid rgba(190,163,93,0.3)',
-                  color: '#BEA35D',
+                  background: 'rgba(201,168,76,0.1)',
+                  border: '0.5px solid rgba(201,168,76,0.3)',
+                  color: '#C9A84C',
                   fontSize: '10px',
                   fontFamily: 'system-ui, -apple-system, sans-serif',
                   fontWeight: '600',
@@ -391,12 +373,9 @@ export default function ParticipantGroupRegister() {
                   onChange={(e) => updateLeader('name', e.target.value)}
                   onFocus={() => setFocusedField('leader-name')}
                   onBlur={() => setFocusedField(null)}
-                  placeholder="Enter Full Name as in ID Card (e.g., Vishesh Vandan)"
+                  placeholder="Your full name"
                   style={getInputStyle('leader-name')}
                 />
-                <p style={{ ...infoNoteStyle, marginBottom: 0, marginTop: '6px' }}>
-                  Use full name with each word capitalized.
-                </p>
               </div>
               <div>
                 <label style={getLabelStyle()}>Roll No *</label>
@@ -407,7 +386,6 @@ export default function ParticipantGroupRegister() {
                   onFocus={() => setFocusedField('leader-roll')}
                   onBlur={() => setFocusedField(null)}
                   placeholder="Your roll number"
-                  maxLength={12}
                   style={getInputStyle('leader-roll')}
                 />
               </div>
@@ -416,26 +394,15 @@ export default function ParticipantGroupRegister() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
               <div>
                 <label style={getLabelStyle()}>Course *</label>
-                <select
+                <input
+                  type="text"
                   value={leader.course}
                   onChange={(e) => updateLeader('course', e.target.value)}
                   onFocus={() => setFocusedField('leader-course')}
                   onBlur={() => setFocusedField(null)}
-                  style={{
-                    ...getInputStyle('leader-course'),
-                    appearance: 'none',
-                    backgroundImage:
-                      'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22%3E%3Cpath fill=%22%23C9A84C%22 d=%22M1 1l5 5 5-5%22/%3E%3C/svg%3E")',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 12px center',
-                    paddingRight: '36px',
-                  }}
-                >
-                  <option value="">Select course</option>
-                  {COURSES.map((course) => (
-                    <option key={course} value={course}>{course}</option>
-                  ))}
-                </select>
+                  placeholder="Your course"
+                  style={getInputStyle('leader-course')}
+                />
               </div>
               <div>
                 <label style={getLabelStyle()}>Year *</label>
@@ -458,6 +425,7 @@ export default function ParticipantGroupRegister() {
                   <option value="1st Year">1st Year</option>
                   <option value="2nd Year">2nd Year</option>
                   <option value="3rd Year">3rd Year</option>
+                  <option value="4th Year">4th Year</option>
                 </select>
               </div>
             </div>
@@ -565,12 +533,9 @@ export default function ParticipantGroupRegister() {
                         onChange={(e) => updateMember(member.id, 'name', e.target.value)}
                         onFocus={() => setFocusedField(`member-${idx}-name`)}
                         onBlur={() => setFocusedField(null)}
-                        placeholder="Enter Full name as in ID Card"
+                        placeholder="Member's full name"
                         style={getInputStyle(`member-${idx}-name`)}
                       />
-                      <p style={{ ...infoNoteStyle, marginBottom: 0, marginTop: '6px' }}>
-                        Use full name with each word capitalized.
-                      </p>
                     </div>
                     <div>
                       <label style={getLabelStyle()}>Roll No *</label>
@@ -581,7 +546,6 @@ export default function ParticipantGroupRegister() {
                         onFocus={() => setFocusedField(`member-${idx}-roll`)}
                         onBlur={() => setFocusedField(null)}
                         placeholder="Member's roll number"
-                        maxLength={12}
                         style={getInputStyle(`member-${idx}-roll`)}
                       />
                     </div>
@@ -590,26 +554,15 @@ export default function ParticipantGroupRegister() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                     <div>
                       <label style={getLabelStyle()}>Course *</label>
-                      <select
+                      <input
+                        type="text"
                         value={member.course}
                         onChange={(e) => updateMember(member.id, 'course', e.target.value)}
                         onFocus={() => setFocusedField(`member-${idx}-course`)}
                         onBlur={() => setFocusedField(null)}
-                        style={{
-                          ...getInputStyle(`member-${idx}-course`),
-                          appearance: 'none',
-                          backgroundImage:
-                            'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22%3E%3Cpath fill=%22%23C9A84C%22 d=%22M1 1l5 5 5-5%22/%3E%3C/svg%3E")',
-                          backgroundRepeat: 'no-repeat',
-                          backgroundPosition: 'right 12px center',
-                          paddingRight: '36px',
-                        }}
-                      >
-                        <option value="">Select course</option>
-                        {COURSES.map((course) => (
-                          <option key={course} value={course}>{course}</option>
-                        ))}
-                      </select>
+                        placeholder="Member's course"
+                        style={getInputStyle(`member-${idx}-course`)}
+                      />
                     </div>
                     <div>
                       <label style={getLabelStyle()}>Year *</label>
@@ -632,6 +585,7 @@ export default function ParticipantGroupRegister() {
                         <option value="1st Year">1st Year</option>
                         <option value="2nd Year">2nd Year</option>
                         <option value="3rd Year">3rd Year</option>
+                        <option value="4th Year">4th Year</option>
                       </select>
                     </div>
                   </div>
@@ -658,8 +612,8 @@ export default function ParticipantGroupRegister() {
                 transition: 'border-color 0.18s ease, color 0.18s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(190,163,93,0.3)'
-                e.currentTarget.style.color = 'rgba(190,163,93,0.8)'
+                e.currentTarget.style.borderColor = 'rgba(201,168,76,0.3)'
+                e.currentTarget.style.color = 'rgba(201,168,76,0.8)'
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
@@ -690,15 +644,15 @@ export default function ParticipantGroupRegister() {
               height: '48px',
               borderRadius: '10px',
               background: submitting
-                ? 'rgba(190,163,93,0.25)'
-                : 'linear-gradient(135deg, #BEA35D 0%, #A8893C 100%)',
-              color: submitting ? 'rgba(190,163,93,0.4)' : '#0A0800',
+                ? 'rgba(201,168,76,0.25)'
+                : 'linear-gradient(135deg, #C9A84C 0%, #A8893C 100%)',
+              color: submitting ? 'rgba(201,168,76,0.4)' : '#0A0800',
               fontWeight: '600',
               fontSize: '15px',
               fontFamily: 'system-ui, -apple-system, sans-serif',
               border: 'none',
               cursor: submitting ? 'not-allowed' : 'pointer',
-              boxShadow: submitting ? 'none' : '0 4px 20px rgba(190,163,93,0.25)',
+              boxShadow: submitting ? 'none' : '0 4px 20px rgba(201,168,76,0.25)',
               letterSpacing: '0.02em',
               transition: 'all 0.18s ease',
               opacity: submitting ? 0.7 : 1,

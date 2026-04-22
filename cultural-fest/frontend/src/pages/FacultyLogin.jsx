@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { apiFetch } from '../utils/api'
+import { apiUrl } from '../lib/api.js'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
-const _MOTION = motion
 
 export default function FacultyLogin() {
   const navigate = useNavigate()
@@ -24,7 +23,7 @@ export default function FacultyLogin() {
     setIsSubmitting(true)
 
     try {
-      const response = await apiFetch('/api/faculty/login', {
+      const response = await fetch(apiUrl('/api/faculty/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password })

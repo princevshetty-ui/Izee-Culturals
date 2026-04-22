@@ -1,13 +1,9 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
-import PageTopBar from '../components/PageTopBar'
-import { apiFetch } from '../utils/api'
+import { apiUrl } from '../lib/api.js'
 
 const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
-const MotionDiv = motion.div
-const MotionH1 = motion.h1
-const MotionButton = motion.button
 
 export default function Confirmation() {
   const { type, id } = useParams()
@@ -15,7 +11,7 @@ export default function Confirmation() {
   const navigate = useNavigate()
 
   const [qrCode, setQrCode] = useState(location.state?.qr_code || null)
-  const [userName, setUserName] = useState(location.state?.name || location.state?.leaderName || location.state?.leader_name || '')
+  const [userName, setUserName] = useState(location.state?.name || '')
   const [selectedEvents, setSelectedEvents] = useState(location.state?.events || [])
   const [othersSelected, setOthersSelected] = useState(Boolean(location.state?.othersSelected))
   const [othersText, setOthersText] = useState(location.state?.othersText || '')
@@ -43,13 +39,14 @@ export default function Confirmation() {
   const isParticipant = type === 'participant'
   const isVolunteer = type === 'volunteer'
   const isGroup = type === 'group'
+  const isStudent = type === 'student'
 
   const checkStatus = async () => {
     setIsLoadingStatus(true)
     setStatusError('')
 
     try {
-      const response = await apiFetch(statusEndpoint)
+      const response = await fetch(apiUrl(statusEndpoint))
       const payload = await response.json()
 
       if (!response.ok || !payload.success) {
@@ -58,7 +55,6 @@ export default function Confirmation() {
 
       const data = payload.data || {}
       if (data.name) setUserName(data.name)
-      if (type === 'group' && data.leader_name) setUserName(data.leader_name)
 
       // Group specific
       if (data.team_name) setTeamName(data.team_name)
@@ -145,10 +141,10 @@ export default function Confirmation() {
       accentColor: '#14B8A6',
       accentBorder: 'rgba(20,184,166,0.3)',
       accentBg: 'rgba(20,184,166,0.06)',
-      pendingTitle: 'Registration Submitted',
-      pendingSubtext: 'Your volunteer registration is pending approval by the faculty coordinator.',
-      approvedTitle: 'You\'re Confirmed!',
-      approvedSubtext: 'Show this pass at the volunteer desk.',
+      pendingTitle: 'Application Submitted',
+      pendingSubtext: 'Your volunteer application is under review. Faculty will assign you to a team and approve your pass.',
+      approvedTitle: 'Welcome to the Team!',
+      approvedSubtext: 'Your volunteer pass is ready.',
       badge: 'VOLUNTEER',
       badgeColor: '#14B8A6',
     },
@@ -156,24 +152,16 @@ export default function Confirmation() {
       accentColor: '#C9A84C',
       accentBorder: 'rgba(201,168,76,0.3)',
       accentBg: 'rgba(201,168,76,0.06)',
-      pendingTitle: 'Registration Submitted',
-      pendingSubtext: 'Your group registration is pending approval by the faculty coordinator.',
-      approvedTitle: 'Your Group Entry is Confirmed!',
-      approvedSubtext: 'Show this pass at the event desk.',
+      pendingTitle: 'Group Registration Submitted',
+      pendingSubtext: 'Your group registration is pending faculty approval. The team leader will receive the group pass once approved.',
+      approvedTitle: 'Group is Ready!',
+      approvedSubtext: 'Your group competition pass is ready.',
       badge: 'GROUP EVENT',
       badgeColor: '#C9A84C',
     },
   }
 
   const config = roleConfig[type] || roleConfig.student
-  const groupSubtitle = [teamName, eventName].filter(Boolean).join(' • ')
-  const breadcrumbByType = {
-    student: 'Home → Student Registration → Confirmation',
-    participant: 'Home → Participant Registration → Confirmation',
-    volunteer: 'Home → Volunteer Registration → Confirmation',
-    group: 'Home → Group Registration → Confirmation',
-  }
-  const pageBreadcrumb = breadcrumbByType[type] || 'Home → Confirmation'
 
   if (isPending && !qrCode) {
     return (
@@ -188,17 +176,11 @@ export default function Confirmation() {
         `,
         color: '#EEE6D8',
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
-      }}>
-        <PageTopBar breadcrumb={pageBreadcrumb} onBack={() => navigate('/')} maxWidthClass="max-w-2xl" />
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
         justifyContent: 'center',
         padding: '24px'
       }}>
-        <MotionDiv
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           style={{
@@ -390,10 +372,7 @@ export default function Confirmation() {
                   fontSize: '14px',
                   color: '#EEE6D8',
                   fontFamily: 'system-ui, sans-serif',
-                  fontWeight: '500',
-                  overflowWrap: 'anywhere',
-                  wordBreak: 'break-word',
-                  lineHeight: '1.5',
+                  fontWeight: '500'
                 }}>
                   {teamName}
                 </p>
@@ -402,10 +381,7 @@ export default function Confirmation() {
                     fontSize: '12px',
                     color: 'rgba(238,230,216,0.5)',
                     fontFamily: 'system-ui, sans-serif',
-                    marginTop: '2px',
-                    overflowWrap: 'anywhere',
-                    wordBreak: 'break-word',
-                    lineHeight: '1.5',
+                    marginTop: '2px'
                   }}>
                     {eventName}
                   </p>
@@ -435,7 +411,7 @@ export default function Confirmation() {
             )}
 
             {statusError && (
-              <MotionDiv
+              <motion.div
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 style={{
@@ -450,7 +426,7 @@ export default function Confirmation() {
                 }}
               >
                 {statusError}
-              </MotionDiv>
+              </motion.div>
             )}
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -495,8 +471,7 @@ export default function Confirmation() {
               </button>
             </div>
           </div>
-        </MotionDiv>
-        </div>
+        </motion.div>
       </div>
     )
   }
@@ -515,9 +490,8 @@ export default function Confirmation() {
         color: '#F5F0E8'
       }}
     >
-      <PageTopBar breadcrumb={pageBreadcrumb} onBack={() => navigate('/')} maxWidthClass="max-w-2xl" />
       <div className="mx-auto flex max-w-2xl flex-col items-center justify-center px-4 py-8 sm:px-6 lg:px-8 lg:py-16">
-        <MotionDiv
+        <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', damping: 12, stiffness: 100, delay: 0.2 }}
@@ -529,9 +503,9 @@ export default function Confirmation() {
           }}
         >
           ✓
-        </MotionDiv>
+        </motion.div>
 
-        <MotionH1
+        <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
@@ -539,9 +513,9 @@ export default function Confirmation() {
           style={DISPLAY_FONT}
         >
           {config.approvedTitle}
-        </MotionH1>
+        </motion.h1>
 
-        <MotionDiv
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
@@ -555,20 +529,12 @@ export default function Confirmation() {
               {userName}
             </p>
           )}
-          {isGroup && groupSubtitle && (
-            <p
-              className="mt-1 text-sm text-[#F5F0E8]/70"
-              style={{ overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: '1.5' }}
-            >
-              {groupSubtitle}
-            </p>
-          )}
           <p className="mt-1 text-xs text-[#F5F0E8]/60">
             Registration ID: {id}
           </p>
-        </MotionDiv>
+        </motion.div>
 
-        <MotionDiv
+        <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.5 }}
@@ -649,22 +615,16 @@ export default function Confirmation() {
                 fontSize: '14px',
                 color: '#C9A84C',
                 fontFamily: 'system-ui, sans-serif',
-                fontWeight: '500',
-                overflowWrap: 'anywhere',
-                wordBreak: 'break-word',
-                lineHeight: '1.5',
+                fontWeight: '500'
               }}>
-                {teamName}{teamMembers.length > 0 ? ` · ${teamMembers.length} member(s)` : ''}
+                {teamName} · {teamMembers.length} member(s)
               </p>
               {eventName && (
                 <p style={{
                   fontSize: '12px',
                   color: 'rgba(238,230,216,0.5)',
                   fontFamily: 'system-ui, sans-serif',
-                  marginTop: '2px',
-                  overflowWrap: 'anywhere',
-                  wordBreak: 'break-word',
-                  lineHeight: '1.5',
+                  marginTop: '2px'
                 }}>
                   {eventName}
                 </p>
@@ -672,21 +632,17 @@ export default function Confirmation() {
             </div>
           )}
 
-          <MotionDiv
+          <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.65 }}
-            className="mt-6 rounded-lg border p-4"
-            style={{
-              borderColor: 'rgba(201,168,76,0.35)',
-              background: 'rgba(201,168,76,0.12)'
-            }}
+            className="mt-6 rounded-lg border border-amber-500/35 bg-amber-500/12 p-4"
           >
-            <p className="text-center text-sm font-semibold" style={{ color: '#C9A84C' }}>
+            <p className="text-center text-sm font-semibold text-amber-400">
               📸 Save or screenshot your admit pass — present it at the entry gate
             </p>
-          </MotionDiv>
-        </MotionDiv>
+          </motion.div>
+        </motion.div>
 
         {isParticipant && (selectedEvents.length > 0 || othersSelected) && (
           <div
@@ -760,7 +716,7 @@ export default function Confirmation() {
           </div>
         )}
 
-        <MotionButton
+        <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.75 }}
@@ -770,7 +726,7 @@ export default function Confirmation() {
           style={{ background: config.accentColor, color: '#0A0A0A' }}
         >
           Back to Home
-        </MotionButton>
+        </motion.button>
       </div>
     </div>
   )

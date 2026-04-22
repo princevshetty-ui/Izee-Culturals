@@ -1,37 +1,31 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { isValidRollNo, normalizeFullNameInput, normalizeRollNoInput } from '../utils/formValidation'
-import PageTopBar from '../components/PageTopBar'
-import { apiFetch } from '../utils/api'
+import { apiUrl } from '../lib/api.js'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
-const COURSES = ['BCA', 'BBA', 'BBA - Aviation']
+const COURSES = ['BCA', 'BBA', 'B.Com']
 const YEARS = ['1st', '2nd', '3rd']
 
-const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#BEA35D]'
+const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#C9A84C]'
 const inputBase =
   'mt-2 w-full rounded-lg border px-4 py-3 text-[#EEE6D8] placeholder:text-[rgba(238,230,216,0.3)] transition focus:outline-none'
-const MotionDiv = motion.div
-const MotionSpan = motion.span
-const MotionAside = motion.aside
 
 export default function ParticipantRegister() {
   const navigate = useNavigate()
   const location = useLocation()
   const locationState = location.state
 
-  const selectedEvents = useMemo(() => locationState?.events || [], [locationState])
+  const selectedEvents = locationState?.events || []
   const othersSelected = locationState?.othersSelected || false
   const othersText = locationState?.othersText || ''
-  const selectedEventCount = selectedEvents.length
 
   useEffect(() => {
-    if (!locationState || (selectedEventCount === 0 && !othersSelected)) {
+    if (!locationState || (selectedEvents.length === 0 && !othersSelected)) {
       navigate('/participant/events', { replace: true })
     }
-  }, [locationState, selectedEventCount, othersSelected, navigate])
+  }, [locationState, selectedEvents, othersSelected, navigate])
 
   const [formData, setFormData] = useState({
     name: '',
@@ -44,27 +38,6 @@ export default function ParticipantRegister() {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState('')
-  const [isRegistrationOpen, setIsRegistrationOpen] = useState(true)
-
-  useEffect(() => {
-    let isMounted = true
-
-    const loadRegistrationConfig = async () => {
-      try {
-        const response = await apiFetch('/api/config/registrations')
-        const payload = await response.json().catch(() => ({}))
-        if (!isMounted || !response.ok || !payload?.success || !payload?.data) return
-        setIsRegistrationOpen(Boolean(payload.data.participant_open))
-      } catch {
-        // Keep default open if config fetch fails.
-      }
-    }
-
-    loadRegistrationConfig()
-    return () => {
-      isMounted = false
-    }
-  }, [])
 
   const validateEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -75,11 +48,7 @@ export default function ParticipantRegister() {
     const newErrors = {}
 
     if (!formData.name.trim()) newErrors.name = 'Name is required'
-    if (!formData.roll_no.trim()) {
-      newErrors.roll_no = 'Roll No is required'
-    } else if (!isValidRollNo(formData.roll_no)) {
-      newErrors.roll_no = 'Roll No must be 12 alphanumeric characters'
-    }
+    if (!formData.roll_no.trim()) newErrors.roll_no = 'Roll No is required'
     if (!formData.course) newErrors.course = 'Course is required'
     if (!formData.year) newErrors.year = 'Year is required'
     if (!formData.email.trim()) {
@@ -94,14 +63,7 @@ export default function ParticipantRegister() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    const nextValue =
-      name === 'roll_no'
-        ? normalizeRollNoInput(value)
-        : name === 'name'
-          ? normalizeFullNameInput(value)
-          : value
-
-    setFormData((prev) => ({ ...prev, [name]: nextValue }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }))
     }
@@ -111,17 +73,12 @@ export default function ParticipantRegister() {
     e.preventDefault()
     setApiError('')
 
-    if (!isRegistrationOpen) {
-      setApiError('Registrations are currently closed')
-      return
-    }
-
     if (!validateForm()) return
 
     setIsLoading(true)
 
     try {
-      const response = await apiFetch('/api/register/participant', {
+      const response = await fetch(apiUrl('/api/register/participant'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -164,7 +121,7 @@ export default function ParticipantRegister() {
       } else {
         setApiError(data.message || 'Registration failed. Please try again.')
       }
-    } catch {
+    } catch (error) {
       setApiError('Network error. Please check your connection and try again.')
     } finally {
       setIsLoading(false)
@@ -176,17 +133,29 @@ export default function ParticipantRegister() {
       className="min-h-screen text-[#EEE6D8]"
       style={{
         background:
-          'radial-gradient(900px circle at 16% 88%, rgba(178,34,52,0.14), transparent 60%), radial-gradient(700px circle at 82% 12%, rgba(190,163,93,0.07), transparent 62%), radial-gradient(1400px at 50% 50%, rgba(20,28,60,0.3), transparent 70%), #080910',
+          'radial-gradient(900px circle at 16% 88%, rgba(178,34,52,0.14), transparent 60%), radial-gradient(700px circle at 82% 12%, rgba(201,168,76,0.07), transparent 62%), radial-gradient(1400px at 50% 50%, rgba(20,28,60,0.3), transparent 70%), #080910',
       }}
     >
-      <PageTopBar
-        breadcrumb="Home → Participant Registration → Participant Form"
-        onBack={() => navigate('/participant/events')}
-      />
+      <header className="border-b border-[#EEE6D8]/10 bg-[#080910]/88 backdrop-blur-md">
+        <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[#EEE6D8]/38">
+            Home → Participant Registration → Participant Form
+          </p>
+          <div className="mt-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => navigate('/participant/events')}
+              className="text-sm text-[#EEE6D8]/78 transition hover:text-[#EEE6D8]"
+            >
+              ← Back
+            </button>
+          </div>
+        </div>
+      </header>
 
       <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr]">
-          <MotionDiv
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
@@ -195,23 +164,13 @@ export default function ParticipantRegister() {
             <h1 className="text-3xl sm:text-4xl" style={DISPLAY_FONT}>
               Complete Registration
             </h1>
-            <p className="mt-2 text-[#BEA35D]">Participant Details</p>
-
-            {!isRegistrationOpen && (
-              <MotionDiv
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 rounded-xl border border-[#B22234]/40 bg-[#B22234]/12 p-4 text-sm text-[#E8B8BF]"
-              >
-                Registrations are currently closed
-              </MotionDiv>
-            )}
+            <p className="mt-2 text-[#C9A84C]">Participant Details</p>
 
             {(selectedEvents.length > 0 || othersSelected) && (
               <div
                 style={{
-                  background: 'rgba(190,163,93,0.05)',
-                  border: '0.5px solid rgba(190,163,93,0.2)',
+                  background: 'rgba(201,168,76,0.05)',
+                  border: '0.5px solid rgba(201,168,76,0.2)',
                   borderRadius: '10px',
                   padding: '14px 16px',
                   marginBottom: '24px',
@@ -223,7 +182,7 @@ export default function ParticipantRegister() {
                     fontSize: '10px',
                     textTransform: 'uppercase',
                     letterSpacing: '0.14em',
-                    color: 'rgba(190,163,93,0.7)',
+                    color: 'rgba(201,168,76,0.7)',
                     fontFamily: 'system-ui, sans-serif',
                     marginBottom: '10px',
                   }}
@@ -237,9 +196,9 @@ export default function ParticipantRegister() {
                       style={{
                         padding: '4px 12px',
                         borderRadius: '999px',
-                        background: 'rgba(190,163,93,0.08)',
-                        border: '0.5px solid rgba(190,163,93,0.25)',
-                        color: '#BEA35D',
+                        background: 'rgba(201,168,76,0.08)',
+                        border: '0.5px solid rgba(201,168,76,0.25)',
+                        color: '#C9A84C',
                         fontSize: '12px',
                         fontFamily: 'system-ui, sans-serif',
                       }}
@@ -252,9 +211,9 @@ export default function ParticipantRegister() {
                       style={{
                         padding: '4px 12px',
                         borderRadius: '999px',
-                        background: 'rgba(190,163,93,0.08)',
-                        border: '0.5px dashed rgba(190,163,93,0.25)',
-                        color: 'rgba(190,163,93,0.8)',
+                        background: 'rgba(201,168,76,0.08)',
+                        border: '0.5px dashed rgba(201,168,76,0.25)',
+                        color: 'rgba(201,168,76,0.8)',
                         fontSize: '12px',
                         fontFamily: 'system-ui, sans-serif',
                       }}
@@ -280,20 +239,16 @@ export default function ParticipantRegister() {
             )}
 
             {apiError && (
-              <MotionDiv
+              <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-6 rounded-xl border border-red-500/35 bg-red-500/12 p-4 text-sm text-red-400"
               >
                 {apiError}
-              </MotionDiv>
+              </motion.div>
             )}
 
-            <form
-              onSubmit={handleSubmit}
-              className="mt-8 space-y-5"
-              style={{ opacity: isRegistrationOpen ? 1 : 0.58, pointerEvents: isRegistrationOpen ? 'auto' : 'none' }}
-            >
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <div>
                 <label htmlFor="name" className={labelClass}>
                   Full Name
@@ -304,14 +259,13 @@ export default function ParticipantRegister() {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  placeholder="Enter Full Name as in ID Card (e.g., Vishesh Vandan)"
+                  placeholder="V S"
                   className={`${inputBase} ${
                     errors.name
                       ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(190,163,93,0.5)] focus:shadow-[0_0_0_3px_rgba(190,163,93,0.08)]'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
                   }`}
                 />
-                <p className="mt-1 text-[11px] text-[#EEE6D8]/42">Use full name with each word capitalized.</p>
                 {errors.name && <p className="mt-1.5 text-xs text-red-400">{errors.name}</p>}
               </div>
 
@@ -326,11 +280,10 @@ export default function ParticipantRegister() {
                   value={formData.roll_no}
                   onChange={handleInputChange}
                   placeholder="e.g., U03EX24S0091"
-                  maxLength={12}
                   className={`${inputBase} ${
                     errors.roll_no
                       ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(190,163,93,0.5)] focus:shadow-[0_0_0_3px_rgba(190,163,93,0.08)]'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
                   }`}
                 />
                 {errors.roll_no && <p className="mt-1.5 text-xs text-red-400">{errors.roll_no}</p>}
@@ -349,10 +302,10 @@ export default function ParticipantRegister() {
                     className={`${inputBase} ${
                       errors.course
                         ? 'border-red-500/60 focus:border-red-500'
-                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(190,163,93,0.5)] focus:shadow-[0_0_0_3px_rgba(190,163,93,0.08)]'
+                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
                     }`}
                   >
-                    <option value="" className="bg-[#111111] text-[#EEE6D8]">Select Course</option>
+                    <option value="">Select Course</option>
                     {COURSES.map((course) => (
                       <option key={course} value={course} className="bg-[#111111] text-[#EEE6D8]">
                         {course}
@@ -374,10 +327,10 @@ export default function ParticipantRegister() {
                     className={`${inputBase} ${
                       errors.year
                         ? 'border-red-500/60 focus:border-red-500'
-                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(190,163,93,0.5)] focus:shadow-[0_0_0_3px_rgba(190,163,93,0.08)]'
+                        : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
                     }`}
                   >
-                    <option value="" className="bg-[#111111] text-[#EEE6D8]">Select Year</option>
+                    <option value="">Select Year</option>
                     {YEARS.map((year) => (
                       <option key={year} value={year} className="bg-[#111111] text-[#EEE6D8]">
                         {year} Year
@@ -402,7 +355,7 @@ export default function ParticipantRegister() {
                   className={`${inputBase} ${
                     errors.email
                       ? 'border-red-500/60 focus:border-red-500'
-                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(190,163,93,0.5)] focus:shadow-[0_0_0_3px_rgba(190,163,93,0.08)]'
+                      : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(201,168,76,0.5)] focus:shadow-[0_0_0_3px_rgba(201,168,76,0.08)]'
                   }`}
                 />
                 {errors.email && <p className="mt-1.5 text-xs text-red-400">{errors.email}</p>}
@@ -411,15 +364,15 @@ export default function ParticipantRegister() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="mt-8 w-full rounded-lg px-4 py-3 font-semibold text-[#0C0D10] transition hover:brightness-105 active:scale-[0.985] disabled:opacity-70"
+                className="mt-8 w-full rounded-lg px-4 py-3 font-semibold text-[#0C0D10] transition hover:brightness-105 disabled:opacity-70"
                 style={{
-                  background: 'linear-gradient(135deg, #BEA35D, #A8893C)',
-                  boxShadow: '0 4px 24px rgba(190,163,93,0.25)',
+                  background: 'linear-gradient(135deg, #C9A84C, #A8893C)',
+                  boxShadow: '0 4px 24px rgba(201,168,76,0.25)',
                 }}
               >
                 {isLoading ? (
                   <span className="inline-flex items-center gap-2">
-                    <MotionSpan
+                    <motion.span
                       animate={{ rotate: 360 }}
                       transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
                       className="inline-block h-4 w-4 rounded-full border-2 border-[#0C0D10]/40 border-t-[#0C0D10]"
@@ -431,16 +384,16 @@ export default function ParticipantRegister() {
                 )}
               </button>
             </form>
-          </MotionDiv>
+          </motion.div>
 
-          <MotionAside
+          <motion.aside
             initial={{ opacity: 0, x: 28 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.08, ease: 'easeOut' }}
             className="card-glass hidden rounded-2xl border border-[#EEE6D8]/12 p-6 lg:flex lg:flex-col lg:justify-between"
           >
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[#BEA35D]">Stage Note</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A84C]">Stage Note</p>
               <h2 className="mt-3 text-2xl" style={DISPLAY_FONT}>
                 "Two events.
                 One stage."
@@ -449,7 +402,7 @@ export default function ParticipantRegister() {
             <p className="mt-6 text-sm leading-relaxed text-[#EEE6D8]/62">
               Check your details once and submit with confidence.
             </p>
-          </MotionAside>
+          </motion.aside>
         </div>
       </main>
     </div>

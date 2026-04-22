@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { apiUrl } from '../lib/api.js'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
@@ -67,7 +68,7 @@ export default function StudentRegister() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/register/student', {
+      const response = await fetch(apiUrl('/api/register/student'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -314,7 +315,7 @@ export default function StudentRegister() {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  placeholder="Enter Full Name as in ID Card (e.g., Vishesh Vandan)"
+                  placeholder="V S"
                   className={`${inputBase} ${
                     errors.name
                       ? 'border-red-500/60 focus:border-red-500'

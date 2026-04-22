@@ -1,28 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { isValidRollNo, normalizeFullNameInput, normalizeRollNoInput } from '../utils/formValidation'
-import PageTopBar from '../components/PageTopBar'
-import { apiFetch } from '../utils/api'
+import { apiUrl } from '../lib/api.js'
 
 const DISPLAY_FONT = { fontFamily: 'Montage, Nevarademo, serif' }
 
 const COURSES = ['BCA', 'BBA', 'B.Com']
 const YEARS = ['1st', '2nd', '3rd']
 
+const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#C9A84C]'
 const volunteerLabelClass = 'block text-[11px] uppercase tracking-[0.16em] text-[#14B8A6]'
+const inputBase =
+  'mt-2 w-full rounded-lg border px-4 py-3 text-[#EEE6D8] placeholder:text-[rgba(238,230,216,0.3)] transition focus:outline-none'
 const inputVolunteer =
   'mt-2 w-full rounded-lg border px-4 py-3 text-[#EEE6D8] placeholder:text-[rgba(238,230,216,0.3)] transition focus:outline-none'
-const MotionDiv = motion.div
-const MotionSpan = motion.span
-const MotionAside = motion.aside
 
 const VOLUNTEER_TEAMS = [
   'Registration & Reception Team',
   'Program Coordination Team',
   'Discipline & Security Committee',
   'Hospitality & Welfare Team',
-  'Technical Support Team',
 ]
 
 export default function VolunteerRegister() {
@@ -41,27 +38,6 @@ export default function VolunteerRegister() {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState('')
-  const [isRegistrationOpen, setIsRegistrationOpen] = useState(true)
-
-  useEffect(() => {
-    let isMounted = true
-
-    const loadRegistrationConfig = async () => {
-      try {
-        const response = await apiFetch('/api/config/registrations')
-        const payload = await response.json().catch(() => ({}))
-        if (!isMounted || !response.ok || !payload?.success || !payload?.data) return
-        setIsRegistrationOpen(Boolean(payload.data.volunteer_open))
-      } catch {
-        // Keep default open if config fetch fails.
-      }
-    }
-
-    loadRegistrationConfig()
-    return () => {
-      isMounted = false
-    }
-  }, [])
 
   const validateEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -72,11 +48,7 @@ export default function VolunteerRegister() {
     const newErrors = {}
 
     if (!formData.name.trim()) newErrors.name = 'Name is required'
-    if (!formData.roll_no.trim()) {
-      newErrors.roll_no = 'Roll No is required'
-    } else if (!isValidRollNo(formData.roll_no)) {
-      newErrors.roll_no = 'Roll No must be 12 alphanumeric characters'
-    }
+    if (!formData.roll_no.trim()) newErrors.roll_no = 'Roll No is required'
     if (!formData.course) newErrors.course = 'Course is required'
     if (!formData.year) newErrors.year = 'Year is required'
     if (!formData.email.trim()) {
@@ -96,14 +68,7 @@ export default function VolunteerRegister() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    const nextValue =
-      name === 'roll_no'
-        ? normalizeRollNoInput(value)
-        : name === 'name'
-          ? normalizeFullNameInput(value)
-          : value
-
-    setFormData((prev) => ({ ...prev, [name]: nextValue }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }))
     }
@@ -113,17 +78,12 @@ export default function VolunteerRegister() {
     e.preventDefault()
     setApiError('')
 
-    if (!isRegistrationOpen) {
-      setApiError('Registrations are currently closed')
-      return
-    }
-
     if (!validateForm()) return
 
     setIsLoading(true)
 
     try {
-      const response = await apiFetch('/api/register/volunteer', {
+      const response = await fetch(apiUrl('/api/register/volunteer'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -143,7 +103,7 @@ export default function VolunteerRegister() {
       } else {
         setApiError(data.message || 'Registration failed. Please try again.')
       }
-    } catch {
+    } catch (error) {
       setApiError('Network error. Please check your connection and try again.')
     } finally {
       setIsLoading(false)
@@ -158,14 +118,26 @@ export default function VolunteerRegister() {
           'radial-gradient(900px circle at 16% 88%, rgba(178,34,52,0.14), transparent 60%), radial-gradient(700px circle at 82% 12%, rgba(201,168,76,0.07), transparent 62%), radial-gradient(1400px at 50% 50%, rgba(20,28,60,0.3), transparent 70%), #080910',
       }}
     >
-      <PageTopBar
-        breadcrumb="Home → Volunteer Registration → Application Form"
-        onBack={() => navigate('/')}
-      />
+      <header className="border-b border-[#EEE6D8]/10 bg-[#080910]/88 backdrop-blur-md">
+        <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[#EEE6D8]/38">
+            Home → Volunteer Registration → Application Form
+          </p>
+          <div className="mt-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="text-sm text-[#EEE6D8]/78 transition hover:text-[#EEE6D8]"
+            >
+              ← Back
+            </button>
+          </div>
+        </div>
+      </header>
 
       <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr]">
-          <MotionDiv
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
@@ -176,17 +148,7 @@ export default function VolunteerRegister() {
             </h1>
             <p className="mt-2 text-[#14B8A6]">Join the team behind the fest</p>
 
-            {!isRegistrationOpen && (
-              <MotionDiv
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 rounded-xl border border-[#B22234]/40 bg-[#B22234]/12 p-4 text-sm text-[#E8B8BF]"
-              >
-                Registrations are currently closed
-              </MotionDiv>
-            )}
-
-            <MotionDiv
+            <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               className="mt-4 flex gap-3 rounded-lg border border-[rgba(20,184,166,0.25)] bg-[rgba(20,184,166,0.07)] p-3"
@@ -208,23 +170,19 @@ export default function VolunteerRegister() {
                   You will be assigned to a team after approval.
                 </p>
               </div>
-            </MotionDiv>
+            </motion.div>
 
             {apiError && (
-              <MotionDiv
+              <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-6 rounded-xl border border-red-500/35 bg-red-500/12 p-4 text-sm text-red-400"
               >
                 {apiError}
-              </MotionDiv>
+              </motion.div>
             )}
 
-            <form
-              onSubmit={handleSubmit}
-              className="mt-8 space-y-5"
-              style={{ opacity: isRegistrationOpen ? 1 : 0.58, pointerEvents: isRegistrationOpen ? 'auto' : 'none' }}
-            >
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <div>
                 <label htmlFor="name" className={volunteerLabelClass}>
                   Full Name
@@ -235,14 +193,13 @@ export default function VolunteerRegister() {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  placeholder="Enter Full Name as in ID Card (e.g., Vishesh Vandan)"
+                  placeholder="V S"
                   className={`${inputVolunteer} ${
                     errors.name
                       ? 'border-red-500/60 focus:border-red-500'
                       : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(20,184,166,0.45)] focus:shadow-[0_0_0_3px_rgba(20,184,166,0.08)]'
                   }`}
                 />
-                <p className="mt-1 text-[11px] text-[#EEE6D8]/42">Use full name with each word capitalized.</p>
                 {errors.name && <p className="mt-1.5 text-xs text-red-400">{errors.name}</p>}
               </div>
 
@@ -257,7 +214,6 @@ export default function VolunteerRegister() {
                   value={formData.roll_no}
                   onChange={handleInputChange}
                   placeholder="e.g., U03EX24S0091"
-                  maxLength={12}
                   className={`${inputVolunteer} ${
                     errors.roll_no
                       ? 'border-red-500/60 focus:border-red-500'
@@ -283,7 +239,7 @@ export default function VolunteerRegister() {
                         : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(20,184,166,0.45)] focus:shadow-[0_0_0_3px_rgba(20,184,166,0.08)]'
                     }`}
                   >
-                    <option value="" className="bg-[#111111] text-[#EEE6D8]">Select Course</option>
+                    <option value="">Select Course</option>
                     {COURSES.map((course) => (
                       <option key={course} value={course} className="bg-[#111111] text-[#EEE6D8]">
                         {course}
@@ -308,7 +264,7 @@ export default function VolunteerRegister() {
                         : 'border-[rgba(238,230,216,0.12)] bg-[rgba(255,255,255,0.04)] focus:border-[rgba(20,184,166,0.45)] focus:shadow-[0_0_0_3px_rgba(20,184,166,0.08)]'
                     }`}
                   >
-                    <option value="" className="bg-[#111111] text-[#EEE6D8]">Select Year</option>
+                    <option value="">Select Year</option>
                     {YEARS.map((year) => (
                       <option key={year} value={year} className="bg-[#111111] text-[#EEE6D8]">
                         {year} Year
@@ -378,7 +334,7 @@ export default function VolunteerRegister() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="mt-8 w-full rounded-lg px-4 py-3 font-semibold text-[#0C0D10] transition hover:brightness-105 active:scale-[0.985] disabled:opacity-70"
+                className="mt-8 w-full rounded-lg px-4 py-3 font-semibold text-[#0C0D10] transition hover:brightness-105 disabled:opacity-70"
                 style={{
                   background: 'linear-gradient(135deg, #14B8A6, #0D9488)',
                   boxShadow: '0 4px 24px rgba(20,184,166,0.22)',
@@ -386,7 +342,7 @@ export default function VolunteerRegister() {
               >
                 {isLoading ? (
                   <span className="inline-flex items-center gap-2">
-                    <MotionSpan
+                    <motion.span
                       animate={{ rotate: 360 }}
                       transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
                       className="inline-block h-4 w-4 rounded-full border-2 border-[#0C0D10]/40 border-t-[#0C0D10]"
@@ -398,9 +354,9 @@ export default function VolunteerRegister() {
                 )}
               </button>
             </form>
-          </MotionDiv>
+          </motion.div>
 
-          <MotionAside
+          <motion.aside
             initial={{ opacity: 0, x: 28 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.08, ease: 'easeOut' }}
@@ -445,7 +401,7 @@ export default function VolunteerRegister() {
             <p style={{ fontSize: '12px', color: 'rgba(238,230,216,0.4)', lineHeight: '1.65' }}>
               Team assignment is done by faculty after your application is reviewed and approved.
             </p>
-          </MotionAside>
+          </motion.aside>
         </div>
       </main>
     </div>
