@@ -4,7 +4,7 @@
  */
 
 // We use the direct Railway production URL to bypass environment variable issues.
-const API_BASE = 'https://railway.app';
+const API_BASE = 'const API_BASE = 'https://izee-culturals-production.up.railway.app';';
 
 /**
  * Constructs a full API URL.
