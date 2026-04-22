@@ -97,6 +97,14 @@ def get_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     """
     Load a dependable font with graceful fallback across common Linux images.
     """
+       # ━━━ ADD THESE LINES BELOW ━━━
+    bundled_font = os.path.join(BASE_DIR, 'assets', 'fonts', 'Nevarademo-6YXEY.otf')
+    if os.path.exists(bundled_font):
+        try:
+            return load_font_safe(bundled_font, size)
+        except Exception:
+            pass
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     font_pairs = [
         (
             "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
