@@ -391,7 +391,7 @@ export default function ParticipantGroupRegister() {
                   onChange={(e) => updateLeader('name', e.target.value)}
                   onFocus={() => setFocusedField('leader-name')}
                   onBlur={() => setFocusedField(null)}
-                  placeholder="Full Name (e.g., Vishesh Vandan)"
+                  placeholder="Enter Full Name as in ID Card (e.g., Vishesh Vandan)""
                   style={getInputStyle('leader-name')}
                 />
                 <p style={{ ...infoNoteStyle, marginBottom: 0, marginTop: '6px' }}>
@@ -565,7 +565,7 @@ export default function ParticipantGroupRegister() {
                         onChange={(e) => updateMember(member.id, 'name', e.target.value)}
                         onFocus={() => setFocusedField(`member-${idx}-name`)}
                         onBlur={() => setFocusedField(null)}
-                        placeholder="Full Name (e.g., Vishesh Vandan)"
+                        placeholder="Enter Full name as in ID Card"
                         style={getInputStyle(`member-${idx}-name`)}
                       />
                       <p style={{ ...infoNoteStyle, marginBottom: 0, marginTop: '6px' }}>

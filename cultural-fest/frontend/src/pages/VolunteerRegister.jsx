@@ -235,7 +235,7 @@ export default function VolunteerRegister() {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  placeholder="Full Name (e.g., Vishesh Vandan)"
+                  placeholder="Enter Full Name as in ID Card (e.g., Vishesh Vandan)"
                   className={`${inputVolunteer} ${
                     errors.name
                       ? 'border-red-500/60 focus:border-red-500'
