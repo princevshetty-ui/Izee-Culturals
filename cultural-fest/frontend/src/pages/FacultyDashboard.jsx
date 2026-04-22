@@ -8,11 +8,16 @@ const DISPLAY_FONT = { fontFamily: 'Nevarademo, serif' }
 
 const STUDENT_COLUMNS = ['name', 'roll_no', 'course', 'year', 'email', 'qr_code', 'registered_at']
 const PARTICIPANT_COLUMNS = ['name', 'roll_no', 'course', 'year', 'email', 'event_1', 'event_2', 'qr_code', 'registered_at']
+const VOLUNTEER_COLUMNS = ['name', 'roll_no', 'course', 'year', 'email', 'team_label', 'qr_code', 'registered_at']
+const GROUP_COLUMNS = ['group_name', 'event_name', 'name', 'roll_no', 'email', 'qr_code', 'registered_at']
 
 const COLUMN_LABELS = {
   roll_no: 'Roll No',
   event_1: 'Event1',
   event_2: 'Event2',
+  group_name: 'Team',
+  event_name: 'Event',
+  team_label: 'Team Assignment',
   qr_code: 'Status',
   registered_at: 'Registered At',
 }
@@ -25,9 +30,70 @@ const EVENT_NAME_BY_ID = EVENTS.reduce((accumulator, event) => {
 const NAV_ITEMS = [
   { id: 'students', label: 'Students' },
   { id: 'participants', label: 'Participants' },
+  { id: 'volunteers', label: 'Volunteers' },
+  { id: 'groups', label: 'Groups' },
 ]
 
 const DEFAULT_PAGE_SIZE = 25
+
+const TAB_CONFIG = {
+  students: {
+    label: 'Students',
+    listPath: '/api/faculty/students',
+    approvePath: (id) => `/api/faculty/approve/student/${id}`,
+    deletePath: (id) => `/api/faculty/student/${id}`,
+    resendPath: (id) => `/api/faculty/resend/student/${id}`,
+    exportPath: '/api/faculty/export/students',
+    columns: STUDENT_COLUMNS,
+    deleteMessage: 'Delete this student registration? This cannot be undone.',
+    bulkDeleteMessage: (count) => `Delete ${count} selected student record(s)?`,
+  },
+  participants: {
+    label: 'Participants',
+    listPath: '/api/faculty/participants',
+    approvePath: (id) => `/api/faculty/approve/participant/${id}`,
+    deletePath: (id) => `/api/faculty/participant/${id}`,
+    resendPath: (id) => `/api/faculty/resend/participant/${id}`,
+    exportPath: '/api/faculty/export/participants',
+    columns: PARTICIPANT_COLUMNS,
+    deleteMessage: 'Delete this participant and linked event records? This cannot be undone.',
+    bulkDeleteMessage: (count) => `Delete ${count} selected participant record(s) and linked events?`,
+  },
+  volunteers: {
+    label: 'Volunteers',
+    listPath: '/api/faculty/volunteers',
+    approvePath: (id) => `/api/faculty/approve/volunteer/${id}`,
+    deletePath: (id) => `/api/faculty/volunteer/${id}`,
+    resendPath: (id) => `/api/faculty/resend/volunteer/${id}`,
+    exportPath: '/api/faculty/export/volunteers',
+    columns: VOLUNTEER_COLUMNS,
+    deleteMessage: 'Delete this volunteer registration? This cannot be undone.',
+    bulkDeleteMessage: (count) => `Delete ${count} selected volunteer record(s)?`,
+  },
+  groups: {
+    label: 'Groups',
+    listPath: '/api/faculty/groups',
+    approvePath: (id) => `/api/faculty/approve/group/${id}`,
+    deletePath: (id) => `/api/faculty/group/${id}`,
+    resendPath: (id) => `/api/faculty/resend/group/${id}`,
+    exportPath: '/api/faculty/export/groups',
+    columns: GROUP_COLUMNS,
+    deleteMessage: 'Delete this group registration and linked group members? This cannot be undone.',
+    bulkDeleteMessage: (count) => `Delete ${count} selected group record(s) and linked members?`,
+  },
+}
+
+const VOLUNTEER_TEAM_OPTIONS = [
+  'Registration & Reception Team',
+  'Program Coordination Team',
+  'Discipline & Security Committee',
+  'Hospitality & Welfare Team',
+  'Technical Support Team',
+]
+
+function isRecordApproved(record) {
+  return Boolean(record?.qr_code || record?.is_approved || record?.approved)
+}
 
 function titleCaseFromSnakeCase(value) {
   return value
@@ -126,6 +192,8 @@ export default function FacultyDashboard() {
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalParticipants: 0,
+    totalVolunteers: 0,
+    totalGroups: 0,
     pendingApprovals: 0,
     approvedToday: 0,
   })
@@ -137,8 +205,15 @@ export default function FacultyDashboard() {
   const [approvingId, setApprovingId] = useState('')
   const [deletingId, setDeletingId] = useState('')
   const [resendingId, setResendingId] = useState('')
+  const [assigningTeamId, setAssigningTeamId] = useState('')
   const [bulkAction, setBulkAction] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
+  const [registrationConfig, setRegistrationConfig] = useState({
+    student_open: true,
+    participant_open: true,
+    volunteer_open: true,
+  })
+  const [configLoadingKey, setConfigLoadingKey] = useState('')
 
   const [selectedCourse, setSelectedCourse] = useState('all')
   const [selectedYear, setSelectedYear] = useState('all')
@@ -152,6 +227,7 @@ export default function FacultyDashboard() {
   })
   const [selectedIds, setSelectedIds] = useState([])
 
+  const currentTabConfig = TAB_CONFIG[activeTab] || TAB_CONFIG.students
   const activePage = pageByTab[activeTab] || 1
   const currentPagination =
     paginationByTab[activeTab] ||
@@ -214,6 +290,28 @@ export default function FacultyDashboard() {
   }, [navigate])
 
   useEffect(() => {
+    if (!facultyPassword) return
+
+    const fetchRegistrationConfig = async () => {
+      try {
+        const response = await fetch(apiUrl('/api/config/registrations'))
+        const payload = await response.json().catch(() => ({}))
+        if (response.ok && payload?.success && payload.data) {
+          setRegistrationConfig({
+            student_open: Boolean(payload.data.student_open),
+            participant_open: Boolean(payload.data.participant_open),
+            volunteer_open: Boolean(payload.data.volunteer_open),
+          })
+        }
+      } catch (error) {
+        // Keep dashboard usable if config fetch fails.
+      }
+    }
+
+    fetchRegistrationConfig()
+  }, [facultyPassword])
+
+  useEffect(() => {
     setSelectedCourse('all')
     setSelectedYear('all')
     setSelectedEvent('all')
@@ -231,26 +329,27 @@ export default function FacultyDashboard() {
       setErrorMessage('')
 
       try {
-        const currentEndpoint =
-          activeTab === 'students'
-            ? `/api/faculty/students?page=${activePage}&page_size=${DEFAULT_PAGE_SIZE}`
-            : `/api/faculty/participants?page=${activePage}&page_size=${DEFAULT_PAGE_SIZE}`
-        const alternateEndpoint =
-          activeTab === 'students'
-            ? '/api/faculty/participants?page=1&page_size=5'
-            : '/api/faculty/students?page=1&page_size=5'
+        const buildEndpoint = (tabId, page = 1, pageSize = DEFAULT_PAGE_SIZE) =>
+          `${TAB_CONFIG[tabId].listPath}?page=${page}&page_size=${pageSize}`
 
-        const [currentResult, alternateResult] = await Promise.all([
-          fetchFacultyList(currentEndpoint),
-          fetchFacultyList(alternateEndpoint),
-        ])
+        const tabIds = NAV_ITEMS.map((item) => item.id)
+        const summaryResults = await Promise.all(
+          tabIds.map((tabId) =>
+            fetchFacultyList(buildEndpoint(tabId, tabId === activeTab ? activePage : 1, tabId === activeTab ? DEFAULT_PAGE_SIZE : 5))
+          )
+        )
+        const resultByTab = tabIds.reduce((accumulator, tabId, index) => {
+          accumulator[tabId] = summaryResults[index]
+          return accumulator
+        }, {})
+
+        const currentResult = resultByTab[activeTab] || { records: [], pagination: null, summary: null }
 
         const currentRecords = currentResult.records || []
-        const currentSummary = currentResult.summary || {}
-        const alternateSummary = alternateResult.summary || {}
-
-        const studentsSummary = activeTab === 'students' ? currentSummary : alternateSummary
-        const participantsSummary = activeTab === 'participants' ? currentSummary : alternateSummary
+        const studentsSummary = resultByTab.students?.summary || {}
+        const participantsSummary = resultByTab.participants?.summary || {}
+        const volunteersSummary = resultByTab.volunteers?.summary || {}
+        const groupsSummary = resultByTab.groups?.summary || {}
 
         const nextPage = currentResult.pagination?.page || activePage
 
@@ -259,12 +358,18 @@ export default function FacultyDashboard() {
         setStats({
           totalStudents: Number(studentsSummary.total || 0),
           totalParticipants: Number(participantsSummary.total || 0),
+          totalVolunteers: Number(volunteersSummary.total || 0),
+          totalGroups: Number(groupsSummary.total || 0),
           pendingApprovals:
             Number(studentsSummary.pending || 0) +
-            Number(participantsSummary.pending || 0),
+            Number(participantsSummary.pending || 0) +
+            Number(volunteersSummary.pending_count || volunteersSummary.pending || 0) +
+            Number(groupsSummary.pending_count || groupsSummary.pending || 0),
           approvedToday:
             Number(studentsSummary.approved_today || 0) +
-            Number(participantsSummary.approved_today || 0),
+            Number(participantsSummary.approved_today || 0) +
+            Number(volunteersSummary.approved_today || 0) +
+            Number(groupsSummary.approved_today || 0),
         })
 
         setPaginationByTab((previous) => ({
@@ -305,10 +410,14 @@ export default function FacultyDashboard() {
   }, [records])
 
   const eventOptions = useMemo(() => {
-    if (activeTab !== 'participants') return []
+    if (activeTab !== 'participants' && activeTab !== 'groups') return []
 
     const uniqueEvents = new Set()
     records.forEach((record) => {
+      if (activeTab === 'groups') {
+        if (record.event_name || record.event_id) uniqueEvents.add(record.event_name || record.event_id)
+        return
+      }
       normalizeEvents(record.events).forEach((eventId) => uniqueEvents.add(eventId))
     })
 
@@ -333,6 +442,10 @@ export default function FacultyDashboard() {
       if (activeTab === 'participants' && selectedEvent !== 'all') {
         const eventIds = normalizeEvents(record.events)
         if (!eventIds.includes(selectedEvent)) return false
+      }
+
+      if (activeTab === 'groups' && selectedEvent !== 'all') {
+        if ((record.event_name || record.event_id) !== selectedEvent) return false
       }
 
       return true
@@ -365,14 +478,14 @@ export default function FacultyDashboard() {
     return output
   }, [filteredRecords, sortKey])
 
-  const columns = activeTab === 'students' ? STUDENT_COLUMNS : PARTICIPANT_COLUMNS
+  const columns = currentTabConfig.columns
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
   const visibleIds = useMemo(() => sortedRecords.map((record) => record.id), [sortedRecords])
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedSet.has(id))
 
   const selectedPendingIds = useMemo(() => {
     return sortedRecords
-      .filter((record) => selectedSet.has(record.id) && !record.qr_code)
+      .filter((record) => selectedSet.has(record.id) && !isRecordApproved(record))
       .map((record) => record.id)
   }, [sortedRecords, selectedSet])
 
@@ -382,13 +495,11 @@ export default function FacultyDashboard() {
     Boolean(approvingId) ||
     Boolean(deletingId) ||
     Boolean(resendingId) ||
+    Boolean(assigningTeamId) ||
     Boolean(bulkAction)
 
   const approveRecordById = async (recordId) => {
-    const endpoint =
-      activeTab === 'students'
-        ? `/api/faculty/approve/student/${recordId}`
-        : `/api/faculty/approve/participant/${recordId}`
+    const endpoint = currentTabConfig.approvePath(recordId)
 
     const response = await fetch(apiUrl(endpoint), {
       method: 'POST',
@@ -411,10 +522,7 @@ export default function FacultyDashboard() {
   }
 
   const deleteRecordById = async (recordId) => {
-    const endpoint =
-      activeTab === 'students'
-        ? `/api/faculty/student/${recordId}`
-        : `/api/faculty/participant/${recordId}`
+    const endpoint = currentTabConfig.deletePath(recordId)
 
     const response = await fetch(apiUrl(endpoint), {
       method: 'DELETE',
@@ -436,8 +544,8 @@ export default function FacultyDashboard() {
     return { ok: true }
   }
 
-  const resendStudentMailById = async (recordId) => {
-    const response = await fetch(apiUrl(`/api/faculty/resend/student/${recordId}`), {
+  const resendMailById = async (recordId) => {
+    const response = await fetch(apiUrl(currentTabConfig.resendPath(recordId)), {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${facultyPassword}`,
@@ -457,12 +565,14 @@ export default function FacultyDashboard() {
     return { ok: true }
   }
 
-  const resendParticipantMailById = async (recordId) => {
-    const response = await fetch(apiUrl(`/api/faculty/resend/participant/${recordId}`), {
+  const assignVolunteerTeamById = async (recordId, teamLabel) => {
+    const response = await fetch(apiUrl(`/api/faculty/volunteer/${recordId}/assign-team`), {
       method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         Authorization: `Bearer ${facultyPassword}`,
       },
+      body: JSON.stringify({ team_label: teamLabel }),
     })
 
     if (response.status === 401) {
@@ -472,10 +582,10 @@ export default function FacultyDashboard() {
 
     const payload = await response.json().catch(() => ({}))
     if (!response.ok || !payload.success) {
-      return { ok: false, message: getApiErrorMessage(payload, 'Resend failed') }
+      return { ok: false, message: getApiErrorMessage(payload, 'Team assignment failed') }
     }
 
-    return { ok: true }
+    return { ok: true, passUpdated: payload.data?.pass_updated }
   }
 
   const handleExport = async () => {
@@ -484,10 +594,7 @@ export default function FacultyDashboard() {
     setInfoMessage('')
 
     try {
-      const exportEndpoint =
-        activeTab === 'students'
-          ? '/api/faculty/export/students'
-          : '/api/faculty/export/participants'
+      const exportEndpoint = currentTabConfig.exportPath
 
       const response = await fetch(apiUrl(exportEndpoint), {
         headers: {
@@ -508,7 +615,7 @@ export default function FacultyDashboard() {
       const url = window.URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = activeTab === 'students' ? 'students_report.csv' : 'participants_report.csv'
+      anchor.download = `${activeTab}_report.csv`
       document.body.appendChild(anchor)
       anchor.click()
       anchor.remove()
@@ -541,8 +648,12 @@ export default function FacultyDashboard() {
 
       if (activeTab === 'students') {
         setInfoMessage(result.emailSent ? 'Student approved and email sent.' : 'Student approved.')
-      } else {
+      } else if (activeTab === 'participants') {
         setInfoMessage('Participant approved successfully.')
+      } else if (activeTab === 'volunteers') {
+        setInfoMessage('Volunteer approved successfully.')
+      } else {
+        setInfoMessage('Group approved successfully.')
       }
 
       setRefreshKey((previous) => previous + 1)
@@ -554,10 +665,7 @@ export default function FacultyDashboard() {
   }
 
   const handleDeleteOne = async (recordId) => {
-    const confirmationText =
-      activeTab === 'students'
-        ? 'Delete this student registration? This cannot be undone.'
-        : 'Delete this participant and linked event records? This cannot be undone.'
+    const confirmationText = currentTabConfig.deleteMessage
 
     if (!window.confirm(confirmationText)) return
 
@@ -581,19 +689,19 @@ export default function FacultyDashboard() {
     }
   }
 
-  const handleResendStudentMail = async (recordId) => {
+  const handleResendMail = async (recordId) => {
     setResendingId(recordId)
     setErrorMessage('')
     setInfoMessage('')
 
     try {
-      const result = await resendStudentMailById(recordId)
+      const result = await resendMailById(recordId)
       if (!result.ok) {
         if (!result.unauthorized) setErrorMessage(result.message || 'Resend failed')
         return
       }
 
-      setInfoMessage('Approval email resent to student successfully.')
+      setInfoMessage('Approval email resent successfully.')
     } catch (error) {
       setErrorMessage(error.message || 'Resend failed')
     } finally {
@@ -601,23 +709,25 @@ export default function FacultyDashboard() {
     }
   }
 
-  const handleResendParticipantMail = async (recordId) => {
-    setResendingId(recordId)
+  const handleAssignVolunteerTeam = async (recordId, teamLabel) => {
+    if (!teamLabel) return
+    setAssigningTeamId(recordId)
     setErrorMessage('')
     setInfoMessage('')
 
     try {
-      const result = await resendParticipantMailById(recordId)
+      const result = await assignVolunteerTeamById(recordId, teamLabel)
       if (!result.ok) {
-        if (!result.unauthorized) setErrorMessage(result.message || 'Resend failed')
+        if (!result.unauthorized) setErrorMessage(result.message || 'Team assignment failed')
         return
       }
 
-      setInfoMessage('Approval email resent to participant successfully.')
+      setInfoMessage(result.passUpdated ? 'Team assigned and volunteer pass updated.' : 'Team assigned successfully.')
+      setRefreshKey((previous) => previous + 1)
     } catch (error) {
-      setErrorMessage(error.message || 'Resend failed')
+      setErrorMessage(error.message || 'Team assignment failed')
     } finally {
-      setResendingId('')
+      setAssigningTeamId('')
     }
   }
 
@@ -684,7 +794,7 @@ export default function FacultyDashboard() {
     } else if (activeTab === 'students') {
       setInfoMessage(`Approved ${successCount} student(s). Emails sent: ${mailCount}.`)
     } else {
-      setInfoMessage(`Approved ${successCount} participant(s).`)
+      setInfoMessage(`Approved ${successCount} ${currentTabConfig.label.toLowerCase()} record(s).`)
     }
 
     setRefreshKey((previous) => previous + 1)
@@ -696,10 +806,7 @@ export default function FacultyDashboard() {
       return
     }
 
-    const confirmationText =
-      activeTab === 'students'
-        ? `Delete ${selectedIds.length} selected student record(s)?`
-        : `Delete ${selectedIds.length} selected participant record(s) and linked events?`
+    const confirmationText = currentTabConfig.bulkDeleteMessage(selectedIds.length)
 
     if (!window.confirm(confirmationText)) return
 
@@ -742,6 +849,41 @@ export default function FacultyDashboard() {
     setSortKey('registered_desc')
   }
 
+  const handleToggleRegistration = async (key) => {
+    const nextValue = !registrationConfig[key]
+    setConfigLoadingKey(key)
+    setErrorMessage('')
+    setInfoMessage('')
+
+    try {
+      const response = await fetch(apiUrl('/api/faculty/config/registrations'), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${facultyPassword}`,
+        },
+        body: JSON.stringify({ [key]: nextValue }),
+      })
+
+      if (response.status === 401) {
+        updateAuthFailure()
+        return
+      }
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok || !payload.success) {
+        throw new Error(getApiErrorMessage(payload, 'Unable to update registration setting'))
+      }
+
+      setRegistrationConfig((previous) => ({ ...previous, ...payload.data }))
+      setInfoMessage('Registration setting updated.')
+    } catch (error) {
+      setErrorMessage(error.message || 'Unable to update registration setting')
+    } finally {
+      setConfigLoadingKey('')
+    }
+  }
+
   const handlePrevPage = () => {
     if (currentPagination.page <= 1 || isBusy) return
     setPageByTab((previous) => ({
@@ -774,6 +916,9 @@ export default function FacultyDashboard() {
     if (column === 'course') return 80
     if (column === 'year') return 70
     if (column === 'email') return 200
+    if (column === 'group_name') return 160
+    if (column === 'event_name') return 150
+    if (column === 'team_label') return 210
     if (column === 'event_1') return 130
     if (column === 'event_2') return 130
     if (column === 'qr_code') return 100
@@ -892,11 +1037,21 @@ export default function FacultyDashboard() {
                       <circle cx="12" cy="8" r="3" stroke="currentColor" strokeWidth="1.7" />
                       <path d="M5.5 19a6.5 6.5 0 0 1 13 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
                     </svg>
-                  ) : (
+                  ) : item.id === 'participants' ? (
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
                       <path d="M7 6h10v2a5 5 0 0 1-10 0V6Z" stroke="currentColor" strokeWidth="1.7" />
                       <path d="M9 17h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
                       <path d="M12 13v4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                    </svg>
+                  ) : item.id === 'volunteers' ? (
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+                      <path d="M12 3 5 6v5c0 4.2 2.8 7.4 7 9 4.2-1.6 7-4.8 7-9V6l-7-3Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+                      <path d="m9 12 2 2 4-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+                      <path d="M4 18V8l8-4 8 4v10" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+                      <path d="M8 18v-5h8v5" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
                     </svg>
                   )}
                   <span>{item.label}</span>
@@ -954,7 +1109,7 @@ export default function FacultyDashboard() {
           <div className="h-[52px] border-b px-5 sm:px-6 lg:px-7" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.012)' }}>
             <div className="flex h-full items-center justify-between">
               <div>
-                <p className="text-[14px] font-medium text-[#EEE6D8]">{activeTab === 'students' ? 'Students' : 'Participants'}</p>
+                <p className="text-[14px] font-medium text-[#EEE6D8]">{currentTabConfig.label}</p>
                 <p className="text-[11px] text-[rgba(238,230,216,0.35)]">Showing {sortedRecords.length} records</p>
               </div>
               <div className="flex items-center gap-2">
@@ -989,6 +1144,16 @@ export default function FacultyDashboard() {
                 </div>
                 <div className="w-px bg-[rgba(255,255,255,0.06)]" />
                 <div className="flex flex-1 flex-col items-center justify-center">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Volunteers</p>
+                  <p className="text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalVolunteers}</p>
+                </div>
+                <div className="w-px bg-[rgba(255,255,255,0.06)]" />
+                <div className="flex flex-1 flex-col items-center justify-center">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Groups</p>
+                  <p className="text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalGroups}</p>
+                </div>
+                <div className="w-px bg-[rgba(255,255,255,0.06)]" />
+                <div className="flex flex-1 flex-col items-center justify-center">
                   <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Pending Approvals</p>
                   <p className="text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: stats.pendingApprovals > 0 ? '#B22234' : '#EEE6D8' }}>
                     {stats.pendingApprovals}
@@ -1001,6 +1166,33 @@ export default function FacultyDashboard() {
                     {stats.approvedToday}
                   </p>
                 </div>
+              </section>
+
+              <section className="mb-3 flex flex-wrap items-center gap-2">
+                {[
+                  ['student_open', 'Audience'],
+                  ['participant_open', 'Participants'],
+                  ['volunteer_open', 'Volunteers'],
+                ].map(([key, label]) => {
+                  const isOpen = Boolean(registrationConfig[key])
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleToggleRegistration(key)}
+                      disabled={configLoadingKey === key || isBusy}
+                      className="h-[30px] rounded-[999px] px-3 text-[11px] disabled:cursor-not-allowed"
+                      style={{
+                        border: isOpen ? '0.5px solid rgba(201,168,76,0.32)' : '0.5px solid rgba(178,34,52,0.32)',
+                        color: isOpen ? '#C9A84C' : '#B22234',
+                        background: isOpen ? 'rgba(201,168,76,0.07)' : 'rgba(178,34,52,0.07)',
+                        opacity: configLoadingKey === key || isBusy ? 0.55 : 1,
+                      }}
+                    >
+                      {label}: {configLoadingKey === key ? 'Saving...' : isOpen ? 'Open' : 'Closed'}
+                    </button>
+                  )
+                })}
               </section>
 
               <section className="mb-3 flex flex-wrap items-center gap-3">
@@ -1060,7 +1252,7 @@ export default function FacultyDashboard() {
                   <option value="course_asc">Course A-Z</option>
                 </select>
 
-                {activeTab === 'participants' && (
+                {(activeTab === 'participants' || activeTab === 'groups') && (
                   <select
                     value={selectedEvent}
                     onChange={(event) => setSelectedEvent(event.target.value)}
@@ -1299,7 +1491,7 @@ export default function FacultyDashboard() {
 
                             {columns.map((column) => {
                               if (column === 'qr_code') {
-                                const isApproved = Boolean(record.qr_code)
+                                const isApproved = isRecordApproved(record)
                                 return (
                                   <td key={column} className="overflow-hidden px-[14px] align-middle text-[13px] text-[#EEE6D8]">
                                     {isApproved ? (
@@ -1352,6 +1544,27 @@ export default function FacultyDashboard() {
                                 )
                               }
 
+                              if (column === 'team_label') {
+                                return (
+                                  <td key={column} className="overflow-hidden px-[14px] align-middle text-[12px] text-[rgba(238,230,216,0.65)]">
+                                    <select
+                                      value={record.team_label || ''}
+                                      onChange={(event) => handleAssignVolunteerTeam(record.id, event.target.value)}
+                                      disabled={assigningTeamId === record.id || isBusy}
+                                      className="dash-select w-full"
+                                      style={{ ...selectStyle, height: '28px', fontSize: '11px' }}
+                                    >
+                                      <option value="">Unassigned</option>
+                                      {VOLUNTEER_TEAM_OPTIONS.map((team) => (
+                                        <option key={team} value={team}>
+                                          {team}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                )
+                              }
+
                               if (column === 'name') {
                                 return (
                                   <td key={column} className="overflow-hidden px-[14px] align-middle text-[13px] font-medium text-[#EEE6D8]" style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
@@ -1385,7 +1598,7 @@ export default function FacultyDashboard() {
 
                             <td className="overflow-hidden px-[14px] align-middle" style={{ width: '160px', minWidth: '160px' }}>
                               <div className="flex flex-nowrap items-center gap-2">
-                                {!record.qr_code ? (
+                                {!isRecordApproved(record) ? (
                                   <button
                                     type="button"
                                     onClick={() => handleApproveOne(record.id)}
@@ -1414,11 +1627,7 @@ export default function FacultyDashboard() {
                                 ) : (
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      activeTab === 'students'
-                                        ? handleResendStudentMail(record.id)
-                                        : handleResendParticipantMail(record.id)
-                                    }
+                                    onClick={() => handleResendMail(record.id)}
                                     disabled={resendingId === record.id || isBusy}
                                     className="h-[26px] rounded-[5px] px-3 text-[11px]"
                                     style={{

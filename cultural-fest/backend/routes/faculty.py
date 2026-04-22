@@ -157,20 +157,35 @@ def fetch_approved_ids_for_records(table_name: str, record_ids: list[str]) -> se
     if not record_ids:
         return set()
 
-    response = fetch_with_retry(
-        lambda: supabase.table(table_name)
-        .select("id")
-        .in_("id", record_ids)
-        .not_.is_("qr_code", "null")
-        .execute(),
-        attempts=3,
-    )
+    try:
+        response = fetch_with_retry(
+            lambda: supabase.table(table_name)
+            .select("id, qr_code, approved_at")
+            .in_("id", record_ids)
+            .execute(),
+            attempts=3,
+        )
 
-    return {
-        str(row.get("id"))
-        for row in (response.data or [])
-        if row.get("id") is not None
-    }
+        return {
+            str(row.get("id"))
+            for row in (response.data or [])
+            if row.get("id") is not None and (row.get("qr_code") or row.get("approved_at"))
+        }
+    except Exception:
+        response = fetch_with_retry(
+            lambda: supabase.table(table_name)
+            .select("id")
+            .in_("id", record_ids)
+            .not_.is_("qr_code", "null")
+            .execute(),
+            attempts=3,
+        )
+
+        return {
+            str(row.get("id"))
+            for row in (response.data or [])
+            if row.get("id") is not None
+        }
 
 
 def format_datetime_for_export(value: str | None) -> str:
@@ -291,6 +306,17 @@ def fetch_table_summary(table_name: str, include_approved_today: bool = False) -
             .execute(),
             attempts=3,
         )
+        try:
+            approved_at_count = fetch_count_with_retry(
+                lambda: supabase.table(table_name)
+                .select("id", count="exact", head=True)
+                .not_.is_("approved_at", "null")
+                .execute(),
+                attempts=3,
+            )
+            approved_count = max(approved_count, approved_at_count)
+        except Exception:
+            pass
 
         summary = {
             "total": total,
@@ -1762,7 +1788,7 @@ async def get_all_volunteers(
     verify_faculty_token(authorization)
 
     try:
-        summary = fetch_table_summary("volunteers")
+        summary = fetch_table_summary("volunteers", include_approved_today=True)
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
 
         volunteer_records = []
@@ -1847,7 +1873,7 @@ async def get_all_groups(
     verify_faculty_token(authorization)
 
     try:
-        summary = fetch_table_summary("group_registrations")
+        summary = fetch_table_summary("group_registrations", include_approved_today=True)
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
 
         group_records = []

@@ -51,6 +51,22 @@ import re
 router = APIRouter()
 
 
+def is_registration_open(column_name: str) -> bool:
+    try:
+        response = (
+            supabase.table("registration_config")
+            .select(column_name)
+            .eq("id", 1)
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            return bool(response.data[0].get(column_name, True))
+    except Exception:
+        return True
+    return True
+
+
 def has_existing_group_category(roll_no: str) -> bool:
     """Return True if roll number already exists in any group registration (leader/member)."""
     leader_match = (
@@ -104,6 +120,12 @@ class GroupRegisterRequest(BaseModel):
 async def register_volunteer(req: VolunteerRegisterRequest):
     """Register a volunteer and mark as pending until faculty approval."""
     try:
+        if not is_registration_open("volunteer_open"):
+            return JSONResponse(status_code=403, content={
+                "success": False,
+                "message": "Volunteer registration is currently closed."
+            })
+
         normalized_name = normalize_full_name(req.name)
         normalized_roll_no = normalize_roll_no(req.roll_no)
 
@@ -197,6 +219,12 @@ async def get_volunteer_status(volunteer_id: str):
 async def register_group(req: GroupRegisterRequest):
     """Register a group for an event and mark as pending until faculty approval."""
     try:
+        if not is_registration_open("participant_open"):
+            return JSONResponse(status_code=403, content={
+                "success": False,
+                "message": "Participant registration is currently closed."
+            })
+
         # Validate team_name
         if not req.team_name.strip():
             raise HTTPException(status_code=400, detail="Team name is required")

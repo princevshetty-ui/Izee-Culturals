@@ -13,6 +13,22 @@ GROUP_CATEGORY = "group"
 GROUP_EVENT_IDS = {"singing-band", "dance-crew"}
 
 
+def is_registration_open(column_name: str) -> bool:
+    try:
+        response = (
+            supabase.table("registration_config")
+            .select(column_name)
+            .eq("id", 1)
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            return bool(response.data[0].get(column_name, True))
+    except Exception:
+        return True
+    return True
+
+
 class EventSelection(BaseModel):
     event_id: str
     event_name: str
@@ -94,6 +110,12 @@ def fetch_existing_participant_categories(roll_no: str) -> set[str]:
 async def register_participant(req: ParticipantRegisterRequest):
     """Register a participant and mark as pending until faculty approval."""
     try:
+        if not is_registration_open("participant_open"):
+            return JSONResponse(status_code=403, content={
+                "success": False,
+                "message": "Participant registration is currently closed."
+            })
+
         normalized_name = normalize_full_name(req.name)
         normalized_roll_no = normalize_roll_no(req.roll_no)
 

@@ -10,6 +10,22 @@ import uuid
 router = APIRouter()
 
 
+def is_registration_open(column_name: str) -> bool:
+    try:
+        response = (
+            supabase.table("registration_config")
+            .select(column_name)
+            .eq("id", 1)
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            return bool(response.data[0].get(column_name, True))
+    except Exception:
+        return True
+    return True
+
+
 class StudentRegisterRequest(BaseModel):
     name: str
     roll_no: str
@@ -23,6 +39,12 @@ class StudentRegisterRequest(BaseModel):
 async def register_student(req: StudentRegisterRequest):
     """Register a student and mark as pending until faculty approval."""
     try:
+        if not is_registration_open("student_open"):
+            return JSONResponse(status_code=403, content={
+                "success": False,
+                "message": "Audience registration is currently closed."
+            })
+
         normalized_name = normalize_full_name(req.name)
         normalized_roll_no = normalize_roll_no(req.roll_no)
 
