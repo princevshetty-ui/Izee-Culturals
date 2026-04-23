@@ -1128,14 +1128,43 @@ async def get_all_students(
     authorization: str = Header(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=5, le=100),
+    search: str = Query(""),
 ):
-    """Get all student registrations."""
+    """Get all student registrations with optional search."""
     verify_faculty_token(authorization)
-    
-    try:
-        summary = fetch_table_summary("students", include_approved_today=True)
-        current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
 
+    try:
+        sq = (search or "").strip()
+        summary = fetch_table_summary("students", include_approved_today=True)
+
+        # When searching, fetch all matching without pagination
+        if sq:
+            pattern = f"%{sq}%"
+            resp = fetch_with_retry(
+                lambda: supabase.table("students")
+                .select("id, name, roll_no, course, year, email, phone, registered_at, approved_at")
+                .or_(f"name.ilike.{pattern},roll_no.ilike.{pattern},email.ilike.{pattern}")
+                .order("registered_at", desc=True)
+                .execute(),
+                attempts=3,
+            )
+            students = resp.data or []
+            total = len(students)
+            student_ids = [str(s.get("id")) for s in students if s.get("id")]
+            approved_ids = fetch_approved_ids_for_records("students", student_ids)
+            for student in students:
+                sid = str(student.get("id") or "")
+                student["is_approved"] = sid in approved_ids
+                student["approved"] = student["is_approved"]
+            return {
+                "success": True,
+                "data": students,
+                "pagination": {"page": 1, "page_size": total, "total": total, "total_pages": 1},
+                "summary": summary,
+                "message": "Students retrieved successfully",
+            }
+
+        current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
         students = []
         if summary["total"] > 0:
             try:
@@ -1158,12 +1187,11 @@ async def get_all_students(
                 )
             students = response.data or []
 
-        student_ids = [str(student.get("id")) for student in students if student.get("id")]
+        student_ids = [str(s.get("id")) for s in students if s.get("id")]
         approved_ids = fetch_approved_ids_for_records("students", student_ids)
-
         for student in students:
-            student_id = str(student.get("id") or "")
-            student["is_approved"] = student_id in approved_ids
+            sid = str(student.get("id") or "")
+            student["is_approved"] = sid in approved_ids
             student["approved"] = student["is_approved"]
 
         return {
@@ -1176,7 +1204,7 @@ async def get_all_students(
                 "total_pages": total_pages,
             },
             "summary": summary,
-            "message": "Students retrieved successfully"
+            "message": "Students retrieved successfully",
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1187,14 +1215,44 @@ async def get_all_participants(
     authorization: str = Header(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=5, le=100),
+    search: str = Query(""),
 ):
     """Get all participant registrations with their events."""
     verify_faculty_token(authorization)
-    
-    try:
-        summary = fetch_table_summary("participants", include_approved_today=True)
-        current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
 
+    try:
+        sq = (search or "").strip()
+        summary = fetch_table_summary("participants", include_approved_today=True)
+
+        if sq:
+            pattern = f"%{sq}%"
+            pr = fetch_with_retry(
+                lambda: supabase.table("participants")
+                .select("id, name, roll_no, course, year, email, phone, registered_at, approved_at")
+                .or_(f"name.ilike.{pattern},roll_no.ilike.{pattern},email.ilike.{pattern}")
+                .order("registered_at", desc=True)
+                .execute(),
+                attempts=3,
+            )
+            participants = pr.data or []
+            participant_ids = [p.get("id") for p in participants if p.get("id")]
+            approved_ids = fetch_approved_ids_for_records("participants", [str(pid) for pid in participant_ids])
+            events_map = fetch_participant_events_map(participant_ids)
+            for participant in participants:
+                pid = participant.get("id")
+                participant["events"] = events_map.get(pid, [])
+                participant["is_approved"] = str(pid or "") in approved_ids
+                participant["approved"] = participant["is_approved"]
+            total = len(participants)
+            return {
+                "success": True,
+                "data": participants,
+                "pagination": {"page": 1, "page_size": total, "total": total, "total_pages": 1},
+                "summary": summary,
+                "message": "Participants retrieved successfully",
+            }
+
+        current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
         participants = []
         if summary["total"] > 0:
             try:
@@ -1216,19 +1274,16 @@ async def get_all_participants(
                     attempts=3,
                 )
             participants = participants_response.data or []
-        
-        participant_ids = [participant.get("id") for participant in participants if participant.get("id")]
+
+        participant_ids = [p.get("id") for p in participants if p.get("id")]
         approved_ids = fetch_approved_ids_for_records("participants", [str(pid) for pid in participant_ids])
         events_map = fetch_participant_events_map(participant_ids)
-
-        # Attach events to each participant using batched lookup map.
         for participant in participants:
-            participant_id = participant.get("id")
-            participant["events"] = events_map.get(participant_id, [])
-            participant_id_str = str(participant_id or "")
-            participant["is_approved"] = participant_id_str in approved_ids
+            pid = participant.get("id")
+            participant["events"] = events_map.get(pid, [])
+            participant["is_approved"] = str(pid or "") in approved_ids
             participant["approved"] = participant["is_approved"]
-        
+
         return {
             "success": True,
             "data": participants,
@@ -1239,7 +1294,7 @@ async def get_all_participants(
                 "total_pages": total_pages,
             },
             "summary": summary,
-            "message": "Participants retrieved successfully"
+            "message": "Participants retrieved successfully",
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1705,12 +1760,11 @@ async def export_students_csv(authorization: str = Header(None)):
                 format_datetime_for_export(student.get("registered_at")),
             ])
 
-        csv_content = build_csv_content(headers, rows)
-        
+        csv_bytes = build_csv_content(headers, rows).encode("utf-8-sig")
         return StreamingResponse(
-            iter([csv_content]),
-            media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": "attachment; filename=students-report.csv"}
+            iter([csv_bytes]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=students-report.csv"},
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1767,12 +1821,11 @@ async def export_participants_csv(authorization: str = Header(None)):
                 format_datetime_for_export(participant.get("registered_at")),
             ])
 
-        csv_content = build_csv_content(headers, rows)
-        
+        csv_bytes = build_csv_content(headers, rows).encode("utf-8-sig")
         return StreamingResponse(
-            iter([csv_content]),
-            media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": "attachment; filename=participants-report.csv"}
+            iter([csv_bytes]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=participants-report.csv"},
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1783,14 +1836,57 @@ async def get_all_volunteers(
     authorization: str = Header(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=5, le=100),
+    search: str = Query(""),
 ):
     """Get paginated volunteer registrations for faculty dashboard."""
     verify_faculty_token(authorization)
 
     try:
+        sq = (search or "").strip()
         summary = fetch_table_summary("volunteers", include_approved_today=True)
-        current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
 
+        def _build_volunteer_row(volunteer, approved_ids):
+            role_value = volunteer.get("volunteer_role") or volunteer.get("role") or ""
+            vid = str(volunteer.get("id") or "")
+            return {
+                "id": volunteer.get("id"),
+                "name": volunteer.get("name"),
+                "roll_no": volunteer.get("roll_no"),
+                "course": volunteer.get("course"),
+                "year": volunteer.get("year"),
+                "email": volunteer.get("email"),
+                "phone": volunteer.get("phone"),
+                "team_label": volunteer.get("team_label") or "",
+                "volunteer_role": role_value,
+                "registered_at": volunteer.get("registered_at"),
+                "approved_at": volunteer.get("approved_at"),
+                "is_approved": vid in approved_ids,
+            }
+
+        if sq:
+            pattern = f"%{sq}%"
+            vr = fetch_with_retry(
+                lambda: supabase.table("volunteers")
+                .select("id, name, roll_no, course, year, email, phone, motivation, volunteer_role, role, team_label, registered_at, approved_at")
+                .or_(f"name.ilike.{pattern},roll_no.ilike.{pattern},email.ilike.{pattern}")
+                .order("registered_at", desc=True)
+                .execute(),
+                attempts=3,
+            )
+            volunteer_records = vr.data or []
+            vids = [str(v.get("id")) for v in volunteer_records if v.get("id")]
+            approved_ids = fetch_approved_ids_for_records("volunteers", vids)
+            data = [_build_volunteer_row(v, approved_ids) for v in volunteer_records]
+            total = len(data)
+            return {
+                "success": True,
+                "data": data,
+                "pagination": {"page": 1, "page_size": total, "total": total, "total_pages": 1},
+                "summary": summary,
+                "message": "Volunteers retrieved successfully",
+            }
+
+        current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
         volunteer_records = []
         if summary["total"] > 0:
             try:
@@ -1823,29 +1919,9 @@ async def get_all_volunteers(
                     )
             volunteer_records = response.data or []
 
-        volunteer_ids = [str(volunteer.get("id")) for volunteer in volunteer_records if volunteer.get("id")]
+        volunteer_ids = [str(v.get("id")) for v in volunteer_records if v.get("id")]
         approved_ids = fetch_approved_ids_for_records("volunteers", volunteer_ids)
-
-        data = []
-        for volunteer in volunteer_records:
-            role_value = volunteer.get("volunteer_role") or volunteer.get("role") or ""
-            volunteer_id = str(volunteer.get("id") or "")
-            data.append(
-                {
-                    "id": volunteer.get("id"),
-                    "name": volunteer.get("name"),
-                    "roll_no": volunteer.get("roll_no"),
-                    "course": volunteer.get("course"),
-                    "year": volunteer.get("year"),
-                    "email": volunteer.get("email"),
-                    "phone": volunteer.get("phone"),
-                    "team_label": volunteer.get("team_label") or "",
-                    "volunteer_role": role_value,
-                    "registered_at": volunteer.get("registered_at"),
-                    "approved_at": volunteer.get("approved_at"),
-                    "is_approved": volunteer_id in approved_ids,
-                }
-            )
+        data = [_build_volunteer_row(v, approved_ids) for v in volunteer_records]
 
         return {
             "success": True,
@@ -1868,12 +1944,56 @@ async def get_all_groups(
     authorization: str = Header(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=5, le=100),
+    search: str = Query(""),
 ):
     """Get paginated group registrations for faculty dashboard."""
     verify_faculty_token(authorization)
 
     try:
+        sq = (search or "").strip()
         summary = fetch_table_summary("group_registrations", include_approved_today=True)
+
+        def _build_group_row(group, approved_ids):
+            gid = str(group.get("id") or "")
+            return {
+                "id": group.get("id"),
+                "name": group.get("leader_name") or group.get("name"),
+                "roll_no": group.get("leader_roll_no") or group.get("roll_no"),
+                "course": group.get("leader_course") or group.get("course"),
+                "year": group.get("leader_year") or group.get("year"),
+                "email": group.get("leader_email") or group.get("email"),
+                "phone": group.get("leader_phone") or group.get("phone"),
+                "group_name": group.get("team_name") or group.get("group_name"),
+                "event_id": group.get("event_id"),
+                "event_name": group.get("event_name") or event_id_to_label(group.get("event_id")),
+                "registered_at": group.get("registered_at"),
+                "approved_at": group.get("approved_at"),
+                "is_approved": gid in approved_ids,
+            }
+
+        if sq:
+            pattern = f"%{sq}%"
+            gr = fetch_with_retry(
+                lambda: supabase.table("group_registrations")
+                .select("id, team_name, event_id, event_name, leader_name, leader_roll_no, leader_course, leader_year, leader_email, leader_phone, registered_at, approved_at")
+                .or_(f"leader_name.ilike.{pattern},leader_roll_no.ilike.{pattern},leader_email.ilike.{pattern},team_name.ilike.{pattern}")
+                .order("registered_at", desc=True)
+                .execute(),
+                attempts=3,
+            )
+            group_records = gr.data or []
+            gids = [str(g.get("id")) for g in group_records if g.get("id")]
+            approved_ids = fetch_approved_ids_for_records("group_registrations", gids)
+            data = [_build_group_row(g, approved_ids) for g in group_records]
+            total = len(data)
+            return {
+                "success": True,
+                "data": data,
+                "pagination": {"page": 1, "page_size": total, "total": total, "total_pages": 1},
+                "summary": summary,
+                "message": "Groups retrieved successfully",
+            }
+
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
 
         group_records = []
@@ -1898,29 +2018,9 @@ async def get_all_groups(
                 )
             group_records = response.data or []
 
-        group_ids = [str(group.get("id")) for group in group_records if group.get("id")]
+        group_ids = [str(g.get("id")) for g in group_records if g.get("id")]
         approved_ids = fetch_approved_ids_for_records("group_registrations", group_ids)
-
-        data = []
-        for group in group_records:
-            group_id = str(group.get("id") or "")
-            data.append(
-                {
-                    "id": group.get("id"),
-                    "name": group.get("leader_name") or group.get("name"),
-                    "roll_no": group.get("leader_roll_no") or group.get("roll_no"),
-                    "course": group.get("leader_course") or group.get("course"),
-                    "year": group.get("leader_year") or group.get("year"),
-                    "email": group.get("leader_email") or group.get("email"),
-                    "phone": group.get("leader_phone") or group.get("phone"),
-                    "group_name": group.get("team_name") or group.get("group_name"),
-                    "event_id": group.get("event_id"),
-                    "event_name": group.get("event_name") or event_id_to_label(group.get("event_id")),
-                    "registered_at": group.get("registered_at"),
-                    "approved_at": group.get("approved_at"),
-                    "is_approved": group_id in approved_ids,
-                }
-            )
+        data = [_build_group_row(g, approved_ids) for g in group_records]
 
         return {
             "success": True,
@@ -2350,11 +2450,10 @@ async def export_volunteers_csv(authorization: str = Header(None)):
                 "Approved" if volunteer.get("qr_code") else "Pending",
             ])
 
-        csv_content = build_csv_content(headers, rows)
-
+        csv_bytes = build_csv_content(headers, rows).encode("utf-8-sig")
         return StreamingResponse(
-            iter([csv_content]),
-            media_type="text/csv; charset=utf-8",
+            iter([csv_bytes]),
+            media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=volunteers-report.csv"},
         )
     except Exception as e:
@@ -2403,11 +2502,10 @@ async def export_groups_csv(authorization: str = Header(None)):
                 "Approved" if group.get("qr_code") else "Pending",
             ])
 
-        csv_content = build_csv_content(headers, rows)
-
+        csv_bytes = build_csv_content(headers, rows).encode("utf-8-sig")
         return StreamingResponse(
-            iter([csv_content]),
-            media_type="text/csv; charset=utf-8",
+            iter([csv_bytes]),
+            media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=groups-report.csv"},
         )
     except Exception as e:

@@ -331,13 +331,21 @@ export default function FacultyDashboard() {
       setErrorMessage('')
 
       try {
-        const buildEndpoint = (tabId, page = 1, pageSize = DEFAULT_PAGE_SIZE) =>
-          `${TAB_CONFIG[tabId].listPath}?page=${page}&page_size=${pageSize}`
+        const buildEndpoint = (tabId, page = 1, pageSize = DEFAULT_PAGE_SIZE, searchTerm = '') => {
+          let url = `${TAB_CONFIG[tabId].listPath}?page=${page}&page_size=${pageSize}`
+          if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`
+          return url
+        }
 
         const tabIds = NAV_ITEMS.map((item) => item.id)
         const summaryResults = await Promise.all(
           tabIds.map((tabId) =>
-            fetchFacultyList(buildEndpoint(tabId, tabId === activeTab ? activePage : 1, tabId === activeTab ? DEFAULT_PAGE_SIZE : 5))
+            fetchFacultyList(buildEndpoint(
+              tabId,
+              tabId === activeTab ? activePage : 1,
+              tabId === activeTab ? DEFAULT_PAGE_SIZE : 5,
+              tabId === activeTab ? nameSearch : '',
+            ))
           )
         )
         const resultByTab = tabIds.reduce((accumulator, tabId, index) => {
@@ -409,7 +417,11 @@ export default function FacultyDashboard() {
     return () => {
       isCurrentRequest = false
     }
-  }, [activeTab, activePage, facultyPassword, refreshKey])
+  }, [activeTab, activePage, facultyPassword, refreshKey, nameSearch])
+
+  useEffect(() => {
+    setPageByTab((previous) => ({ ...previous, [activeTab]: 1 }))
+  }, [nameSearch, activeTab])
 
   const courseOptions = useMemo(() => {
     return [...new Set(records.map((record) => record.course).filter(Boolean))]
@@ -435,19 +447,9 @@ export default function FacultyDashboard() {
   }, [activeTab, records])
 
   const filteredRecords = useMemo(() => {
-    const normalizedSearch = nameSearch.trim().toLowerCase()
-
     return records.filter((record) => {
       if (selectedCourse !== 'all' && record.course !== selectedCourse) return false
       if (selectedYear !== 'all' && record.year !== selectedYear) return false
-
-      if (normalizedSearch) {
-        const searchableText = [record.name, record.roll_no, record.email]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-        if (!searchableText.includes(normalizedSearch)) return false
-      }
 
       if (activeTab === 'participants' && selectedEvent !== 'all') {
         const eventIds = normalizeEvents(record.events)
@@ -460,7 +462,7 @@ export default function FacultyDashboard() {
 
       return true
     })
-  }, [records, activeTab, selectedCourse, selectedYear, selectedEvent, nameSearch])
+  }, [records, activeTab, selectedCourse, selectedYear, selectedEvent])
 
   const sortedRecords = useMemo(() => {
     const output = [...filteredRecords]
