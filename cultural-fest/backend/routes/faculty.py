@@ -13,7 +13,12 @@ from pass_generator import (
 )
 import os
 import base64
-import httpx
+import smtplib
+import ssl
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+from email.mime.image import MIMEImage
 import time
 import csv
 import re
@@ -393,12 +398,12 @@ def send_group_bundle_email(
     bundle_bytes: bytes,
     total_passes: int,
 ):
-    """Send leader-only zip bundle containing all team member passes as PDFs via Resend."""
-    resend_api_key = os.getenv("RESEND_API_KEY", "")
-    resend_from = os.getenv("RESEND_FROM_EMAIL", "IZee Got Talent <noreply@yourdomain.com>")
+    """Send leader-only zip bundle containing all team member passes as PDFs via Gmail SMTP."""
+    gmail_user = os.getenv("SMTP_USER", "")
+    gmail_password = os.getenv("SMTP_PASSWORD", "")
 
-    if not resend_api_key:
-        return False, "RESEND_API_KEY not set"
+    if not gmail_user or not gmail_password:
+        return False, "SMTP_USER or SMTP_PASSWORD not set"
     if not to_email:
         return False, "Recipient email missing"
 
@@ -415,28 +420,28 @@ def send_group_bundle_email(
 
     html = f"""
     <html>
-      <body style=\"margin:0;padding:0;background:#0A0A0A;font-family:Arial,Helvetica,sans-serif;color:#F5F0E8;\">
-        <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"padding:24px;background:#0A0A0A;\">
+      <body style="margin:0;padding:0;background:#0A0A0A;font-family:Arial,Helvetica,sans-serif;color:#F5F0E8;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px;background:#0A0A0A;">
           <tr>
-            <td align=\"center\">
-              <table role=\"presentation\" width=\"640\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;background:#111111;border:1px solid rgba(201,168,76,0.32);border-radius:14px;overflow:hidden;\">
+            <td align="center">
+              <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;background:#111111;border:1px solid rgba(201,168,76,0.32);border-radius:14px;overflow:hidden;">
                 <tr>
-                  <td style=\"padding:22px 24px;background:linear-gradient(90deg,#0A0A0A,#181818);border-bottom:1px solid rgba(201,168,76,0.22)\">
-                    <p style=\"margin:0;font-size:12px;letter-spacing:2px;color:#C9A84C\">IZEE GOT TALENT</p>
-                    <h1 style=\"margin:8px 0 0 0;font-size:24px;line-height:1.3;color:#F5F0E8\">Group Approved · Pass Bundle Ready</h1>
+                  <td style="padding:22px 24px;background:linear-gradient(90deg,#0A0A0A,#181818);border-bottom:1px solid rgba(201,168,76,0.22)">
+                    <p style="margin:0;font-size:12px;letter-spacing:2px;color:#C9A84C">IZEE GOT TALENT</p>
+                    <h1 style="margin:8px 0 0 0;font-size:24px;line-height:1.3;color:#F5F0E8">Group Approved · Pass Bundle Ready</h1>
                   </td>
                 </tr>
                 <tr>
-                  <td style=\"padding:24px;\">
-                    <p style=\"margin:0 0 10px 0;font-size:15px;color:#F5F0E8\">Hello {leader_name},</p>
-                    <p style=\"margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#F5F0E8\">
+                  <td style="padding:24px;">
+                    <p style="margin:0 0 10px 0;font-size:15px;color:#F5F0E8">Hello {leader_name},</p>
+                    <p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#F5F0E8">
                       Team <strong>{team_name}</strong> has been approved for <strong>{event_name}</strong>.
                     </p>
-                    <p style=\"margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#F5F0E8\">
+                    <p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#F5F0E8">
                       Attached ZIP contains <strong>{total_passes}</strong> individual pass PDFs for your entire team.
                     </p>
-                    <p style=\"margin:0;font-size:13px;color:#C9A84C\">Registration ID: {registration_id}</p>
-                    <p style=\"margin:4px 0 0 0;font-size:13px;color:#C9A84C\">Short ID: {short_id}</p>
+                    <p style="margin:0;font-size:13px;color:#C9A84C">Registration ID: {registration_id}</p>
+                    <p style="margin:4px 0 0 0;font-size:13px;color:#C9A84C">Short ID: {short_id}</p>
                   </td>
                 </tr>
               </table>
@@ -448,35 +453,27 @@ def send_group_bundle_email(
     """
 
     zip_name = f"group_pass_bundle_{short_id or 'TEAM'}.zip"
-    attachment_b64 = base64.b64encode(bundle_bytes).decode("utf-8")
-
-    payload = {
-        "from": resend_from,
-        "to": [to_email],
-        "subject": subject,
-        "html": html,
-        "text": plain,
-        "attachments": [
-            {
-                "filename": zip_name,
-                "content": attachment_b64,
-            }
-        ],
-    }
 
     try:
-        with httpx.Client(timeout=15.0) as client:
-            response = client.post(
-                "https://api.resend.com/emails",
-                headers={
-                    "Authorization": f"Bearer {resend_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-            if response.status_code in (200, 201):
-                return True, None
-            return False, f"Resend error {response.status_code}: {response.text}"
+        msg = MIMEMultipart("mixed")
+        msg["Subject"] = subject
+        msg["From"] = f"IZee Got Talent <{gmail_user}>"
+        msg["To"] = to_email
+
+        alt = MIMEMultipart("alternative")
+        alt.attach(MIMEText(plain, "plain"))
+        alt.attach(MIMEText(html, "html"))
+        msg.attach(alt)
+
+        attachment = MIMEApplication(bundle_bytes, Name=zip_name)
+        attachment["Content-Disposition"] = f'attachment; filename="{zip_name}"'
+        msg.attach(attachment)
+
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(gmail_user, gmail_password)
+            server.sendmail(gmail_user, to_email, msg.as_string())
+        return True, None
     except Exception as exc:
         return False, str(exc)
 
@@ -591,13 +588,13 @@ def send_approval_email(
         user_type: str,
         events: list[str] | None = None,
 ):
-        """Send approval email with branded HTML template and inline pass preview via Resend."""
-        resend_api_key = os.getenv("RESEND_API_KEY", "")
-        resend_from = os.getenv("RESEND_FROM_EMAIL", "IZee Got Talent <noreply@yourdomain.com>")
+        """Send approval email with branded HTML template and pass attachment via Gmail SMTP."""
+        gmail_user = os.getenv("SMTP_USER", "")
+        gmail_password = os.getenv("SMTP_PASSWORD", "")
 
-        if not resend_api_key:
-                print(f"[EMAIL SKIPPED] RESEND_API_KEY not set. Would send to: {to_email}")
-                return False, "RESEND_API_KEY not set"
+        if not gmail_user or not gmail_password:
+                print(f"[EMAIL SKIPPED] SMTP_USER or SMTP_PASSWORD not set. Would send to: {to_email}")
+                return False, "SMTP_USER or SMTP_PASSWORD not set"
 
         if not to_email:
                 return False, "Recipient email missing"
@@ -631,14 +628,11 @@ def send_approval_email(
                                         <p style="margin:0 0 10px 0;font-size:15px;color:#F5F0E8">Hello {name},</p>
                                         <p style="margin:0 0 14px 0;font-size:14px;line-height:1.6;color:#F5F0E8">
                                             Your {user_type} registration has been approved by the Cultural Committee.
-                                            Your digital admit pass is attached below. Save it and present at the entry gate.
+                                            Your digital admit pass is attached. Save it and present at the entry gate.
                                         </p>
                                         <p style="margin:0 0 16px 0;font-size:13px;color:#C9A84C">Registration ID: {registration_id}</p>
-                                        <div style="margin-top:16px;border-radius:10px;overflow:hidden;border:1px solid rgba(201,168,76,0.22)">
-                                            <img src="data:image/png;base64,{qr_code_base64}" width="600" style="display:block;max-width:100%;height:auto;border-radius:8px;" alt="Admit Pass" />
-                                        </div>
                                         <p style="margin:12px 0 0 0;font-size:12px;color:rgba(245,240,232,0.5);font-style:italic;">
-                                            Save this image — it is your entry pass for the event. Show it at the entry gate for scanning.
+                                            Your pass is attached as a PNG image. Open the attachment — it is your entry pass.
                                         </p>
                                         {events_html}
                                         <p style="margin:20px 0 0 0;font-size:13px;line-height:1.6;color:#F5F0E8">
@@ -654,34 +648,37 @@ def send_approval_email(
         </html>
         """
 
-        payload = {
-                "from": resend_from,
-                "to": [to_email],
-                "subject": subject,
-                "html": html,
-                "attachments": [
-                        {
-                                "filename": "izee_gta_pass.png",
-                                "content": qr_code_base64,
-                        }
-                ],
-        }
+        plain = (
+                f"Hello {name},\n\n"
+                f"Your {user_type} registration has been approved.\n"
+                f"Registration ID: {registration_id}\n"
+                "Your pass is attached as a PNG image. Present it at the entry gate.\n"
+        )
 
         try:
-                with httpx.Client(timeout=15.0) as client:
-                        response = client.post(
-                                "https://api.resend.com/emails",
-                                headers={
-                                        "Authorization": f"Bearer {resend_api_key}",
-                                        "Content-Type": "application/json",
-                                },
-                                json=payload,
-                        )
-                if response.status_code in (200, 201):
-                        print(f"[EMAIL SENT] {to_email} - {subject}")
-                        return True, None
-                print(f"[EMAIL FAILED] {response.status_code}: {response.text}")
-                return False, f"Resend error {response.status_code}: {response.text}"
+                pass_bytes = base64.b64decode(qr_code_base64)
+
+                msg = MIMEMultipart("mixed")
+                msg["Subject"] = subject
+                msg["From"] = f"IZee Got Talent <{gmail_user}>"
+                msg["To"] = to_email
+
+                alt = MIMEMultipart("alternative")
+                alt.attach(MIMEText(plain, "plain"))
+                alt.attach(MIMEText(html, "html"))
+                msg.attach(alt)
+
+                img_attachment = MIMEImage(pass_bytes, _subtype="png", name="izee_gta_pass.png")
+                img_attachment["Content-Disposition"] = 'attachment; filename="izee_gta_pass.png"'
+                msg.attach(img_attachment)
+
+                context = ssl.create_default_context()
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+                        server.login(gmail_user, gmail_password)
+                        server.sendmail(gmail_user, to_email, msg.as_string())
+
+                print(f"[EMAIL SENT] {to_email} - {subject}")
+                return True, None
         except Exception as exc:
                 print(f"[EMAIL ERROR] {exc}")
                 return False, str(exc)
