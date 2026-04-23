@@ -1,40 +1,17 @@
-from fastapi import APIRouter, HTTPException, Header, Query, BackgroundTasks
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from db import supabase
-from utils.duplicate_check import check_duplicate_roll
-from utils.input_validation import is_valid_roll_no, normalize_full_name, normalize_roll_no
-from qr_utils import generate_qr
-from pass_generator import (
-    generate_student_pass,
-    generate_participant_pass,
-    generate_volunteer_pass,
-    generate_group_pass,
-)
 import os
-import base64
-import httpx
 import smtplib
+import socket
+import base64
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-import time
-import csv
-import re
-from datetime import datetime, timezone, timedelta
-from io import StringIO, BytesIO
-from uuid import UUID, uuid4
-from zipfile import ZIP_DEFLATED, ZipFile
-from PIL import Image
-
-router = APIRouter()
 
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "")
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL")
 
 
 def send_email_via_smtp(
@@ -43,28 +20,49 @@ def send_email_via_smtp(
     html_body: str,
     attachment_bytes: bytes = None,
     attachment_filename: str = None,
-    attachment_mimetype: str = "application/octet-stream",
 ):
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = SMTP_FROM_EMAIL
-    msg["To"] = to_email
-    msg.attach(MIMEText(html_body, "html"))
+    try:
+        if not SMTP_USER or not SMTP_PASSWORD:
+            raise Exception("SMTP credentials missing")
 
-    if attachment_bytes and attachment_filename:
-        part = MIMEBase("application", "octet-stream")
-        part.set_payload(attachment_bytes)
-        encoders.encode_base64(part)
-        part.add_header(
-            "Content-Disposition",
-            f"attachment; filename={attachment_filename}",
-        )
-        msg.attach(part)
+        if SMTP_FROM_EMAIL != SMTP_USER:
+            raise Exception("SMTP_FROM_EMAIL must match SMTP_USER")
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        print("SMTP DEBUG:", SMTP_HOST, SMTP_PORT, SMTP_USER)
+
+        msg = MIMEMultipart()
+        msg["From"] = SMTP_FROM_EMAIL
+        msg["To"] = to_email
+        msg["Subject"] = subject
+
+        msg.attach(MIMEText(html_body, "html"))
+
+        if attachment_bytes and attachment_filename:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment_bytes)
+            encoders.encode_base64(part)
+            part.add_header(
+                "Content-Disposition",
+                f'attachment; filename="{attachment_filename}"'
+            )
+            msg.attach(part)
+
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)
+        server.ehlo()
         server.starttls()
+        server.ehlo()
+
         server.login(SMTP_USER, SMTP_PASSWORD)
+
         server.sendmail(SMTP_FROM_EMAIL, to_email, msg.as_string())
+        server.quit()
+
+        print("EMAIL SENT SUCCESS")
+        return True, None
+
+    except Exception as e:
+        print("SMTP ERROR:", repr(e))
+        return False, str(e)
 
 
 EVENT_LABELS = {
@@ -655,7 +653,7 @@ def send_approval_email(
                 print(f"[EMAIL SENT] {to_email} - {subject}")
                 return True, None
         except Exception as exc:
-                print(f"[EMAIL ERROR] {exc}")
+                print("EMAIL ERROR FULL:", repr(exc))
                 return False, str(exc)
 
 
