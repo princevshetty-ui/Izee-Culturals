@@ -13,12 +13,9 @@ from pass_generator import (
 )
 import os
 import base64
-import smtplib
-import ssl
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.application import MIMEApplication
-from email.mime.image import MIMEImage
+import urllib.request
+import urllib.error
+import json
 import time
 import csv
 import re
@@ -398,12 +395,12 @@ def send_group_bundle_email(
     bundle_bytes: bytes,
     total_passes: int,
 ):
-    """Send leader-only zip bundle containing all team member passes as PDFs via Gmail SMTP."""
-    gmail_user = os.getenv("SMTP_USER", "")
-    gmail_password = os.getenv("SMTP_PASSWORD", "")
+    """Send leader-only zip bundle containing all team member passes as PDFs via Brevo HTTP API."""
+    brevo_api_key = os.getenv("BREVO_API_KEY", "")
+    from_email = os.getenv("SMTP_FROM_EMAIL", os.getenv("SMTP_USER", ""))
 
-    if not gmail_user or not gmail_password:
-        return False, "SMTP_USER or SMTP_PASSWORD not set"
+    if not brevo_api_key:
+        return False, "BREVO_API_KEY not set"
     if not to_email:
         return False, "Recipient email missing"
 
@@ -453,27 +450,30 @@ def send_group_bundle_email(
     """
 
     zip_name = f"group_pass_bundle_{short_id or 'TEAM'}.zip"
+    attachment_b64 = base64.b64encode(bundle_bytes).decode("utf-8")
+
+    payload = {
+        "sender": {"name": "IZee Got Talent", "email": from_email},
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "htmlContent": html,
+        "textContent": plain,
+        "attachment": [{"content": attachment_b64, "name": zip_name}],
+    }
 
     try:
-        msg = MIMEMultipart("mixed")
-        msg["Subject"] = subject
-        msg["From"] = f"IZee Got Talent <{gmail_user}>"
-        msg["To"] = to_email
-
-        alt = MIMEMultipart("alternative")
-        alt.attach(MIMEText(plain, "plain"))
-        alt.attach(MIMEText(html, "html"))
-        msg.attach(alt)
-
-        attachment = MIMEApplication(bundle_bytes, Name=zip_name)
-        attachment["Content-Disposition"] = f'attachment; filename="{zip_name}"'
-        msg.attach(attachment)
-
-        context = ssl.create_default_context()
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-            server.login(gmail_user, gmail_password)
-            server.sendmail(gmail_user, to_email, msg.as_string())
-        return True, None
+        req = urllib.request.Request(
+            "https://api.brevo.com/v3/smtp/email",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"api-key": brevo_api_key, "Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            if resp.status in (200, 201):
+                return True, None
+            return False, f"Brevo error {resp.status}: {resp.read().decode()}"
+    except urllib.error.HTTPError as e:
+        return False, f"Brevo error {e.code}: {e.read().decode()}"
     except Exception as exc:
         return False, str(exc)
 
@@ -588,13 +588,13 @@ def send_approval_email(
         user_type: str,
         events: list[str] | None = None,
 ):
-        """Send approval email with branded HTML template and pass attachment via Gmail SMTP."""
-        gmail_user = os.getenv("SMTP_USER", "")
-        gmail_password = os.getenv("SMTP_PASSWORD", "")
+        """Send approval email with branded HTML template and pass attachment via Brevo HTTP API."""
+        brevo_api_key = os.getenv("BREVO_API_KEY", "")
+        from_email = os.getenv("SMTP_FROM_EMAIL", os.getenv("SMTP_USER", ""))
 
-        if not gmail_user or not gmail_password:
-                print(f"[EMAIL SKIPPED] SMTP_USER or SMTP_PASSWORD not set. Would send to: {to_email}")
-                return False, "SMTP_USER or SMTP_PASSWORD not set"
+        if not brevo_api_key:
+                print(f"[EMAIL SKIPPED] BREVO_API_KEY not set. Would send to: {to_email}")
+                return False, "BREVO_API_KEY not set"
 
         if not to_email:
                 return False, "Recipient email missing"
@@ -655,30 +655,33 @@ def send_approval_email(
                 "Your pass is attached as a PNG image. Present it at the entry gate.\n"
         )
 
+        payload = {
+                "sender": {"name": "IZee Got Talent", "email": from_email},
+                "to": [{"email": to_email}],
+                "subject": subject,
+                "htmlContent": html,
+                "textContent": plain,
+                "attachment": [{"content": qr_code_base64, "name": "izee_gta_pass.png"}],
+        }
+
         try:
-                pass_bytes = base64.b64decode(qr_code_base64)
-
-                msg = MIMEMultipart("mixed")
-                msg["Subject"] = subject
-                msg["From"] = f"IZee Got Talent <{gmail_user}>"
-                msg["To"] = to_email
-
-                alt = MIMEMultipart("alternative")
-                alt.attach(MIMEText(plain, "plain"))
-                alt.attach(MIMEText(html, "html"))
-                msg.attach(alt)
-
-                img_attachment = MIMEImage(pass_bytes, _subtype="png", name="izee_gta_pass.png")
-                img_attachment["Content-Disposition"] = 'attachment; filename="izee_gta_pass.png"'
-                msg.attach(img_attachment)
-
-                context = ssl.create_default_context()
-                with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-                        server.login(gmail_user, gmail_password)
-                        server.sendmail(gmail_user, to_email, msg.as_string())
-
-                print(f"[EMAIL SENT] {to_email} - {subject}")
-                return True, None
+                req = urllib.request.Request(
+                        "https://api.brevo.com/v3/smtp/email",
+                        data=json.dumps(payload).encode("utf-8"),
+                        headers={"api-key": brevo_api_key, "Content-Type": "application/json"},
+                        method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                        if resp.status in (200, 201):
+                                print(f"[EMAIL SENT] {to_email} - {subject}")
+                                return True, None
+                        body = resp.read().decode()
+                        print(f"[EMAIL FAILED] {resp.status}: {body}")
+                        return False, f"Brevo error {resp.status}: {body}"
+        except urllib.error.HTTPError as e:
+                body = e.read().decode()
+                print(f"[EMAIL ERROR] Brevo {e.code}: {body}")
+                return False, f"Brevo error {e.code}: {body}"
         except Exception as exc:
                 print(f"[EMAIL ERROR] {exc}")
                 return False, str(exc)
