@@ -1,68 +1,29 @@
+from fastapi import APIRouter, HTTPException, Header, Query, BackgroundTasks
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from db import supabase
+from utils.duplicate_check import check_duplicate_roll
+from utils.input_validation import is_valid_roll_no, normalize_full_name, normalize_roll_no
+from qr_utils import generate_qr
+from pass_generator import (
+    generate_student_pass,
+    generate_participant_pass,
+    generate_volunteer_pass,
+    generate_group_pass,
+)
 import os
-import smtplib
-import socket
 import base64
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
+import httpx
+import time
+import csv
+import re
+from datetime import datetime, timezone, timedelta
+from io import StringIO, BytesIO
+from uuid import UUID, uuid4
+from zipfile import ZIP_DEFLATED, ZipFile
+from PIL import Image
 
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL")
-
-
-def send_email_via_smtp(
-    to_email: str,
-    subject: str,
-    html_body: str,
-    attachment_bytes: bytes = None,
-    attachment_filename: str = None,
-):
-    try:
-        if not SMTP_USER or not SMTP_PASSWORD:
-            raise Exception("SMTP credentials missing")
-
-        if SMTP_FROM_EMAIL != SMTP_USER:
-            raise Exception("SMTP_FROM_EMAIL must match SMTP_USER")
-
-        print("SMTP DEBUG:", SMTP_HOST, SMTP_PORT, SMTP_USER)
-
-        msg = MIMEMultipart()
-        msg["From"] = SMTP_FROM_EMAIL
-        msg["To"] = to_email
-        msg["Subject"] = subject
-
-        msg.attach(MIMEText(html_body, "html"))
-
-        if attachment_bytes and attachment_filename:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(attachment_bytes)
-            encoders.encode_base64(part)
-            part.add_header(
-                "Content-Disposition",
-                f'attachment; filename="{attachment_filename}"'
-            )
-            msg.attach(part)
-
-        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-
-        server.login(SMTP_USER, SMTP_PASSWORD)
-
-        server.sendmail(SMTP_FROM_EMAIL, to_email, msg.as_string())
-        server.quit()
-
-        print("EMAIL SENT SUCCESS")
-        return True, None
-
-    except Exception as e:
-        print("SMTP ERROR:", repr(e))
-        return False, str(e)
+router = APIRouter()
 
 
 EVENT_LABELS = {
@@ -196,20 +157,35 @@ def fetch_approved_ids_for_records(table_name: str, record_ids: list[str]) -> se
     if not record_ids:
         return set()
 
-    response = fetch_with_retry(
-        lambda: supabase.table(table_name)
-        .select("id")
-        .in_("id", record_ids)
-        .not_.is_("qr_code", "null")
-        .execute(),
-        attempts=3,
-    )
+    try:
+        response = fetch_with_retry(
+            lambda: supabase.table(table_name)
+            .select("id, qr_code, approved_at")
+            .in_("id", record_ids)
+            .execute(),
+            attempts=3,
+        )
 
-    return {
-        str(row.get("id"))
-        for row in (response.data or [])
-        if row.get("id") is not None
-    }
+        return {
+            str(row.get("id"))
+            for row in (response.data or [])
+            if row.get("id") is not None and (row.get("qr_code") or row.get("approved_at"))
+        }
+    except Exception:
+        response = fetch_with_retry(
+            lambda: supabase.table(table_name)
+            .select("id")
+            .in_("id", record_ids)
+            .not_.is_("qr_code", "null")
+            .execute(),
+            attempts=3,
+        )
+
+        return {
+            str(row.get("id"))
+            for row in (response.data or [])
+            if row.get("id") is not None
+        }
 
 
 def format_datetime_for_export(value: str | None) -> str:
@@ -330,6 +306,17 @@ def fetch_table_summary(table_name: str, include_approved_today: bool = False) -
             .execute(),
             attempts=3,
         )
+        try:
+            approved_at_count = fetch_count_with_retry(
+                lambda: supabase.table(table_name)
+                .select("id", count="exact", head=True)
+                .not_.is_("approved_at", "null")
+                .execute(),
+                attempts=3,
+            )
+            approved_count = max(approved_count, approved_at_count)
+        except Exception:
+            pass
 
         summary = {
             "total": total,
@@ -406,9 +393,12 @@ def send_group_bundle_email(
     bundle_bytes: bytes,
     total_passes: int,
 ):
-    """Send leader-only zip bundle containing all team member passes as PDFs via SMTP."""
-    if not SMTP_USER or not SMTP_PASSWORD:
-        return False, "SMTP credentials not set"
+    """Send leader-only zip bundle containing all team member passes as PDFs via Resend."""
+    resend_api_key = os.getenv("RESEND_API_KEY", "")
+    resend_from = os.getenv("RESEND_FROM_EMAIL", "IZee Got Talent <noreply@yourdomain.com>")
+
+    if not resend_api_key:
+        return False, "RESEND_API_KEY not set"
     if not to_email:
         return False, "Recipient email missing"
 
@@ -458,16 +448,35 @@ def send_group_bundle_email(
     """
 
     zip_name = f"group_pass_bundle_{short_id or 'TEAM'}.zip"
+    attachment_b64 = base64.b64encode(bundle_bytes).decode("utf-8")
+
+    payload = {
+        "from": resend_from,
+        "to": [to_email],
+        "subject": subject,
+        "html": html,
+        "text": plain,
+        "attachments": [
+            {
+                "filename": zip_name,
+                "content": attachment_b64,
+            }
+        ],
+    }
 
     try:
-        send_email_via_smtp(
-            to_email=to_email,
-            subject=subject,
-            html_body=html,
-            attachment_bytes=bundle_bytes,
-            attachment_filename=zip_name,
-        )
-        return True, None
+        with httpx.Client(timeout=15.0) as client:
+            response = client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            if response.status_code in (200, 201):
+                return True, None
+            return False, f"Resend error {response.status_code}: {response.text}"
     except Exception as exc:
         return False, str(exc)
 
@@ -582,10 +591,13 @@ def send_approval_email(
         user_type: str,
         events: list[str] | None = None,
 ):
-        """Send approval email with branded HTML template and inline pass preview via SMTP."""
-        if not SMTP_USER or not SMTP_PASSWORD:
-                print(f"[EMAIL SKIPPED] SMTP credentials not set. Would send to: {to_email}")
-                return False, "SMTP credentials not set"
+        """Send approval email with branded HTML template and inline pass preview via Resend."""
+        resend_api_key = os.getenv("RESEND_API_KEY", "")
+        resend_from = os.getenv("RESEND_FROM_EMAIL", "IZee Got Talent <noreply@yourdomain.com>")
+
+        if not resend_api_key:
+                print(f"[EMAIL SKIPPED] RESEND_API_KEY not set. Would send to: {to_email}")
+                return False, "RESEND_API_KEY not set"
 
         if not to_email:
                 return False, "Recipient email missing"
@@ -642,18 +654,36 @@ def send_approval_email(
         </html>
         """
 
+        payload = {
+                "from": resend_from,
+                "to": [to_email],
+                "subject": subject,
+                "html": html,
+                "attachments": [
+                        {
+                                "filename": "izee_gta_pass.png",
+                                "content": qr_code_base64,
+                        }
+                ],
+        }
+
         try:
-                send_email_via_smtp(
-                        to_email=to_email,
-                        subject=subject,
-                        html_body=html,
-                        attachment_bytes=base64.b64decode(qr_code_base64),
-                        attachment_filename="izee_gta_pass.png",
-                )
-                print(f"[EMAIL SENT] {to_email} - {subject}")
-                return True, None
+                with httpx.Client(timeout=15.0) as client:
+                        response = client.post(
+                                "https://api.resend.com/emails",
+                                headers={
+                                        "Authorization": f"Bearer {resend_api_key}",
+                                        "Content-Type": "application/json",
+                                },
+                                json=payload,
+                        )
+                if response.status_code in (200, 201):
+                        print(f"[EMAIL SENT] {to_email} - {subject}")
+                        return True, None
+                print(f"[EMAIL FAILED] {response.status_code}: {response.text}")
+                return False, f"Resend error {response.status_code}: {response.text}"
         except Exception as exc:
-                print("EMAIL ERROR FULL:", repr(exc))
+                print(f"[EMAIL ERROR] {exc}")
                 return False, str(exc)
 
 
@@ -1758,7 +1788,7 @@ async def get_all_volunteers(
     verify_faculty_token(authorization)
 
     try:
-        summary = fetch_table_summary("volunteers")
+        summary = fetch_table_summary("volunteers", include_approved_today=True)
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
 
         volunteer_records = []
@@ -1843,7 +1873,7 @@ async def get_all_groups(
     verify_faculty_token(authorization)
 
     try:
-        summary = fetch_table_summary("group_registrations")
+        summary = fetch_table_summary("group_registrations", include_approved_today=True)
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
 
         group_records = []
