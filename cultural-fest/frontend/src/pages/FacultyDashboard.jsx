@@ -193,11 +193,39 @@ function SpotRegisterModal({ onClose, onSuccess, apiPassword }) {
   const [loading, setLoading] = useState(false)
   const [apiError, setApiError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  const [checkingRoll, setCheckingRoll] = useState(false)
+
+  // Check for duplicate roll number on blur
+  const checkDuplicateRoll = async (rollNo) => {
+    const cleaned = rollNo.trim().toUpperCase()
+    if (!cleaned || cleaned.length < 4) return
+    setCheckingRoll(true)
+    try {
+      const res = await fetch(
+        apiUrl(`/api/faculty/students?page=1&page_size=5&search=${encodeURIComponent(cleaned)}`),
+        { headers: { Authorization: `Bearer ${apiPassword}` } }
+      )
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.success) {
+        const match = (data.data || []).find(
+          (s) => (s.roll_no || '').toUpperCase() === cleaned
+        )
+        if (match) {
+          setErrors((prev) => ({ ...prev, roll_no: `Already registered: ${match.name}` }))
+        }
+      }
+    } catch {
+      // silently ignore — backend will catch on submit
+    } finally {
+      setCheckingRoll(false)
+    }
+  }
 
   const validate = () => {
     const e = {}
     if (!form.name.trim()) e.name = 'Required'
     if (!form.roll_no.trim()) e.roll_no = 'Required'
+    else if (errors.roll_no && errors.roll_no.startsWith('Already')) e.roll_no = errors.roll_no
     if (!form.course) e.course = 'Required'
     if (!form.year) e.year = 'Required'
     if (!form.email.trim()) e.email = 'Required'
@@ -209,7 +237,12 @@ function SpotRegisterModal({ onClose, onSuccess, apiPassword }) {
   const handleChange = (e) => {
     const { name, value } = e.target
     setForm((p) => ({ ...p, [name]: value }))
-    if (errors[name]) setErrors((p) => ({ ...p, [name]: '' }))
+    if (name === 'roll_no') setErrors((p) => ({ ...p, roll_no: '' }))
+    else if (errors[name]) setErrors((p) => ({ ...p, [name]: '' }))
+  }
+
+  const handleRollBlur = () => {
+    if (form.roll_no.trim()) checkDuplicateRoll(form.roll_no)
   }
 
   const handleSubmit = async (e) => {
@@ -219,19 +252,39 @@ function SpotRegisterModal({ onClose, onSuccess, apiPassword }) {
     if (!validate()) return
     setLoading(true)
     try {
-      const res = await fetch(apiUrl('/api/register/student'), {
+      // Step 1: Register student via public endpoint
+      const regRes = await fetch(apiUrl('/api/register/student'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
-      const data = await res.json()
-      if (res.ok && data.success) {
-        setSuccessMsg(`✓ ${form.name} registered successfully! (Pending approval)`)
-        setForm({ name: '', roll_no: '', course: '', year: '', email: '' })
-        onSuccess()
-      } else {
-        setApiError(data.message || 'Registration failed. Please try again.')
+      const regData = await regRes.json()
+      if (!regRes.ok || !regData.success) {
+        setApiError(regData.message || 'Registration failed. Please try again.')
+        setLoading(false)
+        return
       }
+      const studentId = regData.data?.id
+      if (!studentId) {
+        setApiError('Registration succeeded but no ID returned.')
+        setLoading(false)
+        return
+      }
+      // Step 2: Immediately approve using faculty credentials
+      const approveRes = await fetch(apiUrl(`/api/faculty/approve/student/${studentId}`), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiPassword}` },
+      })
+      const approveData = await approveRes.json().catch(() => ({}))
+      if (!approveRes.ok || !approveData.success) {
+        setSuccessMsg(`✓ ${form.name} registered. Auto-approval failed — please approve manually.`)
+      } else {
+        const emailNote = approveData.data?.email_sent ? ' Pass sent to email.' : ''
+        setSuccessMsg(`✓ ${form.name} registered & approved!${emailNote}`)
+      }
+      setForm({ name: '', roll_no: '', course: '', year: '', email: '' })
+      setErrors({})
+      onSuccess()
     } catch {
       setApiError('Network error. Please check your connection.')
     } finally {
@@ -284,9 +337,12 @@ function SpotRegisterModal({ onClose, onSuccess, apiPassword }) {
             style={{ background: 'none', border: 'none', color: 'rgba(238,230,216,0.4)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
           >×</button>
         </div>
-        <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#EEE6D8', marginBottom: '20px', marginTop: '4px' }}>
-          Spot Registration
+        <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#EEE6D8', marginBottom: '6px', marginTop: '4px' }}>
+          Register &amp; Approve
         </h2>
+        <p style={{ fontSize: '12px', color: 'rgba(238,230,216,0.45)', marginBottom: '20px' }}>
+          Student will be registered and approved instantly.
+        </p>
 
         {apiError && (
           <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#f87171', fontSize: '13px' }}>
@@ -307,9 +363,24 @@ function SpotRegisterModal({ onClose, onSuccess, apiPassword }) {
           </div>
 
           <div>
-            <label style={{ fontSize: '11px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C9A84C' }}>Roll No</label>
-            <input name="roll_no" value={form.roll_no} onChange={handleChange} placeholder="e.g. U03EX24S0091" style={fieldStyle(errors.roll_no)} />
-            {errors.roll_no && <p style={{ color: '#f87171', fontSize: '11px', marginTop: '4px' }}>{errors.roll_no}</p>}
+            <label style={{ fontSize: '11px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C9A84C' }}>
+              Roll No
+              {checkingRoll && <span style={{ marginLeft: '8px', color: 'rgba(238,230,216,0.35)', fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: '10px' }}>checking…</span>}
+            </label>
+            <input
+              name="roll_no"
+              value={form.roll_no}
+              onChange={handleChange}
+              onBlur={handleRollBlur}
+              placeholder="e.g. U03EX24S0091"
+              style={fieldStyle(errors.roll_no)}
+              autoComplete="off"
+            />
+            {errors.roll_no && (
+              <p style={{ color: errors.roll_no.startsWith('Already') ? '#fb923c' : '#f87171', fontSize: '11px', marginTop: '4px' }}>
+                {errors.roll_no.startsWith('Already') ? '⚠ ' : ''}{errors.roll_no}
+              </p>
+            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -339,22 +410,24 @@ function SpotRegisterModal({ onClose, onSuccess, apiPassword }) {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || checkingRoll || (errors.roll_no && errors.roll_no.startsWith('Already'))}
             style={{
               marginTop: '4px',
               width: '100%',
               padding: '12px',
               borderRadius: '8px',
               border: 'none',
-              background: loading ? 'rgba(201,168,76,0.4)' : 'linear-gradient(135deg,#C9A84C,#A8893C)',
+              background: (loading || checkingRoll || (errors.roll_no && errors.roll_no.startsWith('Already')))
+                ? 'rgba(201,168,76,0.3)'
+                : 'linear-gradient(135deg,#C9A84C,#A8893C)',
               color: '#0C0D10',
               fontWeight: 700,
               fontSize: '13px',
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: (loading || checkingRoll || (errors.roll_no && errors.roll_no.startsWith('Already'))) ? 'not-allowed' : 'pointer',
               letterSpacing: '0.05em',
             }}
           >
-            {loading ? 'Registering...' : 'Register Student'}
+            {loading ? 'Registering & Approving…' : checkingRoll ? 'Checking…' : 'Register & Approve'}
           </button>
         </form>
       </div>
