@@ -1135,9 +1135,8 @@ async def get_all_students(
 
     try:
         sq = (search or "").strip()
-        summary = fetch_table_summary("students", include_approved_today=True)
 
-        # When searching, fetch all matching without pagination
+        # SEARCH PATH: single query, no COUNT, use approved_at inline
         if sq:
             pattern = f"%{sq}%"
             resp = fetch_with_retry(
@@ -1149,20 +1148,19 @@ async def get_all_students(
                 attempts=3,
             )
             students = resp.data or []
+            for s in students:
+                s["is_approved"] = bool(s.get("approved_at"))
+                s["approved"] = s["is_approved"]
             total = len(students)
-            student_ids = [str(s.get("id")) for s in students if s.get("id")]
-            approved_ids = fetch_approved_ids_for_records("students", student_ids)
-            for student in students:
-                sid = str(student.get("id") or "")
-                student["is_approved"] = sid in approved_ids
-                student["approved"] = student["is_approved"]
             return {
                 "success": True,
                 "data": students,
                 "pagination": {"page": 1, "page_size": total, "total": total, "total_pages": 1},
-                "summary": summary,
+                "summary": {},
                 "message": "Students retrieved successfully",
             }
+
+        summary = fetch_table_summary("students", include_approved_today=True)
 
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
         students = []
@@ -1222,8 +1220,8 @@ async def get_all_participants(
 
     try:
         sq = (search or "").strip()
-        summary = fetch_table_summary("participants", include_approved_today=True)
 
+        # SEARCH PATH: single query, no COUNT, use approved_at inline
         if sq:
             pattern = f"%{sq}%"
             pr = fetch_with_retry(
@@ -1236,21 +1234,21 @@ async def get_all_participants(
             )
             participants = pr.data or []
             participant_ids = [p.get("id") for p in participants if p.get("id")]
-            approved_ids = fetch_approved_ids_for_records("participants", [str(pid) for pid in participant_ids])
             events_map = fetch_participant_events_map(participant_ids)
-            for participant in participants:
-                pid = participant.get("id")
-                participant["events"] = events_map.get(pid, [])
-                participant["is_approved"] = str(pid or "") in approved_ids
-                participant["approved"] = participant["is_approved"]
+            for p in participants:
+                p["events"] = events_map.get(p.get("id"), [])
+                p["is_approved"] = bool(p.get("approved_at"))
+                p["approved"] = p["is_approved"]
             total = len(participants)
             return {
                 "success": True,
                 "data": participants,
                 "pagination": {"page": 1, "page_size": total, "total": total, "total_pages": 1},
-                "summary": summary,
+                "summary": {},
                 "message": "Participants retrieved successfully",
             }
+
+        summary = fetch_table_summary("participants", include_approved_today=True)
 
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
         participants = []
@@ -1728,13 +1726,18 @@ async def delete_participant(participant_id: str, authorization: str = Header(No
 async def export_students_csv(authorization: str = Header(None)):
     """Export all students as CSV."""
     verify_faculty_token(authorization)
-    
+
     try:
-        response = supabase.table("students").select("*").order(
-            "registered_at", desc=True
-        ).execute()
-        
+        # Exclude qr_code column — it's a large base64 blob not needed for CSV
+        response = supabase.table("students").select(
+            "id, name, roll_no, course, year, email, phone, registered_at"
+        ).order("registered_at", desc=True).execute()
+
         students = response.data or []
+
+        # Fetch approved IDs separately (avoids loading qr_code blobs)
+        all_ids = [str(s.get("id")) for s in students if s.get("id")]
+        approved_ids = fetch_approved_ids_for_records("students", all_ids)
 
         headers = [
             "Registration ID",
@@ -1743,24 +1746,28 @@ async def export_students_csv(authorization: str = Header(None)):
             "Course",
             "Year",
             "Email",
+            "Phone",
             "Status",
             "Registered At",
         ]
 
-        rows = []
-        for student in students:
-            rows.append([
-                str(student.get("id") or ""),
-                str(student.get("name") or ""),
-                str(student.get("roll_no") or ""),
-                str(student.get("course") or ""),
-                str(student.get("year") or ""),
-                str(student.get("email") or ""),
-                "Approved" if student.get("qr_code") else "Pending",
-                format_datetime_for_export(student.get("registered_at")),
-            ])
+        rows = [
+            [
+                str(s.get("id") or ""),
+                str(s.get("name") or ""),
+                str(s.get("roll_no") or ""),
+                str(s.get("course") or ""),
+                str(s.get("year") or ""),
+                str(s.get("email") or ""),
+                str(s.get("phone") or ""),
+                "Approved" if str(s.get("id") or "") in approved_ids else "Pending",
+                format_datetime_for_export(s.get("registered_at")),
+            ]
+            for s in students
+        ]
 
-        csv_bytes = build_csv_content(headers, rows).encode("utf-8-sig")
+        # build_csv_content already prepends \ufeff BOM — use plain utf-8
+        csv_bytes = build_csv_content(headers, rows).encode("utf-8")
         return StreamingResponse(
             iter([csv_bytes]),
             media_type="text/csv",
@@ -1821,7 +1828,7 @@ async def export_participants_csv(authorization: str = Header(None)):
                 format_datetime_for_export(participant.get("registered_at")),
             ])
 
-        csv_bytes = build_csv_content(headers, rows).encode("utf-8-sig")
+        csv_bytes = build_csv_content(headers, rows).encode("utf-8")
         return StreamingResponse(
             iter([csv_bytes]),
             media_type="text/csv",
@@ -1845,9 +1852,13 @@ async def get_all_volunteers(
         sq = (search or "").strip()
         summary = fetch_table_summary("volunteers", include_approved_today=True)
 
-        def _build_volunteer_row(volunteer, approved_ids):
+        def _build_volunteer_row(volunteer, approved_ids=None):
             role_value = volunteer.get("volunteer_role") or volunteer.get("role") or ""
             vid = str(volunteer.get("id") or "")
+            if approved_ids is not None:
+                is_approved = vid in approved_ids
+            else:
+                is_approved = bool(volunteer.get("approved_at"))
             return {
                 "id": volunteer.get("id"),
                 "name": volunteer.get("name"),
@@ -1860,9 +1871,10 @@ async def get_all_volunteers(
                 "volunteer_role": role_value,
                 "registered_at": volunteer.get("registered_at"),
                 "approved_at": volunteer.get("approved_at"),
-                "is_approved": vid in approved_ids,
+                "is_approved": is_approved,
             }
 
+        # SEARCH PATH: single query, no extra COUNT
         if sq:
             pattern = f"%{sq}%"
             vr = fetch_with_retry(
@@ -1874,15 +1886,13 @@ async def get_all_volunteers(
                 attempts=3,
             )
             volunteer_records = vr.data or []
-            vids = [str(v.get("id")) for v in volunteer_records if v.get("id")]
-            approved_ids = fetch_approved_ids_for_records("volunteers", vids)
-            data = [_build_volunteer_row(v, approved_ids) for v in volunteer_records]
+            data = [_build_volunteer_row(v) for v in volunteer_records]
             total = len(data)
             return {
                 "success": True,
                 "data": data,
                 "pagination": {"page": 1, "page_size": total, "total": total, "total_pages": 1},
-                "summary": summary,
+                "summary": {},
                 "message": "Volunteers retrieved successfully",
             }
 
@@ -1953,8 +1963,12 @@ async def get_all_groups(
         sq = (search or "").strip()
         summary = fetch_table_summary("group_registrations", include_approved_today=True)
 
-        def _build_group_row(group, approved_ids):
+        def _build_group_row(group, approved_ids=None):
             gid = str(group.get("id") or "")
+            if approved_ids is not None:
+                is_approved = gid in approved_ids
+            else:
+                is_approved = bool(group.get("approved_at"))
             return {
                 "id": group.get("id"),
                 "name": group.get("leader_name") or group.get("name"),
@@ -1968,9 +1982,10 @@ async def get_all_groups(
                 "event_name": group.get("event_name") or event_id_to_label(group.get("event_id")),
                 "registered_at": group.get("registered_at"),
                 "approved_at": group.get("approved_at"),
-                "is_approved": gid in approved_ids,
+                "is_approved": is_approved,
             }
 
+        # SEARCH PATH: single query, no extra COUNT
         if sq:
             pattern = f"%{sq}%"
             gr = fetch_with_retry(
@@ -1982,15 +1997,13 @@ async def get_all_groups(
                 attempts=3,
             )
             group_records = gr.data or []
-            gids = [str(g.get("id")) for g in group_records if g.get("id")]
-            approved_ids = fetch_approved_ids_for_records("group_registrations", gids)
-            data = [_build_group_row(g, approved_ids) for g in group_records]
+            data = [_build_group_row(g) for g in group_records]
             total = len(data)
             return {
                 "success": True,
                 "data": data,
                 "pagination": {"page": 1, "page_size": total, "total": total, "total_pages": 1},
-                "summary": summary,
+                "summary": {},
                 "message": "Groups retrieved successfully",
             }
 
@@ -2450,7 +2463,7 @@ async def export_volunteers_csv(authorization: str = Header(None)):
                 "Approved" if volunteer.get("qr_code") else "Pending",
             ])
 
-        csv_bytes = build_csv_content(headers, rows).encode("utf-8-sig")
+        csv_bytes = build_csv_content(headers, rows).encode("utf-8")
         return StreamingResponse(
             iter([csv_bytes]),
             media_type="text/csv",
@@ -2502,7 +2515,7 @@ async def export_groups_csv(authorization: str = Header(None)):
                 "Approved" if group.get("qr_code") else "Pending",
             ])
 
-        csv_bytes = build_csv_content(headers, rows).encode("utf-8-sig")
+        csv_bytes = build_csv_content(headers, rows).encode("utf-8")
         return StreamingResponse(
             iter([csv_bytes]),
             media_type="text/csv",
