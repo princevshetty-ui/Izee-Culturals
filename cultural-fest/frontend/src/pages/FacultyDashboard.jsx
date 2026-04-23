@@ -184,9 +184,188 @@ function formatTimestamp(value) {
   })
 }
 
+const SPOT_COURSES = ['BCA', 'BBA', 'B.Com']
+const SPOT_YEARS = ['1st', '2nd', '3rd']
+
+function SpotRegisterModal({ onClose, onSuccess, apiPassword }) {
+  const [form, setForm] = useState({ name: '', roll_no: '', course: '', year: '', email: '' })
+  const [errors, setErrors] = useState({})
+  const [loading, setLoading] = useState(false)
+  const [apiError, setApiError] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
+
+  const validate = () => {
+    const e = {}
+    if (!form.name.trim()) e.name = 'Required'
+    if (!form.roll_no.trim()) e.roll_no = 'Required'
+    if (!form.course) e.course = 'Required'
+    if (!form.year) e.year = 'Required'
+    if (!form.email.trim()) e.email = 'Required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setForm((p) => ({ ...p, [name]: value }))
+    if (errors[name]) setErrors((p) => ({ ...p, [name]: '' }))
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setApiError('')
+    setSuccessMsg('')
+    if (!validate()) return
+    setLoading(true)
+    try {
+      const res = await fetch(apiUrl('/api/register/student'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setSuccessMsg(`✓ ${form.name} registered successfully! (Pending approval)`)
+        setForm({ name: '', roll_no: '', course: '', year: '', email: '' })
+        onSuccess()
+      } else {
+        setApiError(data.message || 'Registration failed. Please try again.')
+      }
+    } catch {
+      setApiError('Network error. Please check your connection.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fieldStyle = (hasErr) => ({
+    width: '100%',
+    background: 'rgba(255,255,255,0.04)',
+    border: `1px solid ${hasErr ? 'rgba(239,68,68,0.6)' : 'rgba(238,230,216,0.12)'}`,
+    borderRadius: '8px',
+    padding: '10px 14px',
+    color: '#EEE6D8',
+    fontSize: '13px',
+    outline: 'none',
+    marginTop: '6px',
+    boxSizing: 'border-box',
+  })
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.72)',
+        backdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px',
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        style={{
+          background: 'rgba(13,14,18,0.98)',
+          border: '1px solid rgba(201,168,76,0.25)',
+          borderRadius: '16px',
+          padding: '32px',
+          width: '100%',
+          maxWidth: '480px',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <span style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#C9A84C' }}>
+            Faculty Console
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: 'rgba(238,230,216,0.4)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
+          >×</button>
+        </div>
+        <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#EEE6D8', marginBottom: '20px', marginTop: '4px' }}>
+          Spot Registration
+        </h2>
+
+        {apiError && (
+          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#f87171', fontSize: '13px' }}>
+            {apiError}
+          </div>
+        )}
+        {successMsg && (
+          <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#4ade80', fontSize: '13px' }}>
+            {successMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '14px' }}>
+          <div>
+            <label style={{ fontSize: '11px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C9A84C' }}>Full Name</label>
+            <input name="name" value={form.name} onChange={handleChange} placeholder="Student full name" style={fieldStyle(errors.name)} />
+            {errors.name && <p style={{ color: '#f87171', fontSize: '11px', marginTop: '4px' }}>{errors.name}</p>}
+          </div>
+
+          <div>
+            <label style={{ fontSize: '11px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C9A84C' }}>Roll No</label>
+            <input name="roll_no" value={form.roll_no} onChange={handleChange} placeholder="e.g. U03EX24S0091" style={fieldStyle(errors.roll_no)} />
+            {errors.roll_no && <p style={{ color: '#f87171', fontSize: '11px', marginTop: '4px' }}>{errors.roll_no}</p>}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={{ fontSize: '11px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C9A84C' }}>Course</label>
+              <select name="course" value={form.course} onChange={handleChange} className="dash-select" style={fieldStyle(errors.course)}>
+                <option value="">Select</option>
+                {SPOT_COURSES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              {errors.course && <p style={{ color: '#f87171', fontSize: '11px', marginTop: '4px' }}>{errors.course}</p>}
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C9A84C' }}>Year</label>
+              <select name="year" value={form.year} onChange={handleChange} className="dash-select" style={fieldStyle(errors.year)}>
+                <option value="">Select</option>
+                {SPOT_YEARS.map((y) => <option key={y} value={y}>{y} Year</option>)}
+              </select>
+              {errors.year && <p style={{ color: '#f87171', fontSize: '11px', marginTop: '4px' }}>{errors.year}</p>}
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: '11px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C9A84C' }}>Email</label>
+            <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="student@gmail.com" style={fieldStyle(errors.email)} />
+            {errors.email && <p style={{ color: '#f87171', fontSize: '11px', marginTop: '4px' }}>{errors.email}</p>}
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              marginTop: '4px',
+              width: '100%',
+              padding: '12px',
+              borderRadius: '8px',
+              border: 'none',
+              background: loading ? 'rgba(201,168,76,0.4)' : 'linear-gradient(135deg,#C9A84C,#A8893C)',
+              color: '#0C0D10',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              letterSpacing: '0.05em',
+            }}
+          >
+            {loading ? 'Registering...' : 'Register Student'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function FacultyDashboard() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('students')
+  const [showSpotRegister, setShowSpotRegister] = useState(false)
   const [facultyPassword, setFacultyPassword] = useState('')
   const [records, setRecords] = useState([])
   const [stats, setStats] = useState({
@@ -1125,6 +1304,29 @@ export default function FacultyDashboard() {
                 <p className="text-[11px] text-[rgba(238,230,216,0.35)]">Showing {sortedRecords.length} records</p>
               </div>
               <div className="flex items-center gap-2">
+                {activeTab === 'students' && (
+                  <button
+                    type="button"
+                    id="spot-register-btn"
+                    onClick={() => setShowSpotRegister(true)}
+                    className="hidden h-8 items-center gap-1.5 rounded-[6px] px-3 text-[11px] sm:inline-flex"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.08))',
+                      border: '0.5px solid rgba(201,168,76,0.4)',
+                      color: '#C9A84C',
+                      fontWeight: 500,
+                      letterSpacing: '0.04em',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(201,168,76,0.22)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.08))' }}
+                  >
+                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" aria-hidden="true">
+                      <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+                      <path d="M8 5v6M5 8h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                    Spot Register
+                  </button>
+                )}
                 <div
                   className="hidden h-8 items-center rounded-[6px] border px-3 text-[11px] text-[rgba(238,230,216,0.5)] sm:inline-flex"
                   style={{ border: '0.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}
@@ -1701,6 +1903,14 @@ export default function FacultyDashboard() {
           </div>
         </main>
       </div>
+
+      {showSpotRegister && (
+        <SpotRegisterModal
+          onClose={() => setShowSpotRegister(false)}
+          onSuccess={() => setRefreshKey((k) => k + 1)}
+          apiPassword={facultyPassword}
+        />
+      )}
     </div>
   )
 }
