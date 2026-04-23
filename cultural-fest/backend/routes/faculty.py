@@ -14,6 +14,11 @@ from pass_generator import (
 import os
 import base64
 import httpx
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 import time
 import csv
 import re
@@ -24,6 +29,42 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from PIL import Image
 
 router = APIRouter()
+
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "")
+
+
+def send_email_via_smtp(
+    to_email: str,
+    subject: str,
+    html_body: str,
+    attachment_bytes: bytes = None,
+    attachment_filename: str = None,
+    attachment_mimetype: str = "application/octet-stream",
+):
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = SMTP_FROM_EMAIL
+    msg["To"] = to_email
+    msg.attach(MIMEText(html_body, "html"))
+
+    if attachment_bytes and attachment_filename:
+        part = MIMEBase("application", "octet-stream")
+        part.set_payload(attachment_bytes)
+        encoders.encode_base64(part)
+        part.add_header(
+            "Content-Disposition",
+            f"attachment; filename={attachment_filename}",
+        )
+        msg.attach(part)
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(SMTP_FROM_EMAIL, to_email, msg.as_string())
 
 
 EVENT_LABELS = {
@@ -367,12 +408,9 @@ def send_group_bundle_email(
     bundle_bytes: bytes,
     total_passes: int,
 ):
-    """Send leader-only zip bundle containing all team member passes as PDFs via Resend."""
-    resend_api_key = os.getenv("RESEND_API_KEY", "")
-    resend_from = os.getenv("RESEND_FROM_EMAIL", "IZee Got Talent <noreply@yourdomain.com>")
-
-    if not resend_api_key:
-        return False, "RESEND_API_KEY not set"
+    """Send leader-only zip bundle containing all team member passes as PDFs via SMTP."""
+    if not SMTP_USER or not SMTP_PASSWORD:
+        return False, "SMTP credentials not set"
     if not to_email:
         return False, "Recipient email missing"
 
@@ -422,35 +460,16 @@ def send_group_bundle_email(
     """
 
     zip_name = f"group_pass_bundle_{short_id or 'TEAM'}.zip"
-    attachment_b64 = base64.b64encode(bundle_bytes).decode("utf-8")
-
-    payload = {
-        "from": resend_from,
-        "to": [to_email],
-        "subject": subject,
-        "html": html,
-        "text": plain,
-        "attachments": [
-            {
-                "filename": zip_name,
-                "content": attachment_b64,
-            }
-        ],
-    }
 
     try:
-        with httpx.Client(timeout=15.0) as client:
-            response = client.post(
-                "https://api.resend.com/emails",
-                headers={
-                    "Authorization": f"Bearer {resend_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-            if response.status_code in (200, 201):
-                return True, None
-            return False, f"Resend error {response.status_code}: {response.text}"
+        send_email_via_smtp(
+            to_email=to_email,
+            subject=subject,
+            html_body=html,
+            attachment_bytes=bundle_bytes,
+            attachment_filename=zip_name,
+        )
+        return True, None
     except Exception as exc:
         return False, str(exc)
 
@@ -565,13 +584,10 @@ def send_approval_email(
         user_type: str,
         events: list[str] | None = None,
 ):
-        """Send approval email with branded HTML template and inline pass preview via Resend."""
-        resend_api_key = os.getenv("RESEND_API_KEY", "")
-        resend_from = os.getenv("RESEND_FROM_EMAIL", "IZee Got Talent <noreply@yourdomain.com>")
-
-        if not resend_api_key:
-                print(f"[EMAIL SKIPPED] RESEND_API_KEY not set. Would send to: {to_email}")
-                return False, "RESEND_API_KEY not set"
+        """Send approval email with branded HTML template and inline pass preview via SMTP."""
+        if not SMTP_USER or not SMTP_PASSWORD:
+                print(f"[EMAIL SKIPPED] SMTP credentials not set. Would send to: {to_email}")
+                return False, "SMTP credentials not set"
 
         if not to_email:
                 return False, "Recipient email missing"
@@ -628,34 +644,16 @@ def send_approval_email(
         </html>
         """
 
-        payload = {
-                "from": resend_from,
-                "to": [to_email],
-                "subject": subject,
-                "html": html,
-                "attachments": [
-                        {
-                                "filename": "izee_gta_pass.png",
-                                "content": qr_code_base64,
-                        }
-                ],
-        }
-
         try:
-                with httpx.Client(timeout=15.0) as client:
-                        response = client.post(
-                                "https://api.resend.com/emails",
-                                headers={
-                                        "Authorization": f"Bearer {resend_api_key}",
-                                        "Content-Type": "application/json",
-                                },
-                                json=payload,
-                        )
-                if response.status_code in (200, 201):
-                        print(f"[EMAIL SENT] {to_email} - {subject}")
-                        return True, None
-                print(f"[EMAIL FAILED] {response.status_code}: {response.text}")
-                return False, f"Resend error {response.status_code}: {response.text}"
+                send_email_via_smtp(
+                        to_email=to_email,
+                        subject=subject,
+                        html_body=html,
+                        attachment_bytes=base64.b64decode(qr_code_base64),
+                        attachment_filename="izee_gta_pass.png",
+                )
+                print(f"[EMAIL SENT] {to_email} - {subject}")
+                return True, None
         except Exception as exc:
                 print(f"[EMAIL ERROR] {exc}")
                 return False, str(exc)
