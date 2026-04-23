@@ -312,6 +312,7 @@ export default function FacultyDashboard() {
   }, [facultyPassword])
 
   useEffect(() => {
+    setRecords([])
     setSelectedCourse('all')
     setSelectedYear('all')
     setSelectedEvent('all')
@@ -323,6 +324,7 @@ export default function FacultyDashboard() {
 
   useEffect(() => {
     if (!facultyPassword) return
+    let isCurrentRequest = true
 
     const fetchDashboardData = async () => {
       setIsLoading(true)
@@ -352,6 +354,8 @@ export default function FacultyDashboard() {
         const groupsSummary = resultByTab.groups?.summary || {}
 
         const nextPage = currentResult.pagination?.page || activePage
+
+        if (!isCurrentRequest) return
 
         setRecords(currentRecords)
         setSelectedIds([])
@@ -386,6 +390,8 @@ export default function FacultyDashboard() {
           setPageByTab((previous) => ({ ...previous, [activeTab]: nextPage }))
         }
       } catch (error) {
+        if (!isCurrentRequest) return
+
         if (error?.message === 'AUTH_UNAUTHORIZED') {
           updateAuthFailure()
           return
@@ -394,11 +400,15 @@ export default function FacultyDashboard() {
         setErrorMessage(error.message || 'Unable to fetch data')
         setRecords([])
       } finally {
-        setIsLoading(false)
+        if (isCurrentRequest) setIsLoading(false)
       }
     }
 
     fetchDashboardData()
+
+    return () => {
+      isCurrentRequest = false
+    }
   }, [activeTab, activePage, facultyPassword, refreshKey])
 
   const courseOptions = useMemo(() => {
