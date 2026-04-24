@@ -439,6 +439,7 @@ export default function FacultyDashboard() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('students')
   const [showSpotRegister, setShowSpotRegister] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [facultyPassword, setFacultyPassword] = useState('')
   const [records, setRecords] = useState([])
   const [stats, setStats] = useState({
@@ -1248,25 +1249,59 @@ export default function FacultyDashboard() {
         .dash-row-even {
           background: rgba(255,255,255,0.012);
         }
+
+        .dash-sidebar {
+          transform: translateX(-100%);
+        }
+
+        @media (min-width: 640px) {
+          .dash-sidebar {
+            transform: translateX(0) !important;
+          }
+        }
+
+        .dash-sidebar-open {
+          transform: translateX(0) !important;
+        }
       `}</style>
 
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen relative">
+        {/* Mobile sidebar overlay backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 sm:hidden"
+            style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(2px)' }}
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Sidebar — fixed drawer on mobile, sticky column on desktop */}
         <aside
-          className="sticky top-0 h-screen w-[220px] flex-shrink-0 border-r px-0 py-0"
+          className={`fixed sm:sticky top-0 h-screen w-[240px] sm:w-[220px] flex-shrink-0 z-50 sm:z-auto flex flex-col transition-transform duration-300 dash-sidebar${sidebarOpen ? ' dash-sidebar-open' : ''}`}
           style={{
-            background: 'rgba(8,9,16,0.95)',
+            background: 'rgba(8,9,16,0.98)',
             borderRight: '0.5px solid rgba(255,255,255,0.06)',
           }}
         >
+          <div className="flex flex-col h-full overflow-y-auto">
           <div className="px-5 pt-6">
-            <div className="flex items-center">
-              <span className="text-[13px] tracking-[0.16em] text-[#C9A84C]" style={{ fontFamily: 'Montage, serif' }}>
-                IZEE
-              </span>
-              <span className="mx-2 h-4 w-px bg-[rgba(238,230,216,0.35)]" />
-              <span className="text-[13px] tracking-[0.16em] text-[#C9A84C]" style={{ fontFamily: 'Montage, serif' }}>
-                CULTURALS
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <span className="text-[13px] tracking-[0.16em] text-[#C9A84C]" style={{ fontFamily: 'Montage, serif' }}>
+                  IZEE
+                </span>
+                <span className="mx-2 h-4 w-px bg-[rgba(238,230,216,0.35)]" />
+                <span className="text-[13px] tracking-[0.16em] text-[#C9A84C]" style={{ fontFamily: 'Montage, serif' }}>
+                  CULTURALS
+                </span>
+              </div>
+              {/* Close button on mobile */}
+              <button
+                type="button"
+                className="sm:hidden"
+                onClick={() => setSidebarOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'rgba(238,230,216,0.5)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
+              >×</button>
             </div>
             <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[rgba(238,230,216,0.35)]">
               Faculty Console
@@ -1281,7 +1316,7 @@ export default function FacultyDashboard() {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => { setActiveTab(item.id); setSidebarOpen(false) }}
                   className="flex h-10 w-full items-center gap-2 px-4 text-left text-[13px] tracking-[0.04em] transition"
                   style={{
                     color: isActive ? '#C9A84C' : 'rgba(238,230,216,0.55)',
@@ -1324,7 +1359,7 @@ export default function FacultyDashboard() {
             })}
           </nav>
 
-          <div className="absolute bottom-0 left-0 w-full px-4 pb-4">
+          <nav className="mt-auto px-4 pb-4 pt-2">
             <div className="mb-3 h-px w-full bg-[rgba(255,255,255,0.06)]" />
             <button
               type="button"
@@ -1366,23 +1401,37 @@ export default function FacultyDashboard() {
             >
               Logout
             </button>
+          </nav>
           </div>
         </aside>
 
         <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="h-[52px] border-b px-5 sm:px-6 lg:px-7" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.012)' }}>
-            <div className="flex h-full items-center justify-between">
-              <div>
-                <p className="text-[14px] font-medium text-[#EEE6D8]">{currentTabConfig.label}</p>
+          {/* Top header bar */}
+          <div className="h-[52px] border-b px-4 sm:px-6 lg:px-7" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.012)' }}>
+            <div className="flex h-full items-center justify-between gap-3">
+              {/* Hamburger on mobile */}
+              <button
+                type="button"
+                className="flex sm:hidden items-center justify-center h-8 w-8 rounded-[6px] flex-shrink-0"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.1)', color: '#EEE6D8' }}
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open menu"
+              >
+                <svg viewBox="0 0 20 20" width="16" height="16" fill="none">
+                  <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </button>
+              <div className="min-w-0">
+                <p className="text-[14px] font-medium text-[#EEE6D8] truncate">{currentTabConfig.label}</p>
                 <p className="text-[11px] text-[rgba(238,230,216,0.35)]">Showing {sortedRecords.length} records</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {activeTab === 'students' && (
                   <button
                     type="button"
                     id="spot-register-btn"
                     onClick={() => setShowSpotRegister(true)}
-                    className="hidden h-8 items-center gap-1.5 rounded-[6px] px-3 text-[11px] sm:inline-flex"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-[6px] px-3 text-[11px]"
                     style={{
                       background: 'linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.08))',
                       border: '0.5px solid rgba(201,168,76,0.4)',
@@ -1397,61 +1446,59 @@ export default function FacultyDashboard() {
                       <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
                       <path d="M8 5v6M5 8h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                     </svg>
-                    Spot Register
+                    <span className="hidden xs:inline">Spot Register</span>
+                    <span className="xs:hidden">+ Reg</span>
                   </button>
                 )}
-                <div
-                  className="hidden h-8 items-center rounded-[6px] border px-3 text-[11px] text-[rgba(238,230,216,0.5)] sm:inline-flex"
-                  style={{ border: '0.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}
-                >
-                  Filters
-                </div>
               </div>
             </div>
           </div>
 
-          <div className="px-5 pb-6 pt-4 sm:px-6 lg:px-7">
+          <div className="px-4 pb-6 pt-4 sm:px-6 lg:px-7">
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+              {/* Stats bar — scrollable row on mobile, single row on desktop */}
               <section
-                className="mb-4 flex h-16 overflow-hidden"
+                className="mb-4 overflow-x-auto"
                 style={{
                   background: 'rgba(255,255,255,0.018)',
                   border: '0.5px solid rgba(255,255,255,0.06)',
                   borderRadius: '10px',
                 }}
               >
-                <div className="flex flex-1 flex-col items-center justify-center">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Total Students</p>
-                  <p className="text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalStudents}</p>
-                </div>
-                <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                <div className="flex flex-1 flex-col items-center justify-center">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Total Participants</p>
-                  <p className="text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalParticipants}</p>
-                </div>
-                <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                <div className="flex flex-1 flex-col items-center justify-center">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Volunteers</p>
-                  <p className="text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalVolunteers}</p>
-                </div>
-                <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                <div className="flex flex-1 flex-col items-center justify-center">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Groups</p>
-                  <p className="text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalGroups}</p>
-                </div>
-                <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                <div className="flex flex-1 flex-col items-center justify-center">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Pending Approvals</p>
-                  <p className="text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: stats.pendingApprovals > 0 ? '#B22234' : '#EEE6D8' }}>
-                    {stats.pendingApprovals}
-                  </p>
-                </div>
-                <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                <div className="flex flex-1 flex-col items-center justify-center">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)]">Approved Today</p>
-                  <p className="text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: stats.approvedToday > 0 ? '#C9A84C' : '#EEE6D8' }}>
-                    {stats.approvedToday}
-                  </p>
+                <div className="flex min-w-[540px] h-16">
+                  <div className="flex flex-1 flex-col items-center justify-center px-2">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)] text-center">Students</p>
+                    <p className="text-[18px] sm:text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalStudents}</p>
+                  </div>
+                  <div className="w-px bg-[rgba(255,255,255,0.06)]" />
+                  <div className="flex flex-1 flex-col items-center justify-center px-2">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)] text-center">Participants</p>
+                    <p className="text-[18px] sm:text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalParticipants}</p>
+                  </div>
+                  <div className="w-px bg-[rgba(255,255,255,0.06)]" />
+                  <div className="flex flex-1 flex-col items-center justify-center px-2">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)] text-center">Volunteers</p>
+                    <p className="text-[18px] sm:text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalVolunteers}</p>
+                  </div>
+                  <div className="w-px bg-[rgba(255,255,255,0.06)]" />
+                  <div className="flex flex-1 flex-col items-center justify-center px-2">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)] text-center">Groups</p>
+                    <p className="text-[18px] sm:text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalGroups}</p>
+                  </div>
+                  <div className="w-px bg-[rgba(255,255,255,0.06)]" />
+                  <div className="flex flex-1 flex-col items-center justify-center px-2">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)] text-center">Pending</p>
+                    <p className="text-[18px] sm:text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: stats.pendingApprovals > 0 ? '#B22234' : '#EEE6D8' }}>
+                      {stats.pendingApprovals}
+                    </p>
+                  </div>
+                  <div className="w-px bg-[rgba(255,255,255,0.06)]" />
+                  <div className="flex flex-1 flex-col items-center justify-center px-2">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)] text-center">Approved Today</p>
+                    <p className="text-[18px] sm:text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: stats.approvedToday > 0 ? '#C9A84C' : '#EEE6D8' }}>
+                      {stats.approvedToday}
+                    </p>
+                  </div>
                 </div>
               </section>
 
@@ -1482,15 +1529,16 @@ export default function FacultyDashboard() {
                 })}
               </section>
 
-              <section className="mb-3 flex flex-wrap items-center gap-3">
+              <section className="mb-3 flex flex-wrap items-center gap-2">
                 <input
                   type="text"
                   value={nameSearch}
                   onChange={(event) => setNameSearch(event.target.value)}
                   placeholder="Search name, roll, or email"
-                  className="w-[220px]"
+                  className="w-full sm:w-[220px]"
                   style={{
                     ...selectStyle,
+                    height: '36px',
                     appearance: 'none',
                     WebkitAppearance: 'none',
                     MozAppearance: 'none',
