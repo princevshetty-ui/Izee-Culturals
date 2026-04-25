@@ -449,6 +449,10 @@ export default function FacultyDashboard() {
     totalGroups: 0,
     pendingApprovals: 0,
     approvedToday: 0,
+    studentsApproved: 0,
+    participantsApproved: 0,
+    volunteersApproved: 0,
+    groupsApproved: 0,
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -575,102 +579,83 @@ export default function FacultyDashboard() {
     setErrorMessage('')
   }, [activeTab])
 
+  // Stats-only fetch — NOT triggered by page changes
   useEffect(() => {
     if (!facultyPassword) return
-    let isCurrentRequest = true
-
-    const fetchDashboardData = async () => {
-      setIsLoading(true)
-      setErrorMessage('')
-
+    let active = true
+    const fetchAllStats = async () => {
       try {
-        const buildEndpoint = (tabId, page = 1, pageSize = DEFAULT_PAGE_SIZE, searchTerm = '') => {
-          let url = `${TAB_CONFIG[tabId].listPath}?page=${page}&page_size=${pageSize}`
-          if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`
-          return url
-        }
-
         const tabIds = NAV_ITEMS.map((item) => item.id)
-        const summaryResults = await Promise.all(
+        const results = await Promise.all(
           tabIds.map((tabId) =>
-            fetchFacultyList(buildEndpoint(
-              tabId,
-              tabId === activeTab ? activePage : 1,
-              tabId === activeTab ? DEFAULT_PAGE_SIZE : 5,
-              tabId === activeTab ? nameSearch : '',
-            ))
+            fetchFacultyList(`${TAB_CONFIG[tabId].listPath}?page=1&page_size=1`)
           )
         )
-        const resultByTab = tabIds.reduce((accumulator, tabId, index) => {
-          accumulator[tabId] = summaryResults[index]
-          return accumulator
-        }, {})
-
-        const currentResult = resultByTab[activeTab] || { records: [], pagination: null, summary: null }
-
-        const currentRecords = currentResult.records || []
-        const studentsSummary = resultByTab.students?.summary || {}
-        const participantsSummary = resultByTab.participants?.summary || {}
-        const volunteersSummary = resultByTab.volunteers?.summary || {}
-        const groupsSummary = resultByTab.groups?.summary || {}
-
-        const nextPage = currentResult.pagination?.page || activePage
-
-        if (!isCurrentRequest) return
-
-        setRecords(currentRecords)
-        setSelectedIds([])
+        if (!active) return
+        const byTab = tabIds.reduce((acc, id, idx) => { acc[id] = results[idx]; return acc }, {})
+        const s = byTab.students?.summary || {}
+        const p = byTab.participants?.summary || {}
+        const v = byTab.volunteers?.summary || {}
+        const g = byTab.groups?.summary || {}
+        const sT = Number(s.total || 0), pT = Number(p.total || 0)
+        const vT = Number(v.total || 0), gT = Number(g.total || 0)
+        const sP = Number(s.pending || 0), pP = Number(p.pending || 0)
+        const vP = Number(v.pending_count || v.pending || 0)
+        const gP = Number(g.pending_count || g.pending || 0)
         setStats({
-          totalStudents: Number(studentsSummary.total || 0),
-          totalParticipants: Number(participantsSummary.total || 0),
-          totalVolunteers: Number(volunteersSummary.total || 0),
-          totalGroups: Number(groupsSummary.total || 0),
-          pendingApprovals:
-            Number(studentsSummary.pending || 0) +
-            Number(participantsSummary.pending || 0) +
-            Number(volunteersSummary.pending_count || volunteersSummary.pending || 0) +
-            Number(groupsSummary.pending_count || groupsSummary.pending || 0),
-          approvedToday:
-            Number(studentsSummary.approved_today || 0) +
-            Number(participantsSummary.approved_today || 0) +
-            Number(volunteersSummary.approved_today || 0) +
-            Number(groupsSummary.approved_today || 0),
+          totalStudents: sT, totalParticipants: pT, totalVolunteers: vT, totalGroups: gT,
+          pendingApprovals: sP + pP + vP + gP,
+          approvedToday: Number(s.approved_today || 0) + Number(p.approved_today || 0) + Number(v.approved_today || 0) + Number(g.approved_today || 0),
+          studentsApproved: sT - sP,
+          participantsApproved: pT - pP,
+          volunteersApproved: vT - vP,
+          groupsApproved: gT - gP,
         })
+      } catch (error) {
+        if (active && error?.message === 'AUTH_UNAUTHORIZED') updateAuthFailure()
+      }
+    }
+    fetchAllStats()
+    return () => { active = false }
+  }, [facultyPassword, refreshKey])
 
-        setPaginationByTab((previous) => ({
-          ...previous,
+  // Active-tab records fetch — single fast query, triggered by page/tab/search
+  useEffect(() => {
+    if (!facultyPassword) return
+    let active = true
+    const fetchTabRecords = async () => {
+      setIsLoading(true)
+      setErrorMessage('')
+      try {
+        let url = `${TAB_CONFIG[activeTab].listPath}?page=${activePage}&page_size=${DEFAULT_PAGE_SIZE}`
+        if (nameSearch) url += `&search=${encodeURIComponent(nameSearch)}`
+        const result = await fetchFacultyList(url)
+        if (!active) return
+        setRecords(result.records || [])
+        setSelectedIds([])
+        const nextPage = result.pagination?.page || activePage
+        setPaginationByTab((prev) => ({
+          ...prev,
           [activeTab]: {
             page: nextPage,
-            pageSize: currentResult.pagination?.page_size || DEFAULT_PAGE_SIZE,
-            total: currentResult.pagination?.total || 0,
-            totalPages: currentResult.pagination?.total_pages || 1,
+            pageSize: result.pagination?.page_size || DEFAULT_PAGE_SIZE,
+            total: result.pagination?.total || 0,
+            totalPages: result.pagination?.total_pages || 1,
           },
         }))
-
-        if (nextPage !== activePage) {
-          setPageByTab((previous) => ({ ...previous, [activeTab]: nextPage }))
-        }
+        if (nextPage !== activePage) setPageByTab((prev) => ({ ...prev, [activeTab]: nextPage }))
       } catch (error) {
-        if (!isCurrentRequest) return
-
-        if (error?.message === 'AUTH_UNAUTHORIZED') {
-          updateAuthFailure()
-          return
-        }
-
+        if (!active) return
+        if (error?.message === 'AUTH_UNAUTHORIZED') { updateAuthFailure(); return }
         setErrorMessage(error.message || 'Unable to fetch data')
         setRecords([])
       } finally {
-        if (isCurrentRequest) setIsLoading(false)
+        if (active) setIsLoading(false)
       }
     }
-
-    fetchDashboardData()
-
-    return () => {
-      isCurrentRequest = false
-    }
-  }, [activeTab, activePage, facultyPassword, refreshKey, nameSearch])
+    fetchTabRecords()
+    return () => { active = false }
+  }, [activeTab, activePage, facultyPassword, nameSearch, refreshKey])
 
   useEffect(() => {
     setPageByTab((previous) => ({ ...previous, [activeTab]: 1 }))
@@ -1498,6 +1483,41 @@ export default function FacultyDashboard() {
                 ))}
               </section>
 
+              {/* QR Passes Issued */}
+              <section className="mb-5" style={{ background: 'rgba(255,255,255,0.018)', border: '0.5px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '16px 20px' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5" stroke="#C9A84C" strokeWidth="1.6"/><rect x="13" y="3" width="8" height="8" rx="1.5" stroke="#C9A84C" strokeWidth="1.6"/><rect x="3" y="13" width="8" height="8" rx="1.5" stroke="#C9A84C" strokeWidth="1.6"/><path d="M13 13h3v3h-3zM16 16h4v4h-4zM13 19h3" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: 'rgba(201,168,76,0.75)' }}>QR Passes Issued</p>
+                  </div>
+                  <p className="text-[28px] font-semibold leading-none" style={{ ...DISPLAY_FONT, color: '#C9A84C' }}>
+                    {stats.studentsApproved + stats.participantsApproved + stats.volunteersApproved + stats.groupsApproved}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Students', approved: stats.studentsApproved, total: stats.totalStudents, color: '#C9A84C' },
+                    { label: 'Participants', approved: stats.participantsApproved, total: stats.totalParticipants, color: '#a78bfa' },
+                    { label: 'Volunteers', approved: stats.volunteersApproved, total: stats.totalVolunteers, color: '#34d399' },
+                    { label: 'Groups', approved: stats.groupsApproved, total: stats.totalGroups, color: '#60a5fa' },
+                  ].map((item) => {
+                    const pct = item.total > 0 ? Math.round((item.approved / item.total) * 100) : 0
+                    return (
+                      <div key={item.label}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: 'rgba(238,230,216,0.4)' }}>{item.label}</span>
+                          <span className="text-[13px] font-semibold" style={{ color: item.color }}>{item.approved}<span className="text-[10px] ml-1" style={{ opacity: 0.4 }}>/ {item.total}</span></span>
+                        </div>
+                        <div style={{ height: 5, borderRadius: 999, background: 'rgba(255,255,255,0.07)' }}>
+                          <div style={{ height: 5, borderRadius: 999, width: `${pct}%`, background: `linear-gradient(90deg, ${item.color}88, ${item.color})`, transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
+                        </div>
+                        <p className="mt-1 text-[10px]" style={{ color: 'rgba(238,230,216,0.25)' }}>{pct}% validated</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+
               <section className="mb-3 flex flex-wrap items-center gap-2">
                 {[
                   ['student_open', 'Audience'],
@@ -1942,52 +1962,39 @@ export default function FacultyDashboard() {
                                     type="button"
                                     onClick={() => handleApproveOne(record.id)}
                                     disabled={approvingId === record.id || isBusy}
-                                    className="h-[26px] rounded-[5px] px-3 text-[11px]"
+                                    className="inline-flex items-center gap-1.5 h-[28px] rounded-[999px] px-3 text-[11px] font-medium transition-all"
                                     style={{
-                                      border: '0.5px solid rgba(201,168,76,0.3)',
-                                      color: 'rgba(201,168,76,0.8)',
-                                      background: 'transparent',
+                                      background: approvingId === record.id || isBusy ? 'rgba(34,197,94,0.06)' : 'linear-gradient(135deg,rgba(34,197,94,0.22),rgba(34,197,94,0.08))',
+                                      border: '0.5px solid rgba(34,197,94,0.4)',
+                                      color: '#4ade80',
+                                      boxShadow: '0 0 10px rgba(34,197,94,0.12)',
                                     }}
-                                    onMouseEnter={(event) => {
-                                      if (!(approvingId === record.id || isBusy)) {
-                                        event.currentTarget.style.background = 'rgba(201,168,76,0.08)'
-                                        event.currentTarget.style.color = '#C9A84C'
-                                      }
-                                    }}
-                                    onMouseLeave={(event) => {
-                                      if (!(approvingId === record.id || isBusy)) {
-                                        event.currentTarget.style.background = 'transparent'
-                                        event.currentTarget.style.color = 'rgba(201,168,76,0.8)'
-                                      }
-                                    }}
+                                    onMouseEnter={(e) => { if (!(approvingId === record.id || isBusy)) e.currentTarget.style.boxShadow = '0 0 16px rgba(34,197,94,0.28)' }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 10px rgba(34,197,94,0.12)' }}
                                   >
-                                    {approvingId === record.id ? 'Approving...' : 'Approve'}
+                                    {approvingId === record.id ? (
+                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" strokeDasharray="40" strokeDashoffset="20" style={{ animation: 'spin 0.9s linear infinite', transformOrigin: 'center' }} /></svg>
+                                    ) : (
+                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                    )}
+                                    {approvingId === record.id ? 'Wait…' : 'Approve'}
                                   </button>
                                 ) : (
                                   <button
                                     type="button"
                                     onClick={() => handleResendMail(record.id)}
                                     disabled={resendingId === record.id || isBusy}
-                                    className="h-[26px] rounded-[5px] px-3 text-[11px]"
+                                    className="inline-flex items-center gap-1.5 h-[28px] rounded-[999px] px-3 text-[11px] font-medium transition-all"
                                     style={{
-                                      border: '0.5px solid rgba(255,255,255,0.1)',
-                                      color: 'rgba(238,230,216,0.45)',
-                                      background: 'transparent',
+                                      background: 'rgba(255,255,255,0.05)',
+                                      border: '0.5px solid rgba(255,255,255,0.16)',
+                                      color: 'rgba(238,230,216,0.65)',
                                     }}
-                                    onMouseEnter={(event) => {
-                                      if (!(resendingId === record.id || isBusy)) {
-                                        event.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
-                                        event.currentTarget.style.color = 'rgba(238,230,216,0.7)'
-                                      }
-                                    }}
-                                    onMouseLeave={(event) => {
-                                      if (!(resendingId === record.id || isBusy)) {
-                                        event.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
-                                        event.currentTarget.style.color = 'rgba(238,230,216,0.45)'
-                                      }
-                                    }}
+                                    onMouseEnter={(e) => { if (!(resendingId === record.id || isBusy)) { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#EEE6D8' } }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(238,230,216,0.65)' }}
                                   >
-                                    {resendingId === record.id ? 'Sending...' : 'Resend'}
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M4 4l16 8-16 8V4z" fill="currentColor"/></svg>
+                                    {resendingId === record.id ? 'Sending…' : 'Resend'}
                                   </button>
                                 )}
 
@@ -1995,26 +2002,17 @@ export default function FacultyDashboard() {
                                   type="button"
                                   onClick={() => handleDeleteOne(record.id)}
                                   disabled={deletingId === record.id || isBusy}
-                                  className="h-[26px] rounded-[5px] px-3 text-[11px]"
+                                  className="inline-flex items-center gap-1.5 h-[28px] rounded-[999px] px-3 text-[11px] font-medium transition-all"
                                   style={{
-                                    border: '0.5px solid rgba(178,34,52,0.2)',
-                                    color: 'rgba(178,34,52,0.55)',
-                                    background: 'transparent',
+                                    background: 'rgba(239,68,68,0.07)',
+                                    border: '0.5px solid rgba(239,68,68,0.32)',
+                                    color: '#f87171',
                                   }}
-                                  onMouseEnter={(event) => {
-                                    if (!(deletingId === record.id || isBusy)) {
-                                      event.currentTarget.style.background = 'rgba(178,34,52,0.07)'
-                                      event.currentTarget.style.color = '#B22234'
-                                    }
-                                  }}
-                                  onMouseLeave={(event) => {
-                                    if (!(deletingId === record.id || isBusy)) {
-                                      event.currentTarget.style.background = 'transparent'
-                                      event.currentTarget.style.color = 'rgba(178,34,52,0.55)'
-                                    }
-                                  }}
+                                  onMouseEnter={(e) => { if (!(deletingId === record.id || isBusy)) { e.currentTarget.style.background = 'rgba(239,68,68,0.14)'; e.currentTarget.style.boxShadow = '0 0 12px rgba(239,68,68,0.2)' } }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.07)'; e.currentTarget.style.boxShadow = 'none' }}
                                 >
-                                  {deletingId === record.id ? 'Deleting...' : 'Delete'}
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                  {deletingId === record.id ? 'Deleting…' : 'Delete'}
                                 </button>
                               </div>
                             </td>
