@@ -1288,26 +1288,27 @@ export default function FacultyDashboard() {
           }}
         >
           <div className="flex flex-col h-full overflow-y-auto">
-          <div className="px-4 pt-5 pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <img
-                  src="/college-logo.png"
-                  alt="College Logo"
-                  style={{ height: '44px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 0 8px rgba(201,168,76,0.25))' }}
-                />
-              </div>
+          <div className="px-5 pt-6 pb-4">
+            <div className="flex items-center justify-between mb-4">
+              <img
+                src="/college-logo.png"
+                alt="College Logo"
+                style={{ height: '52px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 0 14px rgba(201,168,76,0.45))' }}
+              />
               <button
                 type="button"
-                className="sm:hidden"
+                className="sm:hidden flex items-center justify-center w-7 h-7 rounded-[6px]"
                 onClick={() => setSidebarOpen(false)}
-                style={{ background: 'none', border: 'none', color: 'rgba(238,230,216,0.5)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
+                style={{ background: 'rgba(255,255,255,0.07)', border: '0.5px solid rgba(255,255,255,0.12)', color: 'rgba(238,230,216,0.7)', fontSize: '15px', cursor: 'pointer', lineHeight: 1, fontFamily: 'var(--font-ui)' }}
               >×</button>
             </div>
-            <p className="mt-3 text-[9px] uppercase tracking-[0.22em]" style={{ color: 'rgba(201,168,76,0.55)' }}>
-              Faculty Console
-            </p>
-            <div className="mt-3 h-px w-full" style={{ background: 'linear-gradient(90deg, rgba(201,168,76,0.4) 0%, rgba(201,168,76,0.05) 100%)' }} />
+            <div className="flex items-center gap-2">
+              <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#C9A84C', boxShadow: '0 0 6px rgba(201,168,76,0.9)', flexShrink: 0 }} />
+              <p style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.65)', fontFamily: 'var(--font-ui)' }}>
+                Faculty Console
+              </p>
+            </div>
+            <div className="mt-3 h-px w-full" style={{ background: 'linear-gradient(90deg, rgba(201,168,76,0.5) 0%, transparent 100%)' }} />
           </div>
 
           <nav className="mt-4">
@@ -1318,18 +1319,21 @@ export default function FacultyDashboard() {
                   key={item.id}
                   type="button"
                   onClick={() => { setActiveTab(item.id); setSidebarOpen(false) }}
-                  className="flex h-10 w-full items-center gap-2 px-4 text-left text-[13px] tracking-[0.04em] transition"
+                  className="flex h-[44px] w-full items-center gap-[10px] px-5 text-left transition"
                   style={{
-                    color: isActive ? '#C9A84C' : 'rgba(238,230,216,0.55)',
-                    background: isActive ? 'rgba(201,168,76,0.09)' : 'transparent',
-                    borderLeft: isActive ? '2px solid #C9A84C' : '2px solid transparent',
-                    fontWeight: isActive ? 500 : 400,
+                    color: isActive ? '#C9A84C' : 'rgba(238,230,216,0.42)',
+                    background: isActive ? 'linear-gradient(90deg, rgba(201,168,76,0.13) 0%, rgba(201,168,76,0.02) 100%)' : 'transparent',
+                    borderLeft: isActive ? '2.5px solid #C9A84C' : '2.5px solid transparent',
+                    fontWeight: isActive ? 600 : 400,
+                    fontSize: '12.5px',
+                    fontFamily: 'var(--font-ui)',
+                    letterSpacing: '0.025em',
                   }}
                   onMouseEnter={(event) => {
-                    if (!isActive) event.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+                    if (!isActive) { event.currentTarget.style.background = 'rgba(255,255,255,0.035)'; event.currentTarget.style.color = 'rgba(238,230,216,0.65)' }
                   }}
                   onMouseLeave={(event) => {
-                    if (!isActive) event.currentTarget.style.background = 'transparent'
+                    if (!isActive) { event.currentTarget.style.background = 'transparent'; event.currentTarget.style.color = 'rgba(238,230,216,0.42)' }
                   }}
                 >
                   {item.id === 'students' ? (
@@ -1423,8 +1427,10 @@ export default function FacultyDashboard() {
                 </svg>
               </button>
               <div className="min-w-0">
-                <p className="text-[14px] font-medium text-[#EEE6D8] truncate">{currentTabConfig.label}</p>
-                <p className="text-[11px] text-[rgba(238,230,216,0.35)]">Showing {sortedRecords.length} records</p>
+                <p className="text-[15px] font-semibold truncate" style={{ color: '#EEE6D8', fontFamily: 'var(--font-ui)', letterSpacing: '0.01em' }}>{currentTabConfig.label}</p>
+                <p className="text-[11px] mt-0.5" style={{ color: 'rgba(238,230,216,0.28)', fontFamily: 'var(--font-ui)' }}>
+                  {currentPagination.total > 0 ? `${sortedRecords.length} shown · ${currentPagination.total} total` : `${sortedRecords.length} records`}
+                </p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {activeTab === 'students' && (
@@ -1470,19 +1476,19 @@ export default function FacultyDashboard() {
                   <div
                     key={stat.label}
                     style={{
-                      background: 'rgba(255,255,255,0.026)',
-                      border: '0.5px solid rgba(255,255,255,0.08)',
-                      borderRadius: '12px',
-                      padding: '14px 16px',
-                      boxShadow: `0 0 20px ${stat.glow}`,
-                      transition: 'box-shadow 0.3s ease',
+                      background: 'linear-gradient(145deg, rgba(255,255,255,0.032) 0%, rgba(255,255,255,0.012) 100%)',
+                      border: '0.5px solid rgba(255,255,255,0.09)',
+                      borderRadius: '14px',
+                      padding: '16px 18px',
+                      boxShadow: `0 0 28px ${stat.glow}`,
+                      transition: 'box-shadow 0.3s ease, transform 0.2s ease',
                     }}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'rgba(238,230,216,0.38)' }}>{stat.label}</span>
-                      <span style={{ color: stat.color, opacity: 0.7 }}>{stat.icon}</span>
+                    <div className="flex items-center justify-between mb-3">
+                      <span style={{ fontSize: '9.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(238,230,216,0.42)', fontFamily: 'var(--font-ui)' }}>{stat.label}</span>
+                      <span style={{ color: stat.color, opacity: 0.65 }}>{stat.icon}</span>
                     </div>
-                    <p className="text-[26px] font-semibold leading-none" style={{ ...DISPLAY_FONT, color: stat.color }}>
+                    <p className="leading-none" style={{ fontSize: '32px', fontWeight: 700, fontFamily: 'var(--font-ui)', color: stat.color, letterSpacing: '-0.025em' }}>
                       {stat.value}
                     </p>
                   </div>
@@ -1781,9 +1787,9 @@ export default function FacultyDashboard() {
               <section className="overflow-x-auto">
                 <table className="min-w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
                   <thead>
-                    <tr className="h-10" style={{ background: 'rgba(201,168,76,0.04)' }}>
+                    <tr className="h-[44px]" style={{ background: 'linear-gradient(90deg, rgba(201,168,76,0.05) 0%, rgba(201,168,76,0.02) 100%)' }}>
                       <th
-                        className="px-[14px] text-left text-[10px] font-medium uppercase tracking-[0.16em] text-[rgba(201,168,76,0.7)]"
+                        className="px-[14px]"
                         style={{ minWidth: '40px', width: '40px', borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}
                       >
                         <input
@@ -1798,8 +1804,12 @@ export default function FacultyDashboard() {
                       {columns.map((column) => (
                         <th
                           key={column}
-                          className="px-[14px] text-left text-[10px] font-medium uppercase tracking-[0.16em] text-[rgba(201,168,76,0.7)]"
+                          className="px-[14px] text-left font-bold uppercase"
                           style={{
+                            fontSize: '9.5px',
+                            letterSpacing: '0.18em',
+                            fontFamily: 'var(--font-ui)',
+                            color: 'rgba(201,168,76,0.65)',
                             minWidth: `${getColumnMinWidth(column)}px`,
                             width: `${getColumnMinWidth(column)}px`,
                             borderBottom: '0.5px solid rgba(255,255,255,0.08)',
@@ -1810,8 +1820,8 @@ export default function FacultyDashboard() {
                       ))}
 
                       <th
-                        className="px-[14px] text-left text-[10px] font-medium uppercase tracking-[0.16em] text-[rgba(201,168,76,0.7)]"
-                        style={{ minWidth: '160px', width: '160px', borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}
+                        className="px-[14px] text-left font-bold uppercase"
+                        style={{ fontSize: '9.5px', letterSpacing: '0.18em', fontFamily: 'var(--font-ui)', color: 'rgba(201,168,76,0.65)', minWidth: '160px', width: '160px', borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}
                       >
                         Actions
                       </th>
@@ -1858,7 +1868,7 @@ export default function FacultyDashboard() {
                         return (
                           <tr
                             key={record.id}
-                            className={`dash-row h-11 border-b ${rowIndex % 2 === 0 ? 'dash-row-even' : ''}`}
+                            className={`dash-row h-[46px] border-b ${rowIndex % 2 === 0 ? 'dash-row-even' : ''}`}
                             style={{
                               borderBottom: '0.5px solid rgba(255,255,255,0.04)',
                               background: isRowSelected ? 'rgba(201,168,76,0.06)' : undefined,
