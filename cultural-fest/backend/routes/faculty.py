@@ -1177,6 +1177,7 @@ async def get_all_students(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=5, le=100),
     search: str = Query(""),
+    total_hint: int = Query(0, ge=0),
 ):
     """Get all student registrations with optional search."""
     verify_faculty_token(authorization)
@@ -1208,7 +1209,7 @@ async def get_all_students(
                 "message": "Students retrieved successfully",
             }
 
-        summary = fetch_table_summary("students", include_approved_today=True)
+        summary = ({"total": total_hint} if total_hint > 0 else fetch_table_summary("students", include_approved_today=True))
 
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
         students = []
@@ -1262,6 +1263,7 @@ async def get_all_participants(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=5, le=100),
     search: str = Query(""),
+    total_hint: int = Query(0, ge=0),
 ):
     """Get all participant registrations with their events."""
     verify_faculty_token(authorization)
@@ -1296,7 +1298,7 @@ async def get_all_participants(
                 "message": "Participants retrieved successfully",
             }
 
-        summary = fetch_table_summary("participants", include_approved_today=True)
+        summary = ({"total": total_hint} if total_hint > 0 else fetch_table_summary("participants", include_approved_today=True))
 
         current_page, total_pages, start, end = get_pagination_bounds(summary["total"], page, page_size)
         participants = []
@@ -1892,13 +1894,14 @@ async def get_all_volunteers(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=5, le=100),
     search: str = Query(""),
+    total_hint: int = Query(0, ge=0),
 ):
     """Get paginated volunteer registrations for faculty dashboard."""
     verify_faculty_token(authorization)
 
     try:
         sq = (search or "").strip()
-        summary = fetch_table_summary("volunteers", include_approved_today=True)
+        summary = ({"total": total_hint} if (total_hint > 0 and not sq) else fetch_table_summary("volunteers", include_approved_today=True))
 
         def _build_volunteer_row(volunteer, approved_ids=None):
             role_value = volunteer.get("volunteer_role") or volunteer.get("role") or ""
@@ -2003,13 +2006,14 @@ async def get_all_groups(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=5, le=100),
     search: str = Query(""),
+    total_hint: int = Query(0, ge=0),
 ):
     """Get paginated group registrations for faculty dashboard."""
     verify_faculty_token(authorization)
 
     try:
         sq = (search or "").strip()
-        summary = fetch_table_summary("group_registrations", include_approved_today=True)
+        summary = ({"total": total_hint} if (total_hint > 0 and not sq) else fetch_table_summary("group_registrations", include_approved_today=True))
 
         def _build_group_row(group, approved_ids=None):
             gid = str(group.get("id") or "")

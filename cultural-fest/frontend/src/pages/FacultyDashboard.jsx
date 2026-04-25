@@ -632,6 +632,9 @@ export default function FacultyDashboard() {
       try {
         let url = `${TAB_CONFIG[activeTab].listPath}?page=${activePage}&page_size=${DEFAULT_PAGE_SIZE}`
         if (nameSearch) url += `&search=${encodeURIComponent(nameSearch)}`
+        // Pass known total so backend skips expensive COUNT queries on page 2+
+        const knownTotal = paginationByTab[activeTab]?.total || 0
+        if (activePage > 1 && knownTotal > 0 && !nameSearch) url += `&total_hint=${knownTotal}`
         const result = await fetchFacultyList(url)
         if (!active) return
         setRecords(result.records || [])
@@ -1480,7 +1483,7 @@ export default function FacultyDashboard() {
                       <span style={{ color: stat.color, opacity: 0.7 }}>{stat.icon}</span>
                     </div>
                     <p className="text-[26px] font-semibold leading-none" style={{ ...DISPLAY_FONT, color: stat.color }}>
-                      {isLoading ? <span className="inline-block w-8 h-5 rounded" style={{ background: 'rgba(255,255,255,0.08)', animation: 'shimmer 1.5s infinite' }} /> : stat.value}
+                      {stat.value}
                     </p>
                   </div>
                 ))}
