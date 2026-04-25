@@ -453,6 +453,10 @@ export default function FacultyDashboard() {
     participantsApproved: 0,
     volunteersApproved: 0,
     groupsApproved: 0,
+    studentsScanned: 0,
+    participantsScanned: 0,
+    volunteersScanned: 0,
+    groupsScanned: 0,
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -585,34 +589,33 @@ export default function FacultyDashboard() {
     let active = true
     const fetchAllStats = async () => {
       try {
-        const tabIds = NAV_ITEMS.map((item) => item.id)
-        const results = await Promise.all(
-          tabIds.map((tabId) =>
-            fetchFacultyList(`${TAB_CONFIG[tabId].listPath}?page=1&page_size=1`)
-          )
-        )
-        if (!active) return
-        const byTab = tabIds.reduce((acc, id, idx) => { acc[id] = results[idx]; return acc }, {})
-        const s = byTab.students?.summary || {}
-        const p = byTab.participants?.summary || {}
-        const v = byTab.volunteers?.summary || {}
-        const g = byTab.groups?.summary || {}
-        const sT = Number(s.total || 0), pT = Number(p.total || 0)
-        const vT = Number(v.total || 0), gT = Number(g.total || 0)
-        const sP = Number(s.pending || 0), pP = Number(p.pending || 0)
-        const vP = Number(v.pending_count || v.pending || 0)
-        const gP = Number(g.pending_count || g.pending || 0)
+        const response = await fetch(apiUrl('/api/faculty/stats'), {
+          headers: { Authorization: `Bearer ${facultyPassword}` },
+        })
+        if (response.status === 401) { updateAuthFailure(); return }
+        const payload = await response.json().catch(() => ({}))
+        if (!active || !response.ok || !payload.success) return
+        const d = payload.data || {}
+        const s = d.students || {}, p = d.participants || {}
+        const v = d.volunteers || {}, g = d.groups || {}
         setStats({
-          totalStudents: sT, totalParticipants: pT, totalVolunteers: vT, totalGroups: gT,
-          pendingApprovals: sP + pP + vP + gP,
+          totalStudents: Number(s.total || 0),
+          totalParticipants: Number(p.total || 0),
+          totalVolunteers: Number(v.total || 0),
+          totalGroups: Number(g.total || 0),
+          pendingApprovals: Number(s.pending_count || 0) + Number(p.pending_count || 0) + Number(v.pending_count || 0) + Number(g.pending_count || 0),
           approvedToday: Number(s.approved_today || 0) + Number(p.approved_today || 0) + Number(v.approved_today || 0) + Number(g.approved_today || 0),
-          studentsApproved: sT - sP,
-          participantsApproved: pT - pP,
-          volunteersApproved: vT - vP,
-          groupsApproved: gT - gP,
+          studentsApproved: Number(s.approved_count || 0),
+          participantsApproved: Number(p.approved_count || 0),
+          volunteersApproved: Number(v.approved_count || 0),
+          groupsApproved: Number(g.approved_count || 0),
+          studentsScanned: Number(s.scan_count || 0),
+          participantsScanned: Number(p.scan_count || 0),
+          volunteersScanned: Number(v.scan_count || 0),
+          groupsScanned: Number(g.scan_count || 0),
         })
       } catch (error) {
-        if (active && error?.message === 'AUTH_UNAUTHORIZED') updateAuthFailure()
+        // Network error — keep dashboard usable
       }
     }
     fetchAllStats()
@@ -1488,34 +1491,54 @@ export default function FacultyDashboard() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5" stroke="#C9A84C" strokeWidth="1.6"/><rect x="13" y="3" width="8" height="8" rx="1.5" stroke="#C9A84C" strokeWidth="1.6"/><rect x="3" y="13" width="8" height="8" rx="1.5" stroke="#C9A84C" strokeWidth="1.6"/><path d="M13 13h3v3h-3zM16 16h4v4h-4zM13 19h3" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: 'rgba(201,168,76,0.75)' }}>QR Passes Issued</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: 'rgba(201,168,76,0.75)' }}>QR Passes &amp; Gate Entry</p>
                   </div>
-                  <p className="text-[28px] font-semibold leading-none" style={{ ...DISPLAY_FONT, color: '#C9A84C' }}>
-                    {stats.studentsApproved + stats.participantsApproved + stats.volunteersApproved + stats.groupsApproved}
-                  </p>
+                  <div className="text-right">
+                    <p className="text-[28px] font-semibold leading-none" style={{ ...DISPLAY_FONT, color: '#C9A84C' }}>
+                      {stats.studentsApproved + stats.participantsApproved + stats.volunteersApproved + stats.groupsApproved}
+                    </p>
+                    <p className="text-[10px] mt-0.5" style={{ color: 'rgba(238,230,216,0.3)' }}>passes issued</p>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
-                    { label: 'Students', approved: stats.studentsApproved, total: stats.totalStudents, color: '#C9A84C' },
-                    { label: 'Participants', approved: stats.participantsApproved, total: stats.totalParticipants, color: '#a78bfa' },
-                    { label: 'Volunteers', approved: stats.volunteersApproved, total: stats.totalVolunteers, color: '#34d399' },
-                    { label: 'Groups', approved: stats.groupsApproved, total: stats.totalGroups, color: '#60a5fa' },
+                    { label: 'Students', approved: stats.studentsApproved, total: stats.totalStudents, scanned: stats.studentsScanned, color: '#C9A84C' },
+                    { label: 'Participants', approved: stats.participantsApproved, total: stats.totalParticipants, scanned: stats.participantsScanned, color: '#a78bfa' },
+                    { label: 'Volunteers', approved: stats.volunteersApproved, total: stats.totalVolunteers, scanned: stats.volunteersScanned, color: '#34d399' },
+                    { label: 'Groups', approved: stats.groupsApproved, total: stats.totalGroups, scanned: stats.groupsScanned, color: '#60a5fa' },
                   ].map((item) => {
                     const pct = item.total > 0 ? Math.round((item.approved / item.total) * 100) : 0
                     return (
                       <div key={item.label}>
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-1">
                           <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: 'rgba(238,230,216,0.4)' }}>{item.label}</span>
                           <span className="text-[13px] font-semibold" style={{ color: item.color }}>{item.approved}<span className="text-[10px] ml-1" style={{ opacity: 0.4 }}>/ {item.total}</span></span>
                         </div>
                         <div style={{ height: 5, borderRadius: 999, background: 'rgba(255,255,255,0.07)' }}>
                           <div style={{ height: 5, borderRadius: 999, width: `${pct}%`, background: `linear-gradient(90deg, ${item.color}88, ${item.color})`, transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
                         </div>
-                        <p className="mt-1 text-[10px]" style={{ color: 'rgba(238,230,216,0.25)' }}>{pct}% validated</p>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-[10px]" style={{ color: 'rgba(238,230,216,0.25)' }}>{pct}% approved</p>
+                          {item.scanned > 0 && (
+                            <p className="text-[10px]" style={{ color: '#34d399', opacity: 0.7 }}>
+                              <span style={{ marginRight: 3 }}>⚡</span>{item.scanned} scanned
+                            </p>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
                 </div>
+                {(stats.studentsScanned + stats.participantsScanned + stats.volunteersScanned + stats.groupsScanned) > 0 && (
+                  <div className="mt-4 pt-3" style={{ borderTop: '0.5px solid rgba(255,255,255,0.06)' }}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(52,211,153,0.6)' }}>⚡ Total Gate Entries Scanned</p>
+                      <p className="text-[20px] font-semibold" style={{ ...DISPLAY_FONT, color: '#34d399' }}>
+                        {stats.studentsScanned + stats.participantsScanned + stats.volunteersScanned + stats.groupsScanned}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </section>
 
               <section className="mb-3 flex flex-wrap items-center gap-2">

@@ -829,6 +829,54 @@ async def update_registration_config(req: RegistrationConfigUpdateRequest, autho
         }
 
 
+@router.get("/faculty/stats")
+async def get_faculty_dashboard_stats(authorization: str = Header(None)):
+    """Single endpoint returning summary counts + gate scan totals for all categories."""
+    verify_faculty_token(authorization)
+
+    try:
+        TABLE_MAP = {
+            "students": "students",
+            "participants": "participants",
+            "volunteers": "volunteers",
+            "groups": "group_registrations",
+        }
+
+        result = {}
+        for key, table in TABLE_MAP.items():
+            summary = fetch_table_summary(table, include_approved_today=True)
+
+            scan_total = 0
+            try:
+                scan_resp = fetch_with_retry(
+                    lambda t=table: supabase.table(t)
+                    .select("scan_count")
+                    .not_.is_("scan_count", "null")
+                    .gt("scan_count", 0)
+                    .execute(),
+                    attempts=2,
+                )
+                scan_total = sum(int(r.get("scan_count") or 0) for r in (scan_resp.data or []))
+            except Exception:
+                scan_total = 0
+
+            result[key] = {
+                "total": summary.get("total", 0),
+                "approved_count": summary.get("approved_count", 0),
+                "pending_count": summary.get("pending_count", 0),
+                "approved_today": summary.get("approved_today", 0),
+                "scan_count": scan_total,
+            }
+
+        return {
+            "success": True,
+            "data": result,
+            "message": "Dashboard stats retrieved successfully",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/validate/access/login")
 async def validate_gate_access_login(req: GateAccessLoginRequest):
     """Public gate access login for registered volunteers only."""
