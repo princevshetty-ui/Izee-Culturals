@@ -1197,19 +1197,19 @@ export default function FacultyDashboard() {
         .dash-checkbox {
           appearance: none;
           -webkit-appearance: none;
-          width: 14px;
-          height: 14px;
-          border: 0.5px solid rgba(255,255,255,0.2);
-          border-radius: 3px;
+          width: 15px;
+          height: 15px;
+          border: 1px solid rgba(255,255,255,0.18);
+          border-radius: 4px;
           background: transparent;
           cursor: pointer;
           transition: all 150ms ease;
         }
 
         .dash-checkbox:checked {
-          background: rgba(201,168,76,0.2);
-          border-color: rgba(201,168,76,0.5);
-          box-shadow: inset 0 0 0 2px rgba(201,168,76,0.16);
+          background: rgba(201,168,76,0.22);
+          border-color: rgba(201,168,76,0.6);
+          box-shadow: inset 0 0 0 2px rgba(201,168,76,0.18);
         }
 
         .dash-select {
@@ -1243,7 +1243,7 @@ export default function FacultyDashboard() {
         }
 
         .dash-row:hover {
-          background: rgba(201,168,76,0.032);
+          background: rgba(201,168,76,0.04) !important;
         }
 
         .dash-row-even {
@@ -1252,6 +1252,18 @@ export default function FacultyDashboard() {
 
         .dash-sidebar {
           transform: translateX(-100%);
+        }
+
+        @keyframes shimmer-sweep {
+          0% { background-position: -400px 0; }
+          100% { background-position: 400px 0; }
+        }
+
+        .skel-bar {
+          background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%);
+          background-size: 400px 100%;
+          animation: shimmer-sweep 1.6s ease-in-out infinite;
+          border-radius: 6px;
         }
 
         @media (min-width: 640px) {
@@ -1280,22 +1292,20 @@ export default function FacultyDashboard() {
           className={`fixed sm:sticky top-0 h-screen w-[240px] sm:w-[220px] flex-shrink-0 z-50 sm:z-auto flex flex-col transition-transform duration-300 dash-sidebar${sidebarOpen ? ' dash-sidebar-open' : ''}`}
           style={{
             background: 'rgba(8,9,16,0.98)',
-            borderRight: '0.5px solid rgba(255,255,255,0.06)',
+            borderRight: '0.5px solid rgba(201,168,76,0.1)',
+            boxShadow: '4px 0 32px rgba(0,0,0,0.4)',
           }}
         >
           <div className="flex flex-col h-full overflow-y-auto">
-          <div className="px-5 pt-6">
+          <div className="px-4 pt-5 pb-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <span className="text-[13px] tracking-[0.16em] text-[#C9A84C]" style={{ fontFamily: 'Montage, serif' }}>
-                  IZEE
-                </span>
-                <span className="mx-2 h-4 w-px bg-[rgba(238,230,216,0.35)]" />
-                <span className="text-[13px] tracking-[0.16em] text-[#C9A84C]" style={{ fontFamily: 'Montage, serif' }}>
-                  CULTURALS
-                </span>
+              <div className="flex items-center gap-3">
+                <img
+                  src="/college-logo.png"
+                  alt="College Logo"
+                  style={{ height: '44px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 0 8px rgba(201,168,76,0.25))' }}
+                />
               </div>
-              {/* Close button on mobile */}
               <button
                 type="button"
                 className="sm:hidden"
@@ -1303,10 +1313,10 @@ export default function FacultyDashboard() {
                 style={{ background: 'none', border: 'none', color: 'rgba(238,230,216,0.5)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
               >×</button>
             </div>
-            <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[rgba(238,230,216,0.35)]">
+            <p className="mt-3 text-[9px] uppercase tracking-[0.22em]" style={{ color: 'rgba(201,168,76,0.55)' }}>
               Faculty Console
             </p>
-            <div className="mt-4 h-px w-full bg-[rgba(201,168,76,0.2)]" />
+            <div className="mt-3 h-px w-full" style={{ background: 'linear-gradient(90deg, rgba(201,168,76,0.4) 0%, rgba(201,168,76,0.05) 100%)' }} />
           </div>
 
           <nav className="mt-4">
@@ -1407,7 +1417,7 @@ export default function FacultyDashboard() {
 
         <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
           {/* Top header bar */}
-          <div className="h-[52px] border-b px-4 sm:px-6 lg:px-7" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.012)' }}>
+          <div className="h-[56px] border-b px-4 sm:px-6 lg:px-7" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.018)', backdropFilter: 'blur(12px)' }}>
             <div className="flex h-full items-center justify-between gap-3">
               {/* Hamburger on mobile */}
               <button
@@ -1456,50 +1466,36 @@ export default function FacultyDashboard() {
 
           <div className="px-4 pb-6 pt-4 sm:px-6 lg:px-7">
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-              {/* Stats bar — scrollable row on mobile, single row on desktop */}
-              <section
-                className="mb-4 overflow-x-auto"
-                style={{
-                  background: 'rgba(255,255,255,0.018)',
-                  border: '0.5px solid rgba(255,255,255,0.06)',
-                  borderRadius: '10px',
-                }}
-              >
-                <div className="flex min-w-[540px] h-16">
-                  <div className="flex flex-1 flex-col items-center justify-center px-2">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)] text-center">Students</p>
-                    <p className="text-[18px] sm:text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalStudents}</p>
-                  </div>
-                  <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                  <div className="flex flex-1 flex-col items-center justify-center px-2">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)] text-center">Participants</p>
-                    <p className="text-[18px] sm:text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalParticipants}</p>
-                  </div>
-                  <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                  <div className="flex flex-1 flex-col items-center justify-center px-2">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)] text-center">Volunteers</p>
-                    <p className="text-[18px] sm:text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalVolunteers}</p>
-                  </div>
-                  <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                  <div className="flex flex-1 flex-col items-center justify-center px-2">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)] text-center">Groups</p>
-                    <p className="text-[18px] sm:text-[22px] font-semibold text-[#EEE6D8]" style={DISPLAY_FONT}>{stats.totalGroups}</p>
-                  </div>
-                  <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                  <div className="flex flex-1 flex-col items-center justify-center px-2">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)] text-center">Pending</p>
-                    <p className="text-[18px] sm:text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: stats.pendingApprovals > 0 ? '#B22234' : '#EEE6D8' }}>
-                      {stats.pendingApprovals}
+              {/* Stats cards */}
+              <section className="mb-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {[
+                  { label: 'Students', value: stats.totalStudents, color: '#C9A84C', glow: 'rgba(201,168,76,0.15)', icon: <UsersIcon /> },
+                  { label: 'Participants', value: stats.totalParticipants, color: '#a78bfa', glow: 'rgba(167,139,250,0.12)', icon: <PerformanceIcon /> },
+                  { label: 'Volunteers', value: stats.totalVolunteers, color: '#34d399', glow: 'rgba(52,211,153,0.12)', icon: <ApprovedIcon /> },
+                  { label: 'Groups', value: stats.totalGroups, color: '#60a5fa', glow: 'rgba(96,165,250,0.12)', icon: <UsersIcon /> },
+                  { label: 'Pending', value: stats.pendingApprovals, color: stats.pendingApprovals > 0 ? '#f87171' : 'rgba(238,230,216,0.4)', glow: stats.pendingApprovals > 0 ? 'rgba(248,113,113,0.12)' : 'transparent', icon: <PendingIcon /> },
+                  { label: 'Approved Today', value: stats.approvedToday, color: stats.approvedToday > 0 ? '#C9A84C' : 'rgba(238,230,216,0.4)', glow: stats.approvedToday > 0 ? 'rgba(201,168,76,0.15)' : 'transparent', icon: <ApprovedIcon /> },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    style={{
+                      background: 'rgba(255,255,255,0.026)',
+                      border: '0.5px solid rgba(255,255,255,0.08)',
+                      borderRadius: '12px',
+                      padding: '14px 16px',
+                      boxShadow: `0 0 20px ${stat.glow}`,
+                      transition: 'box-shadow 0.3s ease',
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'rgba(238,230,216,0.38)' }}>{stat.label}</span>
+                      <span style={{ color: stat.color, opacity: 0.7 }}>{stat.icon}</span>
+                    </div>
+                    <p className="text-[26px] font-semibold leading-none" style={{ ...DISPLAY_FONT, color: stat.color }}>
+                      {isLoading ? <span className="inline-block w-8 h-5 rounded" style={{ background: 'rgba(255,255,255,0.08)', animation: 'shimmer 1.5s infinite' }} /> : stat.value}
                     </p>
                   </div>
-                  <div className="w-px bg-[rgba(255,255,255,0.06)]" />
-                  <div className="flex flex-1 flex-col items-center justify-center px-2">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-[rgba(238,230,216,0.38)] text-center">Approved Today</p>
-                    <p className="text-[18px] sm:text-[22px] font-semibold" style={{ ...DISPLAY_FONT, color: stats.approvedToday > 0 ? '#C9A84C' : '#EEE6D8' }}>
-                      {stats.approvedToday}
-                    </p>
-                  </div>
-                </div>
+                ))}
               </section>
 
               <section className="mb-3 flex flex-wrap items-center gap-2">
@@ -1739,7 +1735,7 @@ export default function FacultyDashboard() {
               <section className="overflow-x-auto">
                 <table className="min-w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
                   <thead>
-                    <tr className="h-9" style={{ background: 'rgba(255,255,255,0.022)', borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>
+                    <tr className="h-10" style={{ background: 'rgba(201,168,76,0.04)' }}>
                       <th
                         className="px-[14px] text-left text-[10px] font-medium uppercase tracking-[0.16em] text-[rgba(201,168,76,0.7)]"
                         style={{ minWidth: '40px', width: '40px', borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}
@@ -1778,11 +1774,19 @@ export default function FacultyDashboard() {
 
                   <tbody>
                     {isLoading && (
-                      <tr>
-                        <td colSpan={columns.length + 2} className="h-16 px-[14px] text-center text-[13px] text-[rgba(238,230,216,0.5)]">
-                          Loading records...
-                        </td>
-                      </tr>
+                      Array.from({ length: 7 }).map((_, i) => (
+                        <tr key={`skel-${i}`} style={{ borderBottom: '0.5px solid rgba(255,255,255,0.04)' }}>
+                          <td className="px-[14px] py-[11px]" colSpan={columns.length + 2}>
+                            <div className="flex gap-3 items-center">
+                              <div className="skel-bar" style={{ width: 15, height: 15, borderRadius: 4, flexShrink: 0 }} />
+                              <div className="skel-bar" style={{ flex: 1, height: 11 }} />
+                              <div className="skel-bar" style={{ width: '20%', height: 11 }} />
+                              <div className="skel-bar" style={{ width: '14%', height: 11 }} />
+                              <div className="skel-bar" style={{ width: '10%', height: 24, borderRadius: 20 }} />
+                            </div>
+                          </td>
+                        </tr>
+                      ))
                     )}
 
                     {!isLoading && sortedRecords.length === 0 && (
